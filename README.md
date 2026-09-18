@@ -143,3 +143,5 @@ Statische Textanalyse sieht Positionen, keine Kollisionen und keine Kontraste.
 Für Gerendertes (PDF, Canvas, Layout im Browser) bleibt die Messung an der
 Ausgabe nötig — `web-pruefstand`, `pdf-pruefstand`. Dieses Gate fängt die
 Fälle ab, die schon in der Quelle sichtbar sind.
+
+# Repo: https://github.com/hehljo/CODE_QUALITY_GENERAL
