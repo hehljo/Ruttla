@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Kein Commit, solange die eigene Sabotage-Gegenprobe nicht grün ist.
+# Aktivieren:  git config core.hooksPath .githooks
+out=$(python3 "$(git rev-parse --show-toplevel)/master_gate.py" --self-test --no-color 2>&1)
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "Sabotage-Gegenprobe rot — Commit abgebrochen." >&2
+  echo "$out" | grep -E '✗|DURCHGEFALLEN|NICHT GEMESSEN' >&2
+  exit 1
+fi
+exit 0

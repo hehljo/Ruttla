@@ -1,0 +1,17 @@
+# Vorlage: nach .qualitygate.toml ins Projekt kopieren und anpassen.
+# Ohne Profil laufen nur die universell sicheren Checks hart.
+
+[gate]
+strict = false
+exclude = ["legacy/**", "vendor/**", "**/*.generated.ts"]
+exclude_dirs = []
+
+[brand]
+# Ohne Angabe wird der Name aus package.json / project.godot abgeleitet.
+names = []
+# Dateien, in denen der Markenname stehen DARF (die Einzelquelle).
+sources = []
+
+[severity]
+# "error" | "warning" | "info" | "off" — Präfix mit * möglich.
+"secrets.*" = "error"
