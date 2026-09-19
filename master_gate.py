@@ -42,8 +42,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 from core import (  # noqa: E402
-    REGISTRY, Check, CheckResult, Config, Context, Finding, Severity, Status,
-    SCHEMA_VERSION,
+    REGISTRY, ChangedFilesError, Check, CheckResult, Config, ConfigError, Context,
+    Finding, GateInputError, Severity, Status, SCHEMA_VERSION,
 )
 
 EXIT_OK = 0
@@ -62,32 +62,92 @@ def _color(enabled: bool):
     return ("",) * 7
 
 
-def load_checks() -> None:
-    """Lädt jedes Modul im checks/-Verzeichnis. Iteriert über das Verzeichnis,
-    statt eine Liste zu pflegen — eine gepflegte Liste ist die zweite Liste."""
-    checks_dir = os.path.join(HERE, "checks")
+class RunnerArgumentParser(argparse.ArgumentParser):
+    """Argparse-Fehler gehören laut Runner-Vertrag zu Exit 3, nicht Exit 2."""
+
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        self.exit(EXIT_CRASH, f"RUNNER_ERROR\tinvalid_arguments\t{message}\n")
+
+
+class PluginLoadError(RuntimeError):
+    pass
+
+
+def load_checks(checks_dir: str | None = None) -> None:
+    """Lädt jedes Check-Modul und belegt, dass es mindestens einen Check
+    registriert. Ein syntaktisch ladbares, aber leeres Plugin ist kein Lauf."""
+    checks_dir = checks_dir or os.path.join(HERE, "checks")
     if not os.path.isdir(checks_dir):
-        raise RuntimeError(f"Check-Verzeichnis fehlt: {checks_dir}")
-    loaded = 0
-    for name in sorted(os.listdir(checks_dir)):
-        if not name.endswith(".py") or name.startswith("_"):
-            continue
+        raise PluginLoadError(f"Check-Verzeichnis fehlt: {checks_dir}")
+    candidates = [
+        name for name in sorted(os.listdir(checks_dir))
+        if name.endswith(".py") and not name.startswith("_")
+    ]
+    if not candidates:
+        raise PluginLoadError("Null Check-Module gefunden — der Runner prüft nichts.")
+
+    registered = 0
+    for name in candidates:
         path = os.path.join(checks_dir, name)
-        spec = importlib.util.spec_from_file_location(f"qg_checks_{name[:-3]}", path)
+        module_name = f"qg_checks_{name[:-3]}"
+        spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
-            continue
+            raise PluginLoadError(f"Plugin nicht ladbar: {name}")
+        before = set(REGISTRY)
         module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
-        loaded += 1
-    if loaded == 0:
-        # "Null Gates gefunden" ist rot, nicht grün.
-        raise RuntimeError("Null Check-Module geladen — der Runner prüft nichts.")
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:
+            for check_id in set(REGISTRY) - before:
+                REGISTRY.pop(check_id, None)
+            sys.modules.pop(module_name, None)
+            raise PluginLoadError(
+                f"Plugin fehlgeschlagen: {name}: {type(exc).__name__}: {exc}"
+            ) from exc
+        added = set(REGISTRY) - before
+        if not added:
+            sys.modules.pop(module_name, None)
+            raise PluginLoadError(f"Plugin registriert keinen Check: {name}")
+        registered += len(added)
+    if registered == 0:
+        raise PluginLoadError("Null Checks registriert — der Runner prüft nichts.")
 
 
 # ---------------------------------------------------------------------------
 # Lauf
 # ---------------------------------------------------------------------------
+
+def _crashed_check(check: Check, reason: str) -> CheckResult:
+    return CheckResult(
+        check.id, Status.ERROR, check.title, reason=reason, platform=check.platform,
+    )
+
+
+def _validate_result(check: Check, result: object) -> CheckResult:
+    if not isinstance(result, CheckResult):
+        return _crashed_check(
+            check, f"Ungültiges Plugin-Ergebnis: {type(result).__name__} statt CheckResult."
+        )
+    if result.check_id != check.id:
+        return _crashed_check(
+            check, f"Plugin-Ergebnis trägt falsche Check-ID: {result.check_id!r}."
+        )
+    if not isinstance(result.status, Status):
+        return _crashed_check(check, f"Ungültiger Check-Status: {result.status!r}.")
+    if result.status == Status.UNMEASURED and not result.reason:
+        return _crashed_check(check, "UNMEASURED ohne reason ist kein gültiges Ergebnis.")
+    if result.status == Status.ERROR and not result.reason:
+        return _crashed_check(check, "ERROR ohne reason ist kein gültiges Ergebnis.")
+    if result.status in (Status.PASS, Status.FAIL) and result.units_examined <= 0:
+        return _crashed_check(
+            check, "PASS/FAIL mit null geprüften Einheiten ist kein gültiges Ergebnis."
+        )
+    if result.status == Status.FAIL and not result.findings:
+        return _crashed_check(check, "FAIL ohne Befund ist kein gültiges Ergebnis.")
+    return result
+
 
 def run_checks(ctx: Context, *, only_platform: str | None,
                only_checks: list[str], changed: list[str] | None) -> list[CheckResult]:
@@ -103,16 +163,14 @@ def run_checks(ctx: Context, *, only_platform: str | None,
             continue
         if not only_platform and not only_checks and check.platform not in platforms:
             continue
-        severity = ctx.config.severity_for(check.id, check.default_severity)
-        if severity is None:
-            continue  # im Profil abgeschaltet
         try:
-            res = check.fn(ctx)
+            severity = ctx.config.severity_for(check.id, check.default_severity)
+            if severity is None:
+                continue  # im Profil abgeschaltet
+            res = _validate_result(check, check.fn(ctx))
         except Exception:
-            res = CheckResult(
-                check.id, Status.ERROR, check.title,
-                reason="Check abgestürzt:\n" + traceback.format_exc(limit=4),
-                platform=check.platform,
+            res = _crashed_check(
+                check, "Check abgestürzt:\n" + traceback.format_exc(limit=4)
             )
         # Die Schwere aus dem Profil überschreibt die der Befunde.
         for f in res.findings:
@@ -182,11 +240,20 @@ def build_report(ctx: Context, results: list[CheckResult], exit_code: int,
         action = "Mindestens ein Check ist abgestürzt. Siehe 'reason'."
 
     out_results = []
+    emitted_sev = {"error": 0, "warning": 0, "info": 0}
+    truncated_total = 0
     for r in results:
         d = r.to_dict()
-        if len(d["findings"]) > max_findings:
-            d["findings_truncated"] = len(d["findings"]) - max_findings
-            d["findings"] = d["findings"][:max_findings]
+        total = len(d["findings"])
+        emitted = min(total, max_findings)
+        truncated = total - emitted
+        d["findings_total"] = total
+        d["findings_emitted"] = emitted
+        d["findings_truncated"] = truncated
+        d["findings"] = d["findings"][:max_findings]
+        truncated_total += truncated
+        for finding in d["findings"]:
+            emitted_sev[finding["severity"]] += 1
         out_results.append(d)
 
     return {
@@ -200,6 +267,8 @@ def build_report(ctx: Context, results: list[CheckResult], exit_code: int,
         "profile": ctx.config.profile_path,
         "checks": counts,
         "findings_by_severity": sev,
+        "findings_emitted_by_severity": emitted_sev,
+        "findings_truncated": truncated_total,
         "files_scanned": len(ctx.all_files()),
         "results": out_results,
     }
@@ -255,28 +324,46 @@ def print_text(report: dict, use_color: bool, verbose: bool) -> None:
     print(f"{grey}{report['next_action']}{reset}")
 
 
+def _agent_field(value: object) -> str:
+    """Ein Agent-Feld bleibt genau eine tabgetrennte Zeile."""
+    return " ".join(str(value).replace("\t", " ").splitlines())
+
+
 def print_agent(report: dict) -> None:
     """Kompaktformat für eine CLI/KI: eine Zeile je Befund, stabil geparst."""
     print(f"VERDICT={report['verdict']} EXIT={report['exit_code']} "
           f"PASS={report['checks']['pass']} FAIL={report['checks']['fail']} "
           f"UNMEASURED={report['checks']['unmeasured']} "
           f"ERRORS={report['findings_by_severity']['error']} "
-          f"WARNINGS={report['findings_by_severity']['warning']}")
+          f"WARNINGS={report['findings_by_severity']['warning']} "
+          f"TRUNCATED={report['findings_truncated']}")
     for res in report["results"]:
         if res["status"] == "unmeasured":
-            print(f"UNMEASURED\t{res['check_id']}\t{res['reason']}")
+            print(f"UNMEASURED\t{res['check_id']}\t{_agent_field(res['reason'])}")
         elif res["status"] == "error":
-            print(f"CRASH\t{res['check_id']}\t{res['reason'].splitlines()[0]}")
+            print(f"CRASH\t{res['check_id']}\t{_agent_field(res['reason'])}")
         for f in res["findings"]:
             loc = f"{f.get('file') or '-'}:{f.get('line') or 0}"
-            print(f"{f['severity'].upper()}\t{f['check_id']}\t{loc}\t"
-                  f"{f['message']}\tFIX: {f.get('fix') or '-'}")
-    print(f"NEXT_ACTION\t{report['next_action']}")
+            print(f"{f['severity'].upper()}\t{f['check_id']}\t{_agent_field(loc)}\t"
+                  f"{_agent_field(f['message'])}\tFIX: {_agent_field(f.get('fix') or '-')}")
+        if res["findings_truncated"]:
+            print(f"TRUNCATED\t{res['check_id']}\t{res['findings_truncated']}")
+    print(f"NEXT_ACTION\t{_agent_field(report['next_action'])}")
 
 
 # ---------------------------------------------------------------------------
 # Selbstgegenprobe
 # ---------------------------------------------------------------------------
+
+# APIs, die es nicht gibt und die trotzdem naheliegend klingen. Jeder Eintrag
+# gehoert belegt (Doku/Feedback-ID), nicht vermutet.
+_NONEXISTENT_APIS: list[tuple[str, str]] = [
+    (".system(size:relativeTo:)",
+     "SwiftUI Font.system hat kein relativeTo — nur Font.custom(_:size:relativeTo:). "
+     "FB9772279 ist ein offener Feature-Request. Compiler: "
+     "\"Extra argument 'relativeTo' in call\"."),
+]
+
 
 def run_self_test(use_color: bool) -> int:
     """Jeder Check mit Sabotage-Proben wird in BEIDE Richtungen geprüft.
@@ -290,49 +377,120 @@ def run_self_test(use_color: bool) -> int:
     failures: list[str] = []
     without_tests: list[str] = []
 
+    required_directions = {Status.PASS, Status.FAIL}
     for check in REGISTRY.values():
         if not check.self_tests:
             without_tests.append(check.id)
+            failures.append(f"{check.id}: keine Sabotage-Probe vorhanden.")
             continue
         directions = {c.expect for c in check.self_tests}
-        if len(directions) < 2:
+        missing = required_directions - directions
+        if missing:
+            names = ", ".join(sorted(status.value for status in missing))
             failures.append(
-                f"{check.id}: nur eine Richtung geprüft ({directions}) — "
-                "die Gegenprobe braucht BEIDE."
+                f"{check.id}: Gegenrichtung fehlt ({names}) — erforderlich sind "
+                "healthy=pass und negative=fail."
             )
         for case in check.self_tests:
             total += 1
             work = tempfile.mkdtemp(prefix="qg-selftest-")
             try:
-                for rel, content in case.files.items():
-                    dest = os.path.join(work, rel)
-                    os.makedirs(os.path.dirname(dest), exist_ok=True)
-                    with open(dest, "w", encoding="utf-8") as fh:
-                        fh.write(content)
-                ctx = Context(root=work, config=Config())
-                res = check.fn(ctx)
-                okay = res.status == case.expect
-                if okay and case.expect_finding_contains:
-                    blob = " ".join(
-                        (f.message or "") + " " + (f.evidence or "")
-                        for f in res.findings
-                    )
-                    okay = case.expect_finding_contains in blob
-                if okay:
-                    passed += 1
-                else:
-                    got = res.status.value
-                    extra = f" (reason: {res.reason})" if res.reason else ""
+                try:
+                    for rel, content in case.files.items():
+                        dest = os.path.abspath(os.path.join(work, rel))
+                        if os.path.commonpath((work, dest)) != work:
+                            raise ValueError(f"Testpfad verlässt Arbeitsbereich: {rel}")
+                        os.makedirs(os.path.dirname(dest), exist_ok=True)
+                        with open(dest, "w", encoding="utf-8") as fh:
+                            fh.write(content)
+                    ctx = Context(root=work, config=Config())
+                    res = _validate_result(check, check.fn(ctx))
+                    okay = res.status == case.expect
+                    if okay and case.expect_finding_contains:
+                        blob = " ".join(
+                            (f.message or "") + " " + (f.evidence or "")
+                            for f in res.findings
+                        )
+                        okay = case.expect_finding_contains in blob
+                    if okay:
+                        passed += 1
+                    else:
+                        got = res.status.value
+                        extra = f" (reason: {res.reason})" if res.reason else ""
+                        failures.append(
+                            f"{check.id} / '{case.name}': erwartet {case.expect.value}, "
+                            f"bekommen {got}{extra}"
+                        )
+                except Exception as exc:
                     failures.append(
-                        f"{check.id} / '{case.name}': erwartet {case.expect.value}, "
-                        f"bekommen {got}{extra}"
+                        f"{check.id} / '{case.name}': Probe abgestürzt: "
+                        f"{type(exc).__name__}: {exc}"
                     )
             finally:
                 shutil.rmtree(work, ignore_errors=True)
 
+    # Ein fix:-Text ist Code, den jemand abschreibt. Empfiehlt er eine API,
+    # die es nicht gibt, baut das Gate den Fehler ein, den es verhindern soll
+    # — als Autorität, also schlimmer als gar kein Check.
+    # Belegt am 18.09.2026: apple.hardcoded_font_size empfahl woertlich
+    # '.system(size:relativeTo:)'. Die gibt es nicht (FB9772279 ist ein offener
+    # Feature-Request); der Vorschlag brach jeden Build, der ihm folgte.
+    # Gemessen wird der Kandidat (alle fix:-Texte), nicht nur der Verstoss.
+    fix_texts = 0
+    # Je Fall ein eigenes Verzeichnis: mehrere Faelle teilen sich oft denselben
+    # Dateipfad, und der PASS-Fall wuerde den FAIL-Fall ueberschreiben — dann
+    # gibt es null Findings und damit null fix-Texte zu pruefen. Das Gate waere
+    # gruen, ohne etwas gemessen zu haben.
+    cases = [(c, case) for c in REGISTRY.values() for case in c.self_tests]
+    for check, case in cases:
+        work = tempfile.mkdtemp(prefix="qg-apicheck-")
+        try:
+            case_valid = True
+            for rel, content in case.files.items():
+                dest = os.path.abspath(os.path.join(work, rel))
+                if os.path.commonpath((work, dest)) != work:
+                    case_valid = False
+                    break
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with open(dest, "w", encoding="utf-8") as fh:
+                    fh.write(content)
+            if not case_valid:
+                continue
+            try:
+                res = _validate_result(
+                    check, check.fn(Context(root=work, config=Config()))
+                )
+            except Exception:
+                continue
+            if res.status == Status.ERROR:
+                continue
+            for f in res.findings:
+                if not f.fix:
+                    continue
+                fix_texts += 1
+                low = f.fix.lower()
+                for bad, why in _NONEXISTENT_APIS:
+                    # Eine Erwaehnung, die das Nichtvorhandensein FESTSTELLT,
+                    # ist kein Vorschlag — sonst loest die Dokumentation des
+                    # Fehlers denselben Alarm aus wie der Fehler.
+                    if bad.lower() not in low:
+                        continue
+                    idx = low.index(bad.lower())
+                    window = low[max(0, idx - 60):idx]
+                    if any(n in window for n in
+                           ("kein", "nicht", "existiert nicht", "gibt es")):
+                        continue
+                    failures.append(
+                        f"{check.id}: fix-Text empfiehlt '{bad}' — {why}"
+                    )
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+
     print(f"\n{bold}SABOTAGE-GEGENPROBE DER GATES{reset}\n")
     print(f"{len(REGISTRY)} Checks registriert, "
-          f"{len(REGISTRY) - len(without_tests)} mit Sabotage-Proben.\n")
+          f"{len(REGISTRY) - len(without_tests)} mit Sabotage-Proben.")
+    print(f"{fix_texts} fix-Text(e) gegen {len(_NONEXISTENT_APIS)} bekannte "
+          f"Nicht-APIs geprüft.\n")
     for f in failures:
         print(f"  {red}✗{reset} {f}")
     if without_tests:
@@ -343,13 +501,13 @@ def run_self_test(use_color: bool) -> int:
               f"sind ungeprüfte Zusagen.{reset}")
 
     print("\n" + "─" * 70)
-    if total == 0:
-        print(f"{red}NICHT GEMESSEN: null Sabotage-Proben gelaufen.{reset}")
-        return EXIT_UNMEASURED
     if failures:
         print(f"{red}{bold}DURCHGEFALLEN{reset}: {passed}/{total} Proben bestanden, "
               f"{len(failures)} Problem(e).")
         return EXIT_FAILED
+    if total == 0:
+        print(f"{red}NICHT GEMESSEN: null Sabotage-Proben gelaufen.{reset}")
+        return EXIT_UNMEASURED
     print(f"{green}{bold}BESTANDEN{reset}: {passed}/{total} Sabotage-Proben, "
           f"beide Richtungen je Check.")
     return EXIT_OK
@@ -378,8 +536,35 @@ def list_checks(use_color: bool) -> None:
 # Einstieg
 # ---------------------------------------------------------------------------
 
+def _emit_runner_state(kind: str, message: str, exit_code: int,
+                       args: argparse.Namespace | None = None) -> None:
+    """Stabiler Maschinenbefund auch dann, wenn noch kein Report möglich ist."""
+    output_format = getattr(args, "format", "text") if args else "text"
+    json_target = getattr(args, "json", None) if args else None
+    if output_format == "json" or json_target == "-":
+        print(json.dumps({
+            "schema_version": SCHEMA_VERSION,
+            "tool": "master_quality_gate",
+            "verdict": "unmeasured" if exit_code == EXIT_UNMEASURED else "crash",
+            "exit_code": exit_code,
+            "runner_state": {"id": kind, "message": message},
+        }, ensure_ascii=False, indent=2))
+    elif output_format == "agent":
+        label = "RUNNER_UNMEASURED" if exit_code == EXIT_UNMEASURED else "RUNNER_ERROR"
+        print(f"{label}\t{kind}\t{_agent_field(message)}")
+    else:
+        label = "RUNNER_UNMEASURED" if exit_code == EXIT_UNMEASURED else "RUNNER_ERROR"
+        print(f"{label} [{kind}]: {message}", file=sys.stderr)
+
+
+def _selector_matches(pattern: str, check_id: str) -> bool:
+    return check_id == pattern or (
+        pattern.endswith("*") and check_id.startswith(pattern[:-1])
+    )
+
+
 def main(argv: list[str]) -> int:
-    ap = argparse.ArgumentParser(
+    ap = RunnerArgumentParser(
         prog="master_gate.py",
         description="Universelles Quality Gate über alle Guidelines.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -409,11 +594,35 @@ def main(argv: list[str]) -> int:
     args = ap.parse_args(argv)
 
     use_color = not args.no_color and sys.stdout.isatty()
+    if args.max_findings < 0:
+        _emit_runner_state(
+            "invalid_arguments", "--max-findings darf nicht negativ sein.",
+            EXIT_CRASH, args,
+        )
+        return EXIT_CRASH
 
     try:
         load_checks()
     except Exception as exc:
-        print(f"Gate konnte nicht starten: {exc}", file=sys.stderr)
+        _emit_runner_state("plugin_load_failed", str(exc), EXIT_CRASH, args)
+        return EXIT_CRASH
+
+    known_platforms = {check.platform for check in REGISTRY.values()}
+    if args.platform and args.platform not in known_platforms:
+        _emit_runner_state(
+            "unknown_platform", f"Unbekannte Plattform: {args.platform}",
+            EXIT_CRASH, args,
+        )
+        return EXIT_CRASH
+    unknown_checks = [
+        pattern for pattern in args.check
+        if not any(_selector_matches(pattern, check_id) for check_id in REGISTRY)
+    ]
+    if unknown_checks:
+        _emit_runner_state(
+            "unknown_check", "Unbekannter Check-Selektor: " + ", ".join(unknown_checks),
+            EXIT_CRASH, args,
+        )
         return EXIT_CRASH
 
     if args.list:
@@ -424,38 +633,60 @@ def main(argv: list[str]) -> int:
 
     root = os.path.abspath(args.root)
     if not os.path.isdir(root):
-        print(f"Kein Verzeichnis: {root}", file=sys.stderr)
+        _emit_runner_state(
+            "invalid_root", f"Kein Verzeichnis: {root}", EXIT_CRASH, args,
+        )
         return EXIT_CRASH
 
-    config = Config.load(root, args.config)
+    try:
+        config = Config.load(root, args.config)
+    except ConfigError as exc:
+        _emit_runner_state("invalid_config", str(exc), EXIT_CRASH, args)
+        return EXIT_CRASH
     if args.strict:
         config.strict = True
     ctx = Context(root=root, config=config)
 
     changed = None
     if args.changed_only:
-        changed = ctx.changed_files(args.changed_only)
-        if changed is None:
-            print(f"Konnte geänderte Dateien gegen '{args.changed_only}' nicht "
-                  f"ermitteln — kein Git-Repo oder ungültige Referenz.",
-                  file=sys.stderr)
+        try:
+            changed = ctx.changed_files(args.changed_only)
+        except ChangedFilesError as exc:
+            _emit_runner_state("changed_only_failed", str(exc), EXIT_CRASH, args)
             return EXIT_CRASH
+        if not changed:
+            _emit_runner_state(
+                "changed_only_empty", "Keine geänderten Dateien im Prüfbereich.",
+                EXIT_UNMEASURED, args,
+            )
+            return EXIT_UNMEASURED
 
     try:
         results = run_checks(
             ctx, only_platform=args.platform, only_checks=args.check,
             changed=changed,
         )
-    except Exception:
-        traceback.print_exc()
+    except GateInputError as exc:
+        _emit_runner_state("input_unreadable", str(exc), EXIT_CRASH, args)
+        return EXIT_CRASH
+    except Exception as exc:
+        _emit_runner_state(
+            "runner_crash", f"{type(exc).__name__}: {exc}", EXIT_CRASH, args,
+        )
         return EXIT_CRASH
 
     if not results:
-        print("Null Checks gelaufen — das ist nicht gemessen, nicht grün.",
-              file=sys.stderr)
+        _emit_runner_state(
+            "zero_checks_run", "Null Checks gelaufen — das ist nicht gemessen.",
+            EXIT_UNMEASURED, args,
+        )
         return EXIT_UNMEASURED
 
     exit_code = worst_exit(results)
+    if exit_code == EXIT_OK and config.strict and any(
+        result.status == Status.FAIL for result in results
+    ):
+        exit_code = EXIT_FAILED
     # Ohne Profil sind nur die als sicher markierten Checks hart. Ein Gate, das
     # im fremden Projekt sofort rot wird über Dinge, die funktionieren, verliert
     # das Vertrauen, mit dem es durchgesetzt wird.

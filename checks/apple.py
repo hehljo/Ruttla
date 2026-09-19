@@ -32,6 +32,12 @@ from core import (
 
 PLATFORM = "apple"
 
+# Xcode meldet "Update to recommended settings", sobald LastUpgradeCheck aelter
+# ist als die installierte Toolchain. Gemessen an Xcode 26.4 (Toolchain-Stand
+# Juli 2026) = 2640; die alte feste 1600 (Xcode 16.0) liess jedes aktuelle
+# Projekt die Meldung zeigen, ohne dass das Gate etwas sagte.
+_MIN_LAST_UPGRADE_CHECK = 2640
+
 
 def _xcodeproj(ctx: Context) -> str | None:
     dirs = ctx.dirs_with_suffix(".xcodeproj")
@@ -184,10 +190,11 @@ def check_project_settings(ctx: Context) -> CheckResult:
         ))
     for luc in re.findall(r"LastUpgradeCheck\s*=\s*([^;]+);", content):
         val = luc.strip().strip('"')
-        if val.isdigit() and int(val) < 1600:
+        if val.isdigit() and int(val) < _MIN_LAST_UPGRADE_CHECK:
             findings.append(Finding(
                 check_id="apple.project_settings", severity=Severity.INFO,
-                message=f"LastUpgradeCheck ist {val} (empfohlen ab 1600).",
+                message=f"LastUpgradeCheck ist {val} "
+                        f"(empfohlen ab {_MIN_LAST_UPGRADE_CHECK}).",
                 file=rel,
                 fix="Xcode meldet sonst 'Update to recommended settings'.",
             ))
@@ -467,6 +474,119 @@ def check_navdest(ctx: Context) -> CheckResult:
 
 
 @register(
+    "apple.system_font_relative_to",
+    "Font.system mit nicht existentem relativeTo",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="swiftui_multiplatform_guideline.md",
+    # Hart, auch ohne Profil: das ist kein Stilurteil, sondern ein
+    # Compilerfehler — der Code uebersetzt nachweislich nicht. Ein
+    # falsch-positiver Fall ist ausgeschlossen, weil die API nicht existiert.
+    safe_by_default=True,
+    self_tests=[
+        SelfTestCase(
+            name="system mit relativeTo bricht den Build",
+            files={"App/V.swift": "import SwiftUI\nstruct V: View { var body: some View { Image(systemName: \"x\").font(.system(size: 48, relativeTo: .largeTitle)) } }\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="relativeTo",
+        ),
+        SelfTestCase(
+            name="system ueber mehrere Zeilen",
+            files={"App/V.swift": "import SwiftUI\nstruct V: View { var body: some View { Text(\"x\").font(\n  .system(\n    size: 20,\n    relativeTo: .body\n  )\n) } }\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="custom mit relativeTo ist gueltig",
+            files={"App/V.swift": "import SwiftUI\nstruct V: View { var body: some View { Text(\"x\").font(.custom(\"Inter\", size: 20, relativeTo: .body)) } }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="system ohne relativeTo ist gueltig",
+            files={"App/V.swift": "import SwiftUI\nstruct V: View { var body: some View { Text(\"x\").font(.system(size: 20, weight: .bold)) } }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="beide Formen in einer Datei",
+            files={"App/V.swift": "import SwiftUI\nstruct V: View { var body: some View {\n  Text(\"a\").font(.custom(\"Inter\", size: 12, relativeTo: .body))\n  Text(\"b\").font(.system(size: 12, relativeTo: .body))\n} }\n"},
+            expect=Status.FAIL,
+        ),
+    ],
+)
+def check_system_font_relative_to(ctx: Context) -> CheckResult:
+    """'Font.system(size:relativeTo:)' gibt es nicht — der Compiler meldet
+    "Extra argument 'relativeTo' in call".
+
+    'relativeTo:' traegt nur 'Font.custom(_:size:relativeTo:)'. Fuer System-
+    Schriften ist die Skalierung ein offener Feature-Request (FB9772279), kein
+    vorhandener Parameter.
+
+    Warum das ein eigener Check ist und nicht der Dynamic-Type-Check: der
+    Compiler bricht bei der ERSTEN fehlerhaften Stelle je Datei ab, meldet also
+    nie die uebrigen. Und weil der falsche Aufruf den Basistyp des Arguments
+    unbestimmt laesst, kommt als Folgefehler ein irrefuehrendes "Cannot infer
+    contextual base in reference to member 'largeTitle'" dazu — zwei Meldungen
+    fuer eine Ursache. Gemessen wird deshalb die Eigenschaft ueber alle
+    Fundstellen hinweg, nicht die eine, die Xcode gerade zeigt.
+    """
+    title = "Font.system mit nicht existentem relativeTo"
+    swift = ctx.files(".swift")
+    if not swift:
+        return unmeasured("apple.system_font_relative_to", title,
+                          "Keine Swift-Dateien gefunden.", PLATFORM)
+
+    findings: list[Finding] = []
+    for sf in swift:
+        text = strip_comments(sf.text, sf.ext)
+        # Auf die Verwendung ankern, nicht auf den Namen: gesucht ist der
+        # Aufruf '.system(' und dann sein EIGENER Argumentbereich bis zur
+        # passenden schliessenden Klammer. Ein Suchfenster fester Zeichenzahl
+        # waere eine Vermutung ueber Formatierung — '.custom(...)' in der
+        # Zeile davor oder danach wuerde sonst mitgelesen.
+        for m in re.finditer(r"\.system\s*\(", text):
+            depth, i, end = 0, m.end() - 1, None
+            while i < len(text):
+                c = text[i]
+                if c == "(":
+                    depth += 1
+                elif c == ")":
+                    depth -= 1
+                    if depth == 0:
+                        end = i
+                        break
+                i += 1
+            if end is None:
+                continue  # unbalanciert — keine Aussage moeglich
+            args = text[m.end():end]
+            # Verschachtelte Aufrufe ausblenden, damit ein '.custom(..,
+            # relativeTo:)' INNERHALB der system-Argumente nicht faelschlich
+            # als dessen eigenes Argument zaehlt.
+            flat, d = [], 0
+            for c in args:
+                if c == "(":
+                    d += 1
+                elif c == ")":
+                    d -= 1
+                elif d == 0:
+                    flat.append(c)
+            if "relativeTo:" not in "".join(flat):
+                continue
+            line_no = text.count("\n", 0, m.start()) + 1
+            raw = sf.lines[line_no - 1] if 0 < line_no <= len(sf.lines) else ""
+            findings.append(Finding(
+                check_id="apple.system_font_relative_to", severity=Severity.ERROR,
+                message="Font.system(size:relativeTo:) existiert nicht — "
+                        "Compiler: \"Extra argument 'relativeTo' in call\".",
+                file=sf.rel, line=line_no, evidence=snippet(raw.strip()),
+                fix="relativeTo entfernen und einen Text-Style nehmen "
+                    "(.largeTitle, .title2), oder fuer eine eigene Schrift auf "
+                    "'.custom(_:size:relativeTo:)' wechseln. Fuer skalierende "
+                    "SF-Symbols: '.font(.largeTitle)' plus '.imageScale(.large)'.",
+            ))
+    return result_for("apple.system_font_relative_to", title, findings,
+                      len(swift), "Swift-Dateien", PLATFORM)
+
+
+@register(
     "apple.hardcoded_font_size",
     "Feste Schriftgröße statt Text-Style",
     platform=PLATFORM,
@@ -479,8 +599,13 @@ def check_navdest(ctx: Context) -> CheckResult:
             expect=Status.FAIL,
         ),
         SelfTestCase(
-            name="mit relativeTo",
-            files={"App/V.swift": "import SwiftUI\nstruct V: View { var body: some View { Text(\"x\").font(.system(size: 13, relativeTo: .body)) } }\n"},
+            name="Text-Style statt Punktgroesse",
+            files={"App/V.swift": "import SwiftUI\nstruct V: View { var body: some View { Text(\"x\").font(.body) } }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="custom mit relativeTo skaliert mit",
+            files={"App/V.swift": "import SwiftUI\nstruct V: View { var body: some View { Text(\"x\").font(.custom(\"Inter\", size: 13, relativeTo: .body)) } }\n"},
             expect=Status.PASS,
         ),
     ],
@@ -497,14 +622,16 @@ def check_font_sizes(ctx: Context) -> CheckResult:
     findings: list[Finding] = []
     for sf in swift:
         for line_no, m, raw in iter_matches(sf, pat):
-            if "relativeTo:" in raw:
-                continue  # skaliert mit, ist richtig
+            if "relativeTo:" in raw and ".custom(" in raw:
+                continue  # .custom(_:size:relativeTo:) skaliert mit, ist richtig
             findings.append(Finding(
                 check_id="apple.hardcoded_font_size", severity=Severity.WARNING,
                 message=f"Feste Schriftgröße {m.group(1)}pt ohne relativeTo.",
                 file=sf.rel, line=line_no, evidence=snippet(raw),
-                fix="Text-Style verwenden (.body, .headline) oder "
-                    "'.system(size:relativeTo:)', damit Dynamic Type greift.",
+                fix="Text-Style verwenden (.body, .headline), oder fuer eine "
+                    "eigene Schrift '.custom(_:size:relativeTo:)'. Es gibt "
+                    "KEIN '.system(size:relativeTo:)' — siehe "
+                    "apple.system_font_relative_to.",
             ))
     return result_for("apple.hardcoded_font_size", title, findings, len(swift),
                       "Swift-Dateien", PLATFORM)
@@ -955,3 +1082,263 @@ def check_bundle_module(ctx: Context) -> CheckResult:
         ))
     return result_for("apple.bundle_module_outside_spm_resources", title,
                       findings, len(users), "Dateien mit Bundle.module", PLATFORM)
+
+
+# ===========================================================================
+# macOS: Netzwerk-Mounts via mount_smbfs
+# ===========================================================================
+
+# Ein mount_smbfs ohne -o nobrowse registriert das Volume bei Disk Arbitration
+# und der Finder zeigt es unter "Computer"/Netzwerk an — unabhängig davon, wo
+# der Mountpunkt liegt. Ein eigener Ordner unter ~/Library ist KEIN Ersatz:
+# die Sichtbarkeit haengt am Kernel-Flag MNT_NOBROWSE, nicht am Pfad.
+# Belegt: SynologyMount, 18.09.2026 — Mounts unter
+# ~/Library/Application Support/.../Mounts standen weiter in der
+# Systemuebersicht, bis "-o", "nobrowse" in den Argumenten stand.
+# Quelle: mount_smbfs(8) — "nobrowse: indicates to the Carbon subsystem
+# that this volume is not to be displayed to the user".
+_SMBFS_BIN = re.compile(r'mount_smbfs')
+_NOBROWSE = re.compile(r'"nobrowse"|\bnobrowse\b')
+
+
+def _argument_blocks(text: str) -> list[tuple[int, str]]:
+    """Alle 'arguments = [...]'-Zuweisungen mit ihrem Offset im Text.
+
+    Der Pruefbereich ist die einzelne Zuweisung, nicht die Datei: eine
+    dateiweite Suche nach "nobrowse" wuerde beweisen, dass das Wort
+    irgendwo vorkommt — nicht, dass jeder Mount-Aufruf es mitgibt.
+    """
+    out: list[tuple[int, str]] = []
+    for m in re.finditer(r"\barguments\s*=\s*\[", text):
+        depth, i = 1, m.end()
+        while i < len(text) and depth:
+            if text[i] == "[":
+                depth += 1
+            elif text[i] == "]":
+                depth -= 1
+            i += 1
+        out.append((m.start(), text[m.end(): i - 1]))
+    return out
+
+
+@register(
+    "apple.smb_mount_without_nobrowse",
+    "mount_smbfs ohne -o nobrowse — Volume erscheint in der Systemübersicht",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    safe_by_default=True,
+    guideline="IOS_DEBUGGING_GUIDELINES.md § Dateisystem & Logging",
+    self_tests=[
+        SelfTestCase(
+            name="mount_smbfs ohne nobrowse",
+            files={"Sources/Core/MountExecutor.swift":
+                   "import Foundation\n"
+                   "func mount(_ src: String, _ mp: String) throws {\n"
+                   "  let process = Process()\n"
+                   "  process.executableURL = URL(fileURLWithPath: \"/sbin/mount_smbfs\")\n"
+                   "  process.arguments = [src, mp]\n"
+                   "  try process.run()\n"
+                   "}\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="nobrowse",
+        ),
+        SelfTestCase(
+            name="Eigener Mountpunkt reicht nicht",
+            files={"Sources/Core/MountExecutor.swift":
+                   "import Foundation\n"
+                   "func mount(_ src: String) throws {\n"
+                   "  let mp = NSHomeDirectory() + \"/Library/Application Support/App/Mounts/Daten\"\n"
+                   "  let process = Process()\n"
+                   "  process.executableURL = URL(fileURLWithPath: \"/sbin/mount_smbfs\")\n"
+                   "  process.arguments = [src, mp]\n"
+                   "  try process.run()\n"
+                   "}\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="mount_smbfs mit nobrowse",
+            files={"Sources/Core/MountExecutor.swift":
+                   "import Foundation\n"
+                   "func mount(_ src: String, _ mp: String) throws {\n"
+                   "  let process = Process()\n"
+                   "  process.executableURL = URL(fileURLWithPath: \"/sbin/mount_smbfs\")\n"
+                   "  process.arguments = [\"-o\", \"nobrowse\", src, mp]\n"
+                   "  try process.run()\n"
+                   "}\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            # Gegenrichtung zur Zuordnung: in derselben Datei steht ein
+            # zweiter Prozess (umount) OHNE nobrowse. Wer dateiweit statt je
+            # Zuweisung zuordnet, meldet hier faelschlich rot.
+            name="Zweiter Prozess in derselben Datei ist kein Befund",
+            files={"Sources/Core/MountExecutor.swift":
+                   "import Foundation\n"
+                   "func mount(_ src: String, _ mp: String) throws {\n"
+                   "  let process = Process()\n"
+                   "  process.executableURL = URL(fileURLWithPath: \"/sbin/mount_smbfs\")\n"
+                   "  process.arguments = [\"-o\", \"nobrowse\", src, mp]\n"
+                   "  try process.run()\n"
+                   "}\n"
+                   "func unmount(_ mp: String) throws {\n"
+                   "  let process = Process()\n"
+                   "  process.executableURL = URL(fileURLWithPath: \"/sbin/umount\")\n"
+                   "  process.arguments = [\"-f\", mp]\n"
+                   "  try process.run()\n"
+                   "}\n"},
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_smb_nobrowse(ctx: Context) -> CheckResult:
+    """Gemessen wird die Eigenschaft 'dieser mount_smbfs-Aufruf gibt nobrowse
+    mit', nicht der Mountpfad. Der Pfad ist eine Bauform-Annahme: die
+    Sichtbarkeit entscheidet Disk Arbitration am Kernel-Flag, nicht am Ort."""
+    title = "mount_smbfs ohne -o nobrowse — Volume erscheint in der Systemübersicht"
+    swift = ctx.files(".swift")
+    if not swift:
+        return unmeasured("apple.smb_mount_without_nobrowse", title,
+                          "Keine Swift-Dateien gefunden.", PLATFORM)
+
+    callers = 0
+    findings: list[Finding] = []
+    for sf in swift:
+        body = strip_comments(sf.text, sf.ext)
+        if not _SMBFS_BIN.search(body):
+            continue
+        for start, block in _argument_blocks(body):
+            # Die Zuweisung gehoert zu einem mount_smbfs-Prozess, wenn der
+            # Binaername im selben Funktionsrumpf davor steht. Gemessen am
+            # naechstgelegenen Vorkommen, nicht dateiweit.
+            before = body[:start]
+            smb_pos = before.rfind("mount_smbfs")
+            if smb_pos < 0:
+                continue
+            # Zwischen Binaerzuweisung und Argumentliste darf keine andere
+            # executableURL-Zuweisung liegen — sonst gehoert der Block zu
+            # einem anderen Prozess.
+            if re.search(r"executableURL\s*=", before[smb_pos:]):
+                continue
+            callers += 1
+            if _NOBROWSE.search(block):
+                continue
+            line_no = body.count("\n", 0, start) + 1
+            raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""
+            findings.append(Finding(
+                check_id="apple.smb_mount_without_nobrowse",
+                severity=Severity.ERROR,
+                message="mount_smbfs ohne '-o nobrowse': macOS registriert das "
+                        "Volume bei Disk Arbitration, der Finder zeigt es unter "
+                        "'Computer' an — auch wenn der Mountpunkt in einem "
+                        "eigenen Ordner liegt.",
+                file=sf.rel, line=line_no, evidence=snippet(raw),
+                fix='Als erste Argumente "-o", "nobrowse" mitgeben: '
+                    'process.arguments = ["-o", "nobrowse", smbSource, mountPoint]. '
+                    "Belegt in mount_smbfs(8): nobrowse blendet das Volume für "
+                    "Finder/Carbon aus. Zugriff bleibt über Symlinks möglich.",
+                guideline="IOS_DEBUGGING_GUIDELINES.md",
+            ))
+    if not callers:
+        return unmeasured("apple.smb_mount_without_nobrowse", title,
+                          "Kein mount_smbfs-Aufruf im Projekt.", PLATFORM)
+    return result_for("apple.smb_mount_without_nobrowse", title, findings,
+                      callers, "mount_smbfs-Aufrufe", PLATFORM)
+
+
+# ===========================================================================
+# macOS: NavigationSplitView Detail-Bereich ohne .navigationTitle
+# ===========================================================================
+
+# In macOS SwiftUI reserviert eine NavigationSplitView für die Detail-Pane
+# automatisch einen leeren grauen Toolbar-/Header-Platzhalter, wenn an der
+# Detailansicht kein .navigationTitle(...) gebunden ist. Dieser leere Balken
+# überlagert den oberen Inhalt (Forms, ScrollViews, Eingabefelder).
+# Belegt: Henga, 19.09.2026 — Ein grauer Balken verdeckte Textfelder im Formular,
+# bis .navigationTitle(...) an der Detailansicht gesetzt wurde.
+
+@register(
+    "apple.splitview_detail_without_navigation_title",
+    "NavigationSplitView Detail-Ansicht ohne .navigationTitle erzeugt grauen Header-Überlagerungsstreifen",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="IOS_DEBUGGING_GUIDELINES.md § SwiftUI-Container-Fallen",
+    self_tests=[
+        SelfTestCase(
+            name="Detail ohne navigationTitle",
+            files={"Sources/App/SettingsView.swift":
+                   "import SwiftUI\n"
+                   "struct SettingsView: View {\n"
+                   "  var body: some View {\n"
+                   "    NavigationSplitView {\n"
+                   "      Text(\"Sidebar\")\n"
+                   "    } detail: {\n"
+                   "      Form { Text(\"Inhalt\") }\n"
+                   "    }\n"
+                   "  }\n"
+                   "}\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="NavigationSplitView",
+        ),
+        SelfTestCase(
+            name="Detail mit navigationTitle",
+            files={"Sources/App/SettingsView.swift":
+                   "import SwiftUI\n"
+                   "struct SettingsView: View {\n"
+                   "  var body: some View {\n"
+                   "    NavigationSplitView {\n"
+                   "      Text(\"Sidebar\")\n"
+                   "    } detail: {\n"
+                   "      Form { Text(\"Inhalt\") }\n"
+                   "        .navigationTitle(\"Detail\")\n"
+                   "    }\n"
+                   "  }\n"
+                   "}\n"},
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_splitview_detail_title(ctx: Context) -> CheckResult:
+    title = "NavigationSplitView Detail-Ansicht ohne .navigationTitle erzeugt grauen Header-Überlagerungsstreifen"
+    swift = ctx.files(".swift")
+    if not swift:
+        return unmeasured("apple.splitview_detail_without_navigation_title", title,
+                          "Keine Swift-Dateien gefunden.", PLATFORM)
+
+    callers = 0
+    findings: list[Finding] = []
+    pat = re.compile(r"\bNavigationSplitView\b\s*\{")
+    for sf in swift:
+        body = strip_comments(sf.text, sf.ext)
+        if not pat.search(body):
+            continue
+        # Suche detail: { ... }
+        for m in re.finditer(r"\bdetail\s*:\s*\{", body):
+            callers += 1
+            # Finde zugehörige schließende Klammer
+            depth, i = 1, m.end()
+            while i < len(body) and depth:
+                if body[i] == "{":
+                    depth += 1
+                elif body[i] == "}":
+                    depth -= 1
+                i += 1
+            block = body[m.end(): i - 1]
+            if ".navigationTitle(" not in block:
+                line_no = body.count("\n", 0, m.start()) + 1
+                raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""
+                findings.append(Finding(
+                    check_id="apple.splitview_detail_without_navigation_title",
+                    severity=Severity.WARNING,
+                    message="NavigationSplitView Detail-Ansicht ohne .navigationTitle(...): "
+                            "macOS reserviert einen leeren grauen Toolbar-Header, der "
+                            "den oberen Inhalt (Text/Formulare) überlagert.",
+                    file=sf.rel, line=line_no, evidence=snippet(raw),
+                    fix="An der Detail-View '.navigationTitle(...)' setzen, damit macOS "
+                        "die Toolbar-Integration sauber abschließt.",
+                    guideline="IOS_DEBUGGING_GUIDELINES.md § SwiftUI-Container-Fallen",
+                ))
+    if not callers:
+        return unmeasured("apple.splitview_detail_without_navigation_title", title,
+                          "Keine NavigationSplitView mit detail:-Block gefunden.", PLATFORM)
+    return result_for("apple.splitview_detail_without_navigation_title", title, findings,
+                      callers, "NavigationSplitView-Detail-Blöcke", PLATFORM)

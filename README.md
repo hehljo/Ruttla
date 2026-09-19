@@ -4,6 +4,19 @@ Universelles, **tokenfreies** Quality Gate. Prüft ein Projekt lokal gegen die
 destillierten Architektur- und Qualitätsregeln — ohne LLM, ohne Netz, in
 Sekunden. Gedacht als Schritt **nach jedem Arbeitsblock**, in jeder CLI.
 
+## 🔴 Fehler kommt herein → Check bauen, nicht Code fixen
+
+Wer einen Build-/Compiler-/Laufzeitfehler aus einem Projekt hierher meldet,
+will einen **Check** — nicht eine Reparatur im fremden Repo. Der Fix dort ist
+Nebensache und passiert nur auf ausdrückliche Bitte.
+
+Ablauf und die belegten Fallstricke: **`CLAUDE.md`** in diesem Ordner. Die
+Kurzfassung:
+
+1. Ursache belegen (Doku, nicht Gedächtnis) — 2. prüfen, ob ein bestehender
+Check versagt hat — 3. Check mit **beiden** Sabotage-Richtungen — 4.
+`--self-test` ohne Pipe — 5. gegen den echten Fehlerzustand messen.
+
 ## Warum
 
 Eine Regel ohne Gate ist nur ein Vorsatz. Die Guidelines standen als Text da
@@ -60,7 +73,11 @@ out=$(python3 master_gate.py . --format agent); status=$?
 echo "$out" | head -20
 ```
 
-## Profil: `.qualitygate.toml`
+## Profil: `.qualitygate.toml` — Ausschlüsse und Schärfe je Projekt
+
+Die Datei kommt ins **Wurzelverzeichnis des geprüften Projekts** (nicht hierher).
+Sie regelt zwei Dinge: **was gar nicht erst gelesen wird** und **wie scharf**
+ein Befund zählt.
 
 Ohne Profil laufen nur die universell sicheren Checks hart — ein Gate, das im
 fremden Projekt sofort rot wird über Dinge, die funktionieren, verliert das
@@ -79,6 +96,43 @@ sources = ["src/brand.ts", "src/i18n/*"] # hier GEHÖRT der Name hin
 "secrets.*"                  = "error"
 "i18n.literal_in_markup"     = "warning"
 "godot.untyped_declaration"  = "off"
+```
+
+### Dateien und Ordner ausschließen
+
+| Schlüssel | Matcht | Wirkung |
+|---|---|---|
+| `exclude` | den **relativen Pfad** per Glob (`fnmatch`) | Datei wird übersprungen. `"extracted/**"`, `"**/*.generated.ts"`, `"legacy/**"` |
+| `exclude_dirs` | den **Verzeichnisnamen** allein, auf jeder Ebene | ganzer Ast wird beim Durchlaufen abgeschnitten — schneller bei großen Bäumen |
+
+Pfade mit Leerzeichen brauchen keine Sonderbehandlung: `"extracted/**"` fängt
+auch `extracted/dm Foto/web/index.html`.
+
+Eine Reihe Ordner ist **immer** ausgeschlossen, ohne Profil: `node_modules`,
+`.git`, `build`, `dist`, `DerivedData`, `Pods`, `.godot`, `vendor`, `venv`,
+`__pycache__` und weitere (`DEFAULT_EXCLUDE_DIRS` in `core.py`).
+
+> **`.gitignore` wird NICHT gelesen** — bewusst. „Nicht versioniert" und
+> „nicht prüfenswert" sind zwei verschiedene Fragen: ein generierter Build
+> gehört geprüft, ein entpacktes Fremdarchiv nicht. Wer ignorierte Ordner
+> ausschließen will, schreibt sie hierher.
+
+**Warum das kein Schönheitsthema ist:** Belegt am 18.09.2026 (FotobuchGenie) —
+ein Lauf meldete **5825 Befunde**, davon **5812 (99,8 %)** aus `extracted/`,
+einem 754 MB großen entpackten Fremdarchiv mit fremdem Marketing-HTML. Übrig
+blieben **13** echte, alle auf INFO-Ebene. Ein Check, der tausendfach über
+fremdes Material meldet, deckt die echten Befunde zu — ein grüner Lauf mit
+Tausenden Warnungen ist kein grüner Lauf.
+
+Gegenprobe nach jedem neuen Ausschluss, **beide Richtungen**: Fällt die Zahl
+für das ausgeschlossene Verzeichnis auf null, **und** bleibt eine bekannte
+Fundstelle außerhalb weiterhin gemeldet? Sonst ist aus dem Ausschluss eine
+stille Freistellung geworden.
+
+```bash
+out=$(python3 master_gate.py /pfad --format agent --max-findings 9999); status=$?
+echo "$out" | grep -E '^(ERROR|WARNING|INFO)' | awk -F'\t' '{print $1"\t"$2}' \
+  | sort | uniq -c | sort -rn      # welcher Check macht die Masse?
 ```
 
 ## Die drei Ausgänge
@@ -105,7 +159,8 @@ ungeprüfte Zusagen.
 ## Einen neuen Check ergänzen
 
 Ein Build-Fehler, der einmal aufgetreten ist, gehört ab dann tokenfrei
-abgefangen. In `checks/<plattform>.py`:
+abgefangen — das ist der Zweck dieses Repos, siehe `CLAUDE.md`. In
+`checks/<plattform>.py`:
 
 ```python
 @register(
@@ -136,6 +191,15 @@ wertet „null Module geladen" ausdrücklich als Fehler.
    Treffer zählt, meldet im gesunden Projekt `unmeasured` statt `pass`.
 3. Kein Anzeigetext als Anker — gegen Bezeichner ankern.
 4. Beide Richtungen als Sabotage-Probe, sonst ist der Check nicht fertig.
+5. Der `fix:`-Text ist Code, den jemand abschreibt — jede darin genannte API
+   gegen die Doku prüfen. Ein Check, der eine nicht existente API empfiehlt,
+   baut den Fehler ein, den er verhindern soll (belegt: `hardcoded_font_size`
+   empfahl `.system(size:relativeTo:)`).
+6. Versionsschwellen als benannte Konstante mit ihrer Messung im Kommentar,
+   nie als getippte Zahl im Vergleich.
+7. `safe_by_default=True` nur, wenn ein falsch-positiver Fall ausgeschlossen
+   ist — etwa weil die verwendete API nicht existiert. Sonst meldet das Gate
+   rote Befunde und trotzdem Exit 0.
 
 ## Was das Gate NICHT kann
 

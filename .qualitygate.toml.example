@@ -3,7 +3,17 @@
 
 [gate]
 strict = false
-exclude = ["legacy/**", "vendor/**", "**/*.generated.ts"]
+
+# exclude: Glob auf den RELATIVEN PFAD. Pfade mit Leerzeichen brauchen nichts
+# Besonderes — "extracted/**" fängt auch "extracted/dm Foto/web/index.html".
+# Hier gehört entpacktes Fremdmaterial hinein: es ist nicht dein Code, und ein
+# Check, der tausendfach darüber meldet, deckt die echten Befunde zu.
+# .gitignore wird bewusst NICHT gelesen — "nicht versioniert" und "nicht
+# prüfenswert" sind zwei verschiedene Fragen.
+exclude = ["legacy/**", "vendor/**", "**/*.generated.ts", "extracted/**"]
+
+# exclude_dirs: nur der VERZEICHNISNAME, auf jeder Ebene. Schneidet den Ast
+# beim Durchlaufen ab — schneller als ein Glob bei großen Bäumen.
 exclude_dirs = []
 
 [brand]

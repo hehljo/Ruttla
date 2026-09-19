@@ -31,6 +31,18 @@ from typing import Callable, Iterable, Iterator, Sequence
 SCHEMA_VERSION = "1.0"
 
 
+class GateInputError(RuntimeError):
+    """Die Eingabe konnte nicht zuverlässig gelesen oder bestimmt werden."""
+
+
+class ConfigError(GateInputError):
+    """Das Gate-Profil ist vorhanden, aber ungültig oder nicht lesbar."""
+
+
+class ChangedFilesError(GateInputError):
+    """Die geänderten Dateien konnten nicht sicher bestimmt werden."""
+
+
 class Status(str, Enum):
     PASS = "pass"
     FAIL = "fail"
@@ -139,8 +151,10 @@ class SourceFile:
             try:
                 with open(self.path, "r", encoding="utf-8", errors="replace") as fh:
                     self._text = fh.read()
-            except OSError:
-                self._text = ""
+            except OSError as exc:
+                raise GateInputError(
+                    f"Eingabedatei nicht lesbar: {self.rel}: {exc}"
+                ) from exc
         return self._text
 
     @property
@@ -266,7 +280,14 @@ class Context:
             return self._files
         found: list[SourceFile] = []
         exclude_dirs = DEFAULT_EXCLUDE_DIRS | set(self.config.exclude_dirs)
-        for dirpath, dirnames, filenames in os.walk(self.root):
+        root_real = os.path.realpath(self.root)
+
+        def walk_error(exc: OSError) -> None:
+            raise GateInputError(
+                f"Eingabeverzeichnis nicht lesbar: {exc.filename or self.root}: {exc}"
+            ) from exc
+
+        for dirpath, dirnames, filenames in os.walk(self.root, onerror=walk_error):
             dirnames[:] = [
                 d for d in dirnames
                 if d not in exclude_dirs and not d.endswith(".xcassets")
@@ -278,11 +299,26 @@ class Context:
                     continue
                 if any(fnmatch.fnmatch(rel, pat) for pat in self.config.exclude_globs):
                     continue
+                resolved = os.path.realpath(full)
+                try:
+                    inside = os.path.commonpath((root_real, resolved)) == root_real
+                except ValueError:
+                    inside = False
+                if not inside:
+                    raise GateInputError(
+                        f"Eingabepfad verlässt die Prüfwurzel: {rel}"
+                    )
                 try:
                     if os.path.getsize(full) > self.config.max_file_bytes:
                         continue
-                except OSError:
-                    continue
+                    # Nicht erst hoffen, dass irgendein Check die Datei liest:
+                    # eine unlesbare Eingabe macht den gesamten Lauf ungültig.
+                    with open(full, "rb"):
+                        pass
+                except OSError as exc:
+                    raise GateInputError(
+                        f"Eingabedatei nicht prüfbar: {rel}: {exc}"
+                    ) from exc
                 found.append(SourceFile(
                     path=full, rel=rel, ext=os.path.splitext(name)[1].lower()
                 ))
@@ -311,8 +347,15 @@ class Context:
 
     def dirs_with_suffix(self, suffix: str) -> list[str]:
         out = []
-        for dirpath, dirnames, _ in os.walk(self.root):
-            dirnames[:] = [d for d in dirnames if d not in DEFAULT_EXCLUDE_DIRS]
+
+        def walk_error(exc: OSError) -> None:
+            raise GateInputError(
+                f"Eingabeverzeichnis nicht lesbar: {exc.filename or self.root}: {exc}"
+            ) from exc
+
+        exclude_dirs = DEFAULT_EXCLUDE_DIRS | set(self.config.exclude_dirs)
+        for dirpath, dirnames, _ in os.walk(self.root, onerror=walk_error):
+            dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
             for d in dirnames:
                 if d.endswith(suffix):
                     out.append(os.path.join(dirpath, d))
@@ -335,6 +378,25 @@ class Context:
             p.add("godot")
         if ".cs" in exts or ".csproj" in exts or ".xaml" in exts:
             p.add("dotnet")
+        # Unreal: erkannt an .uproject/.uplugin, an Build.cs/Target.cs oder an
+        # den UE-Reflection-Makros — nie am Ordnernamen. Ein C++-Projekt ohne
+        # UCLASS/GENERATED_BODY ist kein Unreal-Projekt.
+        # Diese Erkennung MUSS zu _is_unreal() in checks/unreal.py passen,
+        # sonst laufen die Unreal-Checks stillschweigend gar nicht (belegter
+        # Fehler: 'serial' fehlte in der Raspberry-Erkennung, ein echter
+        # Verstoss meldete gruen).
+        if (".uproject" in exts or ".uplugin" in exts
+                or any(f.rel.endswith(("Build.cs", "Target.cs"))
+                       for f in self.all_files())):
+            p.add("unreal")
+        elif {".cpp", ".h"} & exts:
+            _ue_macro = re.compile(
+                r"\b(?:UCLASS|USTRUCT|UENUM|GENERATED_BODY|UPROPERTY)\s*\("
+            )
+            for f in self.files(".cpp", ".h"):
+                if _ue_macro.search(f.text):
+                    p.add("unreal")
+                    break
         if ".py" in exts:
             p.add("python")
         # Raspberry: erkannt an Hardware-Bibliotheken, nicht am Verzeichnisnamen
@@ -358,18 +420,75 @@ class Context:
         return p
 
     # -- Git ----------------------------------------------------------------
-    def changed_files(self, base: str) -> list[str] | None:
-        """Geänderte Dateien gegen eine Basis. None = nicht ermittelbar."""
+    def changed_files(self, base: str) -> list[str]:
+        """Geänderte Dateien gegen eine Basis, relativ zu ``root``.
+
+        Git gibt Namen standardmäßig relativ zur Repository-Wurzel aus. Für
+        einen geprüften Unterordner würde das Befunde still wegfiltern. Darum
+        wird der Pfadbereich ausdrücklich begrenzt und jeder Rückgabepfad auf
+        Ausbruch aus der Prüfwurzel geprüft.
+        """
+        if not base or base.startswith("-") or "\0" in base:
+            raise ChangedFilesError("Ungültige Git-Referenz für --changed-only.")
         try:
-            res = subprocess.run(
-                ["git", "-C", self.root, "diff", "--name-only", base],
+            top = subprocess.run(
+                ["git", "-C", self.root, "rev-parse", "--show-toplevel"],
                 capture_output=True, text=True, timeout=30,
             )
-        except (OSError, subprocess.SubprocessError):
-            return None
-        if res.returncode != 0:
-            return None
-        return [ln for ln in res.stdout.splitlines() if ln.strip()]
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ChangedFilesError(f"Git-Aufruf fehlgeschlagen: {exc}") from exc
+        if top.returncode != 0:
+            detail = top.stderr.strip() or "kein Git-Repository"
+            raise ChangedFilesError(detail)
+
+        repo_root = os.path.realpath(top.stdout.strip())
+        root = os.path.realpath(self.root)
+        try:
+            if os.path.commonpath((repo_root, root)) != repo_root:
+                raise ChangedFilesError("Prüfwurzel liegt außerhalb des Git-Repositories.")
+        except ValueError as exc:
+            raise ChangedFilesError("Prüfwurzel und Git-Repository sind inkompatibel.") from exc
+
+        root_rel = os.path.relpath(root, repo_root)
+        pathspec = "." if root_rel == "." else root_rel.replace(os.sep, "/")
+        try:
+            diff = subprocess.run(
+                ["git", "-C", repo_root, "diff", "--name-only", "-z", base,
+                 "--", pathspec],
+                capture_output=True, timeout=30,
+            )
+            untracked = subprocess.run(
+                ["git", "-C", repo_root, "ls-files", "--others",
+                 "--exclude-standard", "-z", "--", pathspec],
+                capture_output=True, timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ChangedFilesError(f"Git-Diff fehlgeschlagen: {exc}") from exc
+        if diff.returncode != 0:
+            detail = os.fsdecode(diff.stderr).strip() or "ungültige Git-Referenz"
+            raise ChangedFilesError(detail)
+        if untracked.returncode != 0:
+            detail = os.fsdecode(untracked.stderr).strip() or "ungetrackte Dateien nicht ermittelbar"
+            raise ChangedFilesError(detail)
+
+        changed: set[str] = set()
+        for raw in (diff.stdout + untracked.stdout).split(b"\0"):
+            if not raw:
+                continue
+            name = os.fsdecode(raw)
+            if os.path.isabs(name):
+                raise ChangedFilesError(f"Git lieferte absoluten Pfad: {name}")
+            candidate = os.path.abspath(os.path.join(repo_root, name))
+            try:
+                inside = os.path.commonpath((root, candidate)) == root
+            except ValueError:
+                inside = False
+            if not inside:
+                raise ChangedFilesError(
+                    f"Git-Pfad verlässt die Prüfwurzel: {name}"
+                )
+            changed.add(os.path.relpath(candidate, root).replace(os.sep, "/"))
+        return sorted(changed)
 
 
 # ---------------------------------------------------------------------------
@@ -409,27 +528,107 @@ class Config:
     def load(cls, root: str, explicit: str | None = None) -> "Config":
         path = explicit or os.path.join(root, ".qualitygate.toml")
         if not os.path.isfile(path):
+            if explicit is not None:
+                raise ConfigError(f"Konfigurationsdatei fehlt: {path}")
             return cls()
         try:
             import tomllib
             with open(path, "rb") as fh:
                 data = tomllib.load(fh)
-        except Exception:
-            return cls()
+        except (OSError, ValueError) as exc:
+            raise ConfigError(f"Konfiguration nicht lesbar: {path}: {exc}") from exc
 
-        cfg = cls(profile_path=path)
-        gate = data.get("gate", {})
-        cfg.strict = bool(gate.get("strict", False))
-        cfg.exclude_dirs = list(gate.get("exclude_dirs", []))
-        cfg.exclude_globs = list(gate.get("exclude", []))
-        cfg.max_file_bytes = int(gate.get("max_file_bytes", cfg.max_file_bytes))
+        allowed_tables = {"gate", "project", "brand", "severity"}
+        unknown_tables = sorted(set(data) - allowed_tables)
+        if unknown_tables:
+            raise ConfigError(
+                "Unbekannte Konfigurationstabellen: " + ", ".join(unknown_tables)
+            )
 
-        brand = data.get("brand", {})
-        cfg.brand_names = list(brand.get("names", []))
-        cfg.brand_source_globs = list(brand.get("sources", []))
+        def table(name: str, allowed_keys: set[str] | None = None) -> dict:
+            value = data.get(name, {})
+            if not isinstance(value, dict):
+                raise ConfigError(f"[{name}] muss eine TOML-Tabelle sein.")
+            if allowed_keys is not None:
+                unknown = sorted(set(value) - allowed_keys)
+                if unknown:
+                    raise ConfigError(
+                        f"[{name}] enthält unbekannte Schlüssel: " + ", ".join(unknown)
+                    )
+            return value
 
-        for key, value in data.get("severity", {}).items():
-            cfg.severity_overrides[key] = str(value)
+        def string_list(owner: str, key: str, value: object) -> list[str]:
+            if not isinstance(value, list) or not all(
+                isinstance(item, str) and item for item in value
+            ):
+                raise ConfigError(
+                    f"{owner}.{key} muss eine Liste nichtleerer Strings sein."
+                )
+            return value
+
+        cfg = cls(profile_path=os.path.abspath(path))
+        gate = table("gate", {"strict", "exclude_dirs", "exclude", "max_file_bytes"})
+        strict = gate.get("strict", False)
+        if not isinstance(strict, bool):
+            raise ConfigError("gate.strict muss true oder false sein.")
+        cfg.strict = strict
+        cfg.exclude_dirs = string_list(
+            "gate", "exclude_dirs", gate.get("exclude_dirs", [])
+        )
+        cfg.exclude_globs = string_list(
+            "gate", "exclude", gate.get("exclude", [])
+        )
+        max_bytes = gate.get("max_file_bytes", cfg.max_file_bytes)
+        if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes <= 0:
+            raise ConfigError("gate.max_file_bytes muss eine positive Ganzzahl sein.")
+        cfg.max_file_bytes = max_bytes
+
+        project = table("project", {"name", "platform"})
+        project_name = project.get("name")
+        project_platform = project.get("platform")
+        if project_name is not None and (not isinstance(project_name, str) or not project_name):
+            raise ConfigError("project.name muss ein nichtleerer String sein.")
+        if project_platform is not None and project_platform not in {
+            "universal", "apple", "web", "godot", "dotnet", "python",
+            "raspberry", "unreal",
+        }:
+            raise ConfigError("project.platform ist unbekannt.")
+
+        brand = table("brand", {"name", "names", "source", "sources"})
+        cfg.brand_names = string_list("brand", "names", brand.get("names", []))
+        singular_name = brand.get("name")
+        if singular_name is not None:
+            if not isinstance(singular_name, str) or not singular_name:
+                raise ConfigError("brand.name muss ein nichtleerer String sein.")
+            cfg.brand_names.append(singular_name)
+        if not cfg.brand_names and project_name:
+            cfg.brand_names.append(project_name)
+        cfg.brand_names = list(dict.fromkeys(cfg.brand_names))
+
+        cfg.brand_source_globs = string_list(
+            "brand", "sources", brand.get("sources", [])
+        )
+        singular_source = brand.get("source")
+        if singular_source is not None:
+            if not isinstance(singular_source, str) or not singular_source:
+                raise ConfigError("brand.source muss ein nichtleerer String sein.")
+            source_path = singular_source.rsplit(":", 1)[0]
+            if not source_path:
+                raise ConfigError("brand.source muss einen Dateipfad enthalten.")
+            cfg.brand_source_globs.append(source_path)
+        cfg.brand_source_globs = list(dict.fromkeys(cfg.brand_source_globs))
+
+        severity = table("severity")
+        allowed = {member.value for member in Severity} | {"off"}
+        for key, value in severity.items():
+            if not isinstance(key, str) or not key:
+                raise ConfigError("severity-Schlüssel müssen nichtleere Strings sein.")
+            if not isinstance(value, str) or value not in allowed:
+                choices = ", ".join(sorted(allowed))
+                raise ConfigError(
+                    f"severity.{key} muss einer von {choices} sein."
+                )
+            cfg.severity_overrides[key] = value
         return cfg
 
 
