@@ -1,8 +1,10 @@
 # HANDOVER – qualitygate
 
-Stand: 2026-09-20
+Stand: 2026-09-23
 
 ## Letzter abgeschlossener Arbeitsblock
+
+- 23.09.: Neues `checks/python_services.py` (5 Checks, Plattform python) aus dem CondrianoInvest-Audit. 192/192 Selbsttest-Proben grün. Gegen den rekonstruierten Originalstand (git HEAD) rot, gegen den gefixten grün. Sweep über /root: Fehlalarme in Telegram-Check (Monorepo-Projektgrenze, Schleifen-Drossel) und FX-Check (`_bot_value_eur`) gefunden und mit eigenen Proben behoben.
 
 - Runner gegen falsches Grün gehärtet: ungültige Konfiguration, Pluginfehler, null Checks, null geprüfte Einheiten und unlesbare Eingaben liefern keinen Erfolg.
 - `--changed-only` berücksichtigt jetzt auch ungetrackte Dateien und begrenzt Pfade auf die Prüfwurzel.

@@ -260,6 +260,34 @@ Die Checks prüfen Quellcode und Orchestrierung. Peak, Streamreihenfolge,
 Decodierbarkeit und Hörqualität des fertigen Artefakts bleiben zusätzliche
 Ausgabeprüfungen; Existenz eines Filters ist nicht seine Wirkung.
 
+## Python-Dienste
+
+`checks/python_services.py` — fünf Fehlerklassen aus dem Live-Trading-Bot
+CondrianoInvest (23.09.2026), alle code-technisch vermeidbar:
+
+- `python.apscheduler_misfire_default` (error): Scheduler ohne
+  `misfire_grace_time` — Default 1 s, verspätete Jobs werden **verworfen**.
+  Belegt: Stop-Loss-Check 255× übersprungen, Schwesterbots 177× / 119×.
+- `python.telegram_token_log_leak` (error): Root-Logger auf INFO/DEBUG in
+  einem Prozess mit Telegram-Client, ohne `httpx` (bzw. `urllib3` bei DEBUG)
+  zu drosseln — die Request-URL enthält `/bot<TOKEN>/`. Geprüft wird die
+  Datei, die Telegram tatsächlich ruft; Drosselung zählt im selben Projekt
+  (nächstes `requirements.txt`/`pyproject.toml`).
+- `python.yahoo_chart_last_bar_dropped` (error): Yahoo `v8/finance/chart`
+  liefert die letzte Tageskerze (XETRA u. a.) mit `close=None`; `dropna`
+  ohne Auffüllen aus `meta.regularMarketPrice` = Kurs von vorgestern.
+- `python.http_retry_non_idempotent` (warning): Retry-Schleife wiederholt
+  POST/PUT/beliebige Methode nach Timeout — mögliche Doppelorder.
+- `python.hardcoded_fx_fallback` (warning): Wechselkursfunktion fällt still
+  auf eine feste Zahl zurück (belegt: 1.05 griff monatelang, echt 1,146).
+
+**Nicht statisch prüfbar, deshalb kein Gate:** ob ein Signal vor der Order
+gegen einen Live-Kurs gehalten wird (Kurs-Schutz) und ob async-Jobs
+synchron blockieren — beides steht als Regel in `Finanz/AGENTS.md` und ist
+im Projekt per Test (`tests/test_signal_freshness.py`) abgesichert.
+Dateirechte (`.env` weltlesbar) lassen sich im Selbsttest-Format nicht
+herstellen — ebenfalls kein Gate.
+
 ## Was das Gate NICHT kann
 
 Statische Textanalyse sieht Positionen, keine Kollisionen und keine Kontraste.
