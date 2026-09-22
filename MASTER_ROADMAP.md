@@ -1,6 +1,6 @@
 # MASTER_ROADMAP – qualitygate
 
-Stand: 2026-09-19
+Stand: 2026-09-20
 
 ## Phase 1: Basis und ausführbarer Check-Katalog [x]
 - [x] Plattformübergreifende Check-Registry und Drei-Ausgangsmodell
@@ -27,6 +27,9 @@ Stand: 2026-09-19
 - [x] Gegen Henga read-only erfolgreich durchgestochen
 
 ## Phase 4: Pflege und Ausbau [ ]
+- [x] Medien-Pipeline-Modul für FFmpeg-Limiter, TTS-Dauerschranken, Mux-Verifikation und PowerShell-Freitextargumente ergänzen
+- [x] PowerShell-Zeilen- und Blockkommentare aus statischen Prüfbereichen entfernen
+- [x] Alle vier Medienchecks in beiden Richtungen und zusätzlich isoliert über die echte CLI gegenprüfen
 - [ ] Weitere Releaseformate nur mit gesunden und isolierten Negativproben ergänzen
 - [ ] Bestehende breite Plattformchecks bei realen neuen Fehlerklassen gezielt erweitern
 - [ ] Master-Gate-Regeln und projektspezifische Profile kompatibel versionieren

@@ -201,6 +201,65 @@ wertet „null Module geladen" ausdrücklich als Fehler.
    ist — etwa weil die verwendete API nicht existiert. Sonst meldet das Gate
    rote Befunde und trotzdem Exit 0.
 
+## Apple: Store-Pflichtangaben im App-Target
+
+Fünf Checks aus einem einzigen belegten Upload nach App Store Connect
+(Henga, `com.hehljo.Henga`, 2026-09-22). Alle fünf Fehler bauen lokal
+fehlerfrei durch und fallen erst bei Apple auf:
+
+- `apple.release.app_category_missing` — kein `LSApplicationCategoryType`
+  (hart ohne Profil; ASC lehnt den Upload ab)
+- `apple.release.app_sandbox_missing` — `com.apple.security.app-sandbox`
+  fehlt oder steht auf `false` (hart; App Review verlangt sie für jede
+  Mac-App-Store-App)
+- `apple.release.signing_team_missing` — `DEVELOPMENT_TEAM` fehlt oder ist
+  leer **im App-Target**
+- `apple.release.display_name_missing` — kein `CFBundleDisplayName`
+- `apple.release.xcstrings_incomplete` — String Catalog mit unübersetzten
+  Schlüsseln
+
+**Warum der Prüfbereich das Target ist, nicht die Datei.** Der bestehende
+Check `apple.project_settings` sucht `DEVELOPMENT_TEAM` mit einem
+dateiweiten `re.search`. Bei Henga blieb er dadurch grün, obwohl das
+App-Target kein Team trug: irgendein anderes Objekt in der `project.pbxproj`
+enthielt den Schlüssel. Die neuen Checks lösen deshalb
+`PBXNativeTarget` → `XCConfigurationList` → `XCBuildConfiguration` auf und
+messen jede App-Konfiguration einzeln. Gefiltert wird über
+`productType == com.apple.product-type.application`, also die **Eigenschaft**
+„ist eine Anwendung" — Testbundles, Helper und Extensions brauchen diese
+Angaben nicht.
+
+**Die Plattformerkennung war die eigentliche Falle.** Zwei Fehlversuche, beide
+am echten Projekt gefunden:
+
+| Erste Fassung | Warum sie falsch war |
+|---|---|
+| `SDKROOT` nur in der Target-Konfiguration lesen | Xcode legt es auf **Projektebene** ab. Henga galt dadurch als plattformlos, der Sandbox-Check meldete `UNMEASURED` statt des vorhandenen Fehlers |
+| `MACOSX_DEPLOYMENT_TARGET` als Mac-Merkmal werten | Ein reines iOS-Projekt (Dienstreise, `SDKROOT = iphoneos`) trägt es als Beiwerk von Mac Catalyst. Jede iOS-App hätte eine fehlende Mac-Sandbox gemeldet — ein falsch-positives **hartes** Gate |
+
+Maßgeblich ist das SDK, gegen das gebaut wird. Gegengeprobt an vier realen
+Projekten: Henga (macOS) rot, Dienstreise und GreetGen (iOS, GreetGen ist
+final im App Store) grün beziehungsweise ehrlich `UNMEASURED`.
+
+**Zwei Checks stehen hart ohne Profil** (`safe_by_default=True`), weil ein
+falsch-positiver Fall ausgeschlossen ist: beide zulässigen Bauformen werden
+geprüft (Plist-Key **und** `INFOPLIST_KEY_*`), und ein nicht auflösbares
+Target liefert `UNMEASURED` statt `FAIL`.
+
+## Medien-Pipelines
+
+`checks/media.py` fängt vier belegte Fehlerklassen statisch und ohne FFmpeg-,
+GPU-, Netz- oder Modellstart ab:
+
+- `media.ffmpeg_limiter_auto_level`: `alimiter` ohne abgeschaltetes Auto-Level
+- `media.tts_without_duration_guard`: TTS gelangt ohne harte Dauerprüfung in Mix oder Mux
+- `media.mux_without_stream_probe`: Output-Streams und Sprachmetadaten werden nach dem Mux nicht wirkungsgeprüft
+- `media.powershell_text_argument_split`: dynamischer Freitext wird über `Start-Process -ArgumentList` zerlegt
+
+Die Checks prüfen Quellcode und Orchestrierung. Peak, Streamreihenfolge,
+Decodierbarkeit und Hörqualität des fertigen Artefakts bleiben zusätzliche
+Ausgabeprüfungen; Existenz eines Filters ist nicht seine Wirkung.
+
 ## Was das Gate NICHT kann
 
 Statische Textanalyse sieht Positionen, keine Kollisionen und keine Kontraste.

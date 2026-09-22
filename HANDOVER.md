@@ -1,6 +1,6 @@
 # HANDOVER – qualitygate
 
-Stand: 2026-09-19
+Stand: 2026-09-20
 
 ## Letzter abgeschlossener Arbeitsblock
 
@@ -12,13 +12,16 @@ Stand: 2026-09-19
 - Neues Apple-Release-Modul mit sieben Checks für Shared Schemes, Target-Verweise, Archivierung sowie Plist-/String-Catalog-/Asset-JSON-Syntax.
 - Bestehendes Henga-Profil (`[project]`, `brand.source`) bleibt trotz strikter Konfiguration kompatibel.
 - Henga read-only mit `apple.release.*`: 7 bestanden, 0 fehlgeschlagen, 0 nicht gemessen.
+- Neues `checks/media.py` mit vier tokenfreien Checks: FFmpeg-Limiter-Auto-Level, fehlende TTS-Dauerschranke, fehlende Stream-/Sprachprüfung nach Mux und PowerShell-Freitextzerlegung über `Start-Process`.
+- PowerShell-Zeilen- und Blockkommentare werden in `core.py` jetzt korrekt aus statischen Prüfflächen entfernt.
+- 74 Checks registriert; alle besitzen beide Selbsttestrichtungen. 161/161 Selbsttest-Proben grün; alle vier neuen Checks zusätzlich isoliert über die echte CLI jeweils gesund grün und sabotiert rot.
 
 ## Exakter Startpunkt für die nächste Session
 
-1. Master Quality Gate final über dieses Repo und `/root/ReleaseGenie` laufen lassen.
-2. Diff-Hygiene prüfen.
-3. Commit auf `main` erstellen und normal zu `origin/main` pushen.
-4. Keine neue Sabotage-Runde nötig; vorhandene 153 Selbsttest-Proben sind bereits gelaufen.
+1. Diff-Hygiene der Medienchecks prüfen.
+2. Optional die vier Medienchecks read-only gegen weitere echte Medienprojekte laufen lassen und False Positives dokumentieren.
+3. Commit nur nach ausdrücklicher Freigabe erstellen und normal zu `origin/main` pushen.
+4. Keine neue Sabotage-Runde nötig; 161/161 Selbsttest-Proben und die isolierten CLI-Gegenproben sind bereits grün.
 
 ## Offen
 
