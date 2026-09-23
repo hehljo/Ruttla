@@ -524,3 +524,311 @@ def check_fixed_wait(ctx: Context) -> CheckResult:
             ))
     return result_for("godot.fixed_wait_instead_of_state", title, findings,
                       len(files), "GDScript-Dateien", PLATFORM)
+
+
+@register(
+    "godot.missing_main_scene",
+    "Hauptszene in project.godot existiert nicht im Dateisystem",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Projektstruktur",
+    self_tests=[
+        SelfTestCase(
+            name="Hauptszene fehlt",
+            files={
+                "project.godot": '[application]\nconfig/name="Test"\nrun/main_scene="res://scenes/missing.tscn"\n',
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="missing.tscn",
+        ),
+        SelfTestCase(
+            name="Hauptszene existiert",
+            files={
+                "project.godot": '[application]\nconfig/name="Test"\nrun/main_scene="res://scenes/main.tscn"\n',
+                "scenes/main.tscn": '[gd_scene format=3]\n',
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_missing_main_scene(ctx: Context) -> CheckResult:
+    """Prüft, ob die konfigurierte Hauptszene tatsächlich existiert.
+    Eine fehlende Hauptszene bricht Godot sofort beim Start ab."""
+    title = "Hauptszene in project.godot existiert nicht im Dateisystem"
+    project_files = ctx.files_named("project.godot")
+    if not project_files:
+        return unmeasured("godot.missing_main_scene", title,
+                          "Keine project.godot-Datei gefunden.", PLATFORM)
+    pat = re.compile(r'run/main_scene\s*=\s*"res://([^"]+)"')
+    findings: list[Finding] = []
+    measured = 0
+    all_rel_paths = {sf.rel for sf in ctx.all_files()}
+
+    for pf in project_files:
+        for idx, line in enumerate(pf.lines, start=1):
+            m = pat.search(line)
+            if not m:
+                continue
+            measured += 1
+            rel_scene = m.group(1)
+            # Im Dateisystem oder ctx.all_files suchen
+            target_full = os.path.join(ctx.root, rel_scene)
+            if not os.path.isfile(target_full) and rel_scene not in all_rel_paths:
+                findings.append(Finding(
+                    check_id="godot.missing_main_scene",
+                    severity=Severity.ERROR,
+                    message=f"Hauptszene 'res://{rel_scene}' existiert nicht im Projektverzeichnis.",
+                    file=pf.rel,
+                    line=idx,
+                    evidence=snippet(line),
+                    fix=f"Szene unter '{rel_scene}' anlegen oder Pfad in project.godot korrigieren.",
+                    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Projektstruktur",
+                ))
+
+    return result_for("godot.missing_main_scene", title, findings, measured,
+                      "Hauptszenen-Einträge", PLATFORM)
+
+
+@register(
+    "godot.rpc_sender_identity",
+    "any_peer-RPC ohne Verifikation der Absender-ID (get_remote_sender_id)",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Netzwerk & Multiplayer",
+    self_tests=[
+        SelfTestCase(
+            name="any_peer ohne Absenderpruefung",
+            files={
+                "src/net.gd": "@rpc(\"any_peer\", \"reliable\")\nfunc submit(data: Dictionary) -> void:\n\tprocess_data(data)\n",
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="submit",
+        ),
+        SelfTestCase(
+            name="any_peer mit Absenderpruefung",
+            files={
+                "src/net.gd": "@rpc(\"any_peer\", \"reliable\")\nfunc submit(data: Dictionary) -> void:\n\tvar s := multiplayer.get_remote_sender_id()\n\tprocess_data(s, data)\n",
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_rpc_sender_identity(ctx: Context) -> CheckResult:
+    """Funktionen mit @rpc('any_peer') dürfen eingehenden Parametern nicht blind
+    vertrauen, sondern müssen den Absender über multiplayer.get_remote_sender_id()
+    validieren, um Spoofing und Fremdsteuerung zu verhindern."""
+    title = "any_peer-RPC ohne Verifikation der Absender-ID (get_remote_sender_id)"
+    files = _gd(ctx)
+    if not files:
+        return unmeasured("godot.rpc_sender_identity", title,
+                          "Keine GDScript-Dateien gefunden.", PLATFORM)
+
+    rpc_any_peer = re.compile(r'@rpc\s*\([^)]*["\']any_peer["\'][^)]*\)')
+    func_decl = re.compile(r'^\s*func\s+(\w+)\s*\(([^)]*)\)')
+
+    findings: list[Finding] = []
+    measured = 0
+
+    for sf in files:
+        body = strip_comments(sf.text, sf.ext)
+        lines = body.splitlines()
+        for idx, line in enumerate(lines):
+            if not rpc_any_peer.search(line):
+                continue
+
+            # Suche die zugehörige Funktionsdeklaration in den nächsten 3 Zeilen
+            func_name = None
+            func_line = idx + 1
+            has_params = False
+            for look_idx in range(idx + 1, min(len(lines), idx + 4)):
+                fm = func_decl.match(lines[look_idx])
+                if fm:
+                    func_name = fm.group(1)
+                    func_line = look_idx + 1
+                    has_params = bool(fm.group(2).strip())
+                    break
+
+            if not func_name:
+                continue
+
+            measured += 1
+            # Durchsuche den Funktionsrumpf bis zur nächsten Funktion oder EOF
+            body_lines: list[str] = []
+            for b_idx in range(func_line, len(lines)):
+                b_line = lines[b_idx]
+                if re.match(r'^\s*func\s+|^@rpc', b_line):
+                    break
+                body_lines.append(b_line)
+
+            func_body = "\n".join(body_lines)
+            if "get_remote_sender_id()" not in func_body:
+                orig = sf.lines[func_line - 1] if func_line <= len(sf.lines) else line
+                findings.append(Finding(
+                    check_id="godot.rpc_sender_identity",
+                    severity=Severity.ERROR,
+                    message=f"RPC-Methode '{func_name}()' ist 'any_peer', prüft aber nicht "
+                            "'multiplayer.get_remote_sender_id()'.",
+                    file=sf.rel,
+                    line=func_line,
+                    evidence=snippet(orig),
+                    fix="Absender mit 'multiplayer.get_remote_sender_id()' ermitteln und gegen Session-Autorität prüfen.",
+                    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Netzwerk & Multiplayer",
+                ))
+
+    return result_for("godot.rpc_sender_identity", title, findings, measured,
+                      "any_peer-RPCs", PLATFORM)
+
+
+@register(
+    "godot.root_directory_pollution",
+    "Szenen- oder Skriptdatei liegt direkt im Projekt-Root",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Projektstruktur",
+    self_tests=[
+        SelfTestCase(
+            name="Szene im Root",
+            files={
+                "Main.tscn": "[gd_scene format=3]\n",
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="Main.tscn",
+        ),
+        SelfTestCase(
+            name="Saubere Ordnerstruktur",
+            files={
+                "scenes/main.tscn": "[gd_scene format=3]\n",
+                "scripts/main.gd": "extends Node\n",
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_root_pollution(ctx: Context) -> CheckResult:
+    """Im Projekt-Root gehören nur project.godot, README, Lizenz und .gitignore.
+    Szenen (.tscn) und Skripte (.gd) gehören in dedizierte Unterordner (scenes/, scripts/, tests/)."""
+    title = "Szenen- oder Skriptdatei liegt direkt im Projekt-Root"
+    findings: list[Finding] = []
+    measured = 0
+
+    allowed_root_basenames = {"run.gd", "tests.gd"}
+
+    for sf in ctx.all_files():
+        if sf.ext not in (".tscn", ".gd"):
+            continue
+        measured += 1
+        # Wenn im Pfad kein Slash/Backslash ist, liegt die Datei direkt im Root
+        if "/" not in sf.rel and "\\" not in sf.rel:
+            base_name = os.path.basename(sf.rel)
+            if base_name in allowed_root_basenames:
+                continue
+            findings.append(Finding(
+                check_id="godot.root_directory_pollution",
+                severity=Severity.WARNING,
+                message=f"Datei '{sf.rel}' liegt unstrukturiert im Projekt-Root.",
+                file=sf.rel,
+                line=1,
+                evidence=sf.rel,
+                fix="In passende Unterordner verschieben: 'scenes/' für .tscn, 'scripts/' für .gd.",
+                guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Projektstruktur",
+            ))
+
+    return result_for("godot.root_directory_pollution", title, findings, measured,
+                      "Szenen und Skripte", PLATFORM)
+
+
+@register(
+    "godot.hardcoded_ui_text",
+    "Sichtbarer Text fest im GDScript statt über tr() oder Translation-Key",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CLAUDE.md § Grundsatz C (Katalogpflicht / i18n)",
+    self_tests=[
+        SelfTestCase(
+            name="Hardcoded Text im Button",
+            files={
+                "src/ui.gd": 'extends Control\nfunc setup():\n\t$Button.text = "Spiel starten"\n',
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="Spiel starten",
+        ),
+        SelfTestCase(
+            name="Uebersetzt via tr()",
+            files={
+                "src/ui.gd": 'extends Control\nfunc setup():\n\t$Button.text = tr("BTN_START")\n',
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Reiner Translation-Key in Grossbuchstaben",
+            files={
+                "src/ui.gd": 'extends Control\nfunc setup():\n\t$Button.text = "BTN_START"\n',
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_hardcoded_ui_text(ctx: Context) -> CheckResult:
+    """Findet sichtbare UI-Texte, die als wörtliche Zeichenketten in .text oder
+    .placeholder_text zugewiesen werden, statt tr() oder Translation-Keys zu nutzen."""
+    title = "Sichtbarer Text fest im GDScript statt über tr() oder Translation-Key"
+    files = _gd(ctx)
+    if not files:
+        return unmeasured("godot.hardcoded_ui_text", title,
+                          "Keine GDScript-Dateien gefunden.", PLATFORM)
+
+    # Zuweisungen an UI-Text-Eigenschaften
+    ui_assign = re.compile(
+        r'\b(?:(?:\w+|\$|\$"\w+")\.)?(text|placeholder_text|tooltip_text)\s*=\s*(.+)'
+    )
+    # Reiner String-Literal: beginnt und endet mit Anführungszeichen
+    literal_str = re.compile(r'^"([^"\n]{2,})"$')
+    # Reiner Key: mindestens 3 Zeichen, nur Großbuchstaben, Ziffern und Unterstriche
+    is_translation_key = re.compile(r'^[A-Z0-9_]{3,}$')
+
+    findings: list[Finding] = []
+    measured = 0
+
+    for sf in files:
+        body = strip_comments(sf.text, sf.ext)
+        lines = body.splitlines()
+        for idx, line in enumerate(lines, start=1):
+            m = ui_assign.search(line)
+            if not m:
+                continue
+            measured += 1
+            prop_name = m.group(1)
+            rhs = m.group(2).strip()
+
+            str_match = literal_str.match(rhs)
+            if not str_match:
+                # Kein reines Literal (z. B. tr(...), Variable, Funktionsaufruf) -> sauber
+                continue
+
+            raw_text = str_match.group(1).strip()
+
+            # Translation-Key in Großbuchstaben (z. B. "BTN_START") ist in Godot legitim
+            if is_translation_key.match(raw_text):
+                continue
+
+            # Reine Format-Strings oder Zahlen ignorieren
+            if raw_text.startswith("%") or raw_text.isdigit():
+                continue
+
+            orig = sf.lines[idx - 1] if idx <= len(sf.lines) else line
+            findings.append(Finding(
+                check_id="godot.hardcoded_ui_text",
+                severity=Severity.WARNING,
+                message=f"Hardcoded Anzeigetext in .{prop_name}: \"{snippet(raw_text, 40)}\"",
+                file=sf.rel,
+                line=idx,
+                evidence=snippet(orig),
+                fix="Über tr(\"...\") lokalisieren oder als Translation-Key hinterlegen.",
+                guideline="CLAUDE.md § Grundsatz C (Katalogpflicht / i18n)",
+            ))
+
+    if measured == 0:
+        return unmeasured("godot.hardcoded_ui_text", title,
+                          "Keine Zuweisungen an UI-Text-Eigenschaften gefunden.", PLATFORM)
+    return result_for("godot.hardcoded_ui_text", title, findings, measured,
+                      "UI-Text-Zuweisungen", PLATFORM)

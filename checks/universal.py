@@ -429,7 +429,7 @@ def check_orphan_keys(ctx: Context) -> CheckResult:
     title = "Katalogschlüssel, die niemand aufruft (Karteileichen)"
     catalogs = [
         sf for sf in ctx.all_files()
-        if sf.ext in (".json", ".ts", ".js")
+        if sf.ext in (".json", ".ts", ".js", ".csv", ".po")
         and re.search(r"(^|/)(locales?|i18n|lang|translations?|strings)(/|\.|$)",
                       sf.rel, re.IGNORECASE)
     ]
