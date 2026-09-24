@@ -35,6 +35,8 @@ P06-T001 — stable finding fingerprint; P03-T007 performance budget follow-up.
 
 ## Evidence Log — 2026-09-24 (Umsetzung P00–P05)
 
+- [x] Python-Auth-Gate für Nicht-ASCII-`compare_digest` ergänzt; gebrochene/gesunde Proben, echte Fehlerstelle und gefixten Stand geprüft. Legacy-Golden-Vergleich bleibt auf ursprüngliche Check-IDs begrenzt.
+
 - License Apache-2.0 (ADR-0006), name Ruttla / `ruttla` (ADR-0001, PyPI name free at 404 check)
 - Golden projection of the original commit 71b2df4 on 14 pack fixture trees reproduced after every step
 - 90 checks / 206 probes unchanged; 99 tests; strict dogfood scan exit 0

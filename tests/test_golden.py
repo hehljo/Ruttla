@@ -8,7 +8,8 @@ pre-migration commit (71b2df4) on the fixture trees under
 The projection keeps only machine-relevant fields (exit code, verdict,
 detected platforms, per-check status and finding identity = check_id,
 severity, file, line). Wording may change; these fields may not change
-without an intentional, reviewed update of the golden file.
+without an intentional, reviewed update of the golden file. Only legacy
+check IDs run here, so additive checks do not rewrite the frozen baseline.
 
 Regenerate only on purpose:
     RUTTLA_UPDATE_GOLDEN=1 python -m unittest tests.test_golden
@@ -26,9 +27,11 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 FIXTURES = REPO / "tests" / "fixtures" / "packs"
 GOLDEN = REPO / "tests" / "golden" / "legacy_projection.json"
+LEGACY_IDS = (REPO / "tests" / "golden" / "check_ids.txt").read_text(encoding="utf-8").splitlines()
 
 
 def project(report: dict, exit_code: int) -> dict:
+    legacy_ids = set(LEGACY_IDS)
     results = sorted(
         (
             {
@@ -44,7 +47,7 @@ def project(report: dict, exit_code: int) -> dict:
                     for f in r["findings"]
                 ),
             }
-            for r in report["results"]
+            for r in report["results"] if r["check_id"] in legacy_ids
         ),
         key=lambda r: r["check_id"],
     )

@@ -196,6 +196,18 @@ arguments into one string, so free text with spaces needs explicit quoting.
 References: <https://ffmpeg.org/ffmpeg-filters.html#alimiter>,
 <https://learn.microsoft.com/powershell/module/microsoft.powershell.management/start-process>.
 
+<a id="python-authentication"></a>
+### Python authentication
+
+`hmac.compare_digest` and `secrets.compare_digest` only accept ASCII when
+passed `str` values. A Unicode password, including `ß`, raises `TypeError`.
+Compare UTF-8 bytes on both sides; do not accidentally replace the constant-time
+comparison with regular string equality. The check deliberately flags only
+password-like inputs and explicit non-ASCII literals: unrelated ASCII-only
+HMAC hex digests are legitimate. The heuristic is advisory because variable
+names alone cannot prove the accepted character set.
+Reference: <https://docs.python.org/3/library/hmac.html#hmac.compare_digest>.
+
 <a id="long-running-python-services"></a>
 ### Long-running Python services
 

@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-91 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+92 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 28 | 6 |
 | godot | 12 | 0 |
-| python | 5 | 0 |
+| python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 22 | 2 |
 | unreal | 6 | 0 |
@@ -2354,6 +2354,48 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 s = AsyncIOScheduler(timezone='Europe/Berlin', job_defaults={
     'misfire_grace_time': 600, 'coalesce': True, 'max_instances': 1})
 s.add_job(check, 'cron', minute='*/30')
+```
+
+</details>
+
+### `python.compare_digest_unicode_password`
+
+**Unicode-Passwörter können compare_digest(str, str) abstürzen lassen**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § Python authentication
+- Public rationale: [GUIDELINES.md › python-authentication](GUIDELINES.md#python-authentication)
+- Reference: <https://docs.python.org/3/library/hmac.html#hmac.compare_digest>
+
+<details><summary>Why it exists</summary>
+
+```text
+hmac.compare_digest and secrets.compare_digest reject non-ASCII str operands with TypeError. A password field can contain Unicode even when tests use only ASCII. This advisory check targets password-named arguments and explicit non-ASCII literals; names alone do not prove that Unicode is accepted, so it is not blocking by default.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Passwort-Strings aus Formular lösen TypeError aus</summary>
+
+`auth.py`
+
+```text
+import secrets
+def setup(password, confirmation):
+    return secrets.compare_digest(password, confirmation)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Beide Passwörter als UTF-8-Bytes sind sicher</summary>
+
+`auth.py`
+
+```text
+import secrets
+def setup(password, confirmation):
+    return secrets.compare_digest(password.encode('utf-8'), confirmation.encode('utf-8'))
 ```
 
 </details>

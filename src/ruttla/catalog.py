@@ -78,6 +78,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Offline audio/video pipelines: limiter, TTS duration, mux verification, argument quoting."),
     ("GUIDELINES.md § Python services", "long-running-python-services",
      "Long-running Python services: scheduler misfires, token logging, data gaps, retries."),
+    ("GUIDELINES.md § Python authentication", "python-authentication",
+     "Password comparisons must handle non-ASCII Unicode without runtime errors."),
     ("GUIDELINES.md § Documentation", "documentation-that-can-be-executed",
      "Docs snippets must be copy-paste safe and diff-clean."),
 ]

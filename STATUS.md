@@ -13,6 +13,7 @@ P05 abgeschlossen (P00–P05 umgesetzt). P06 aktiv; Repository ist seit 2026-09-
 - LESSONS_LEARNED.md
 - `web.empty_catch_block`: advisory Check für leere JS/TS-catch-Blöcke, mit broken/healthy Proben und False-Positive-Hinweis
 - `ruttla update`: explizites pip-Update von GitHub `main`; normale Scans bleiben offline
+- `python.compare_digest_unicode_password`: echte Unicode-Passwort-Fehlerstelle erkannt, UTF-8-kodierten Fix unbeanstandet; Golden-Baseline berücksichtigt weiter nur historische Checks
 
 ## Next Unblocked Task
 - P06-T001 Finding-Fingerprint (Basis `ruttla/v1` in SARIF existiert)
@@ -25,7 +26,7 @@ P05 abgeschlossen (P00–P05 umgesetzt). P06 aktiv; Repository ist seit 2026-09-
 
 ## Validation State
 - unit/contract/golden/fuzz: 107 Tests grün (lokal)
-- self-test: 208/208 Proben, 91/91 Checks beide Richtungen
+- self-test: 216/216 Proben, 92/92 Checks beide Richtungen
 - self-scan strict: Exit 0
 - coverage: 87 % gesamt (Kern 86 %), CI-Floor 86 %
 - wheel/sdist: gebaut, frische Installation getestet
