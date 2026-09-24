@@ -26,7 +26,7 @@ import re
 import urllib.parse
 import xml.etree.ElementTree as ET
 
-from ruttla.core import Context, DEFAULT_EXCLUDE_DIRS, SkippedFile
+from ruttla.core import Context, DEFAULT_EXCLUDE_DIRS, SkippedFile, to_posix
 
 
 PLATFORM = "apple"
@@ -98,7 +98,7 @@ def _walk_files(ctx: Context) -> list[tuple[str, str]]:
         dirnames[:] = [d for d in dirnames if d not in excluded_dirs]
         for name in filenames:
             path = os.path.join(dirpath, name)
-            rel = os.path.relpath(path, ctx.root)
+            rel = to_posix(os.path.relpath(path, ctx.root))
             if any(fnmatch.fnmatch(rel, pattern)
                    for pattern in ctx.config.exclude_globs):
                 continue
@@ -108,10 +108,9 @@ def _walk_files(ctx: Context) -> list[tuple[str, str]]:
                 continue
             if size > ctx.config.max_file_bytes:
                 # Visible like every other size skip (P02-T008), never silent.
-                posix = rel.replace(os.sep, "/")
                 skipped = ctx.coverage().skipped
-                if not any(item.rel == posix for item in skipped):
-                    skipped.append(SkippedFile(posix, "max_file_bytes", size))
+                if not any(item.rel == rel for item in skipped):
+                    skipped.append(SkippedFile(rel, "max_file_bytes", size))
                 continue
             found.append((path, rel))
     return found
@@ -126,7 +125,7 @@ def _project_dirs(ctx: Context) -> list[str]:
             if not dirname.endswith(".xcodeproj"):
                 continue
             path = os.path.join(dirpath, dirname)
-            rel = os.path.relpath(path, ctx.root)
+            rel = to_posix(os.path.relpath(path, ctx.root))
             if not any(fnmatch.fnmatch(rel, pattern)
                        for pattern in ctx.config.exclude_globs):
                 projects.add(path)
@@ -504,7 +503,7 @@ def _app_target_projects(ctx: Context) -> list[tuple[str, str, list[dict]]]:
         text = _read_project(project)
         if text is None:
             continue
-        rel = os.path.relpath(os.path.join(project, "project.pbxproj"), ctx.root)
+        rel = to_posix(os.path.relpath(os.path.join(project, "project.pbxproj"), ctx.root))
         configs = _application_configurations(text)
         macos = _builds_for_macos(text)
         for config in configs:
@@ -651,7 +650,7 @@ def _plist_for_configuration(ctx: Context, project: str, config: dict) -> tuple[
     path = os.path.normpath(os.path.join(base, raw))
     if not os.path.isfile(path):
         return None
-    return path, os.path.relpath(path, ctx.root)
+    return path, to_posix(os.path.relpath(path, ctx.root))
 
 
 def _read_plist(path: str) -> dict | None:

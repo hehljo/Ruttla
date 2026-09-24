@@ -88,8 +88,30 @@ class SarifStructureTests(unittest.TestCase):
         a = {"check_id": "x.y", "file": "a.py", "line": 3, "evidence": "foo  bar"}
         b = {"check_id": "x.y", "file": "a.py", "line": 30, "evidence": "foo bar"}
         c = {"check_id": "x.y", "file": "b.py", "line": 3, "evidence": "foo bar"}
+        d = {"check_id": "x.y", "file": "a\\b.py", "line": 3, "evidence": "foo bar"}
+        e = {"check_id": "x.y", "file": "a/b.py", "line": 3, "evidence": "foo bar"}
         self.assertEqual(fingerprint(a), fingerprint(b))
         self.assertNotEqual(fingerprint(a), fingerprint(c))
+        self.assertEqual(fingerprint(d), fingerprint(e))
+
+    def test_sarif_normalizes_windows_backslashes(self) -> None:
+        report = {
+            "schema_version": "1.1", "tool_version": "0", "verdict": "failed", "exit_code": 1,
+            "checks": {}, "profile": None,
+            "coverage": {"files_skipped": [{"file": "deep\\nested\\huge.bin", "reason": "max_file_bytes", "bytes": 999999}]},
+            "results": [{
+                "check_id": "web.legal_pages_missing", "status": "fail", "reason": None,
+                "findings": [{"check_id": "web.legal_pages_missing", "severity": "error",
+                              "message": "fehlt", "file": "src\\views\\Page.tsx", "line": 10,
+                              "evidence": None, "fix": None, "blocking": True}],
+            }],
+        }
+        rules = {"web.legal_pages_missing": {"title": "Legal", "default_severity": "error", "pack": "web"}}
+        doc = build_sarif(report, rules, ["src/views/Page.tsx"])
+        result = doc["runs"][0]["results"][0]
+        self.assertEqual(result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"], "src/views/Page.tsx")
+        notif = doc["runs"][0]["invocations"][0]["toolExecutionNotifications"]
+        self.assertTrue(any("deep/nested/huge.bin" in n["message"]["text"] for n in notif))
 
     def test_sarif_file_option_writes_alongside_text(self) -> None:
         with make_tree({"a.ts": 'const t = "ghp_' + "a" * 36 + '";\n'}) as tmp:

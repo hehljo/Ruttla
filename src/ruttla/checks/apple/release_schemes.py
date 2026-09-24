@@ -20,6 +20,7 @@ from ruttla.core import (
     SelfTestCase,
     Severity,
     Status,
+    to_posix,
     unmeasured,
 )
 
@@ -73,7 +74,7 @@ def check_shared_scheme_present(ctx: Context) -> CheckResult:
         check_id="apple.release.shared_scheme_present",
         severity=Severity.WARNING,
         message="Kein Scheme unter xcshareddata/xcschemes eingecheckt.",
-        file=os.path.relpath(projects[0], ctx.root),
+        file=to_posix(os.path.relpath(projects[0], ctx.root)),
         fix="Das Release-Scheme in Xcode als Shared markieren und einchecken.",
         guideline="IOS_DEBUGGING_GUIDELINES.md § Buildort & Toolchain",
     )

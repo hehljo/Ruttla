@@ -18,6 +18,7 @@ from ruttla.core import (
     SelfTestCase,
     Severity,
     Status,
+    to_posix,
     unmeasured,
 )
 
@@ -383,7 +384,7 @@ def check_app_sandbox(ctx: Context) -> CheckResult:
                 ))
                 examined += 1
                 continue
-            entitlements_rel = os.path.relpath(path, ctx.root)
+            entitlements_rel = to_posix(os.path.relpath(path, ctx.root))
             if entitlements_rel in seen:
                 continue
             seen.add(entitlements_rel)

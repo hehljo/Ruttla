@@ -17,7 +17,7 @@ from ruttla.config import Config
 from ruttla.context import Context
 from ruttla.discovery import strip_comments
 from ruttla.engine import selector_matches
-from ruttla.models import ConfigError
+from ruttla.models import ConfigError, Finding, Severity
 from ruttla.reporting.agent import agent_field
 
 ROUNDS = int(os.environ.get("RUTTLA_FUZZ_ROUNDS", "400"))
@@ -107,6 +107,10 @@ class PathRobustness(unittest.TestCase):
             second = [f.rel for f in Context(tmp, Config()).all_files()]
         self.assertEqual(first, second)
         self.assertEqual(first, sorted(first, key=lambda r: (r.split("/")[0], r)))
+
+    def test_finding_normalizes_windows_backslashes(self) -> None:
+        f = Finding(check_id="x.y", severity=Severity.WARNING, message="msg", file="src\\sub\\file.py")
+        self.assertEqual(f.file, "src/sub/file.py")
 
 
 if __name__ == "__main__":

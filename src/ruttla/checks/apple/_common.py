@@ -23,7 +23,7 @@ from __future__ import annotations
 import os
 import re
 
-from ruttla.core import Context
+from ruttla.core import Context, to_posix
 
 
 PLATFORM = "apple"
@@ -49,7 +49,7 @@ def _pbx_text(ctx: Context) -> tuple[str, str] | None:
         return None
     try:
         with open(pbx, "r", encoding="utf-8", errors="replace") as fh:
-            return fh.read(), os.path.relpath(pbx, ctx.root)
+            return fh.read(), to_posix(os.path.relpath(pbx, ctx.root))
     except OSError:
         return None
 

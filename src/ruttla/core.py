@@ -23,6 +23,7 @@ from .discovery import (
     inventory,
     is_rule_definition_file,
     strip_comments,
+    to_posix,
 )
 from .models import (
     SCHEMA_VERSION,
@@ -56,5 +57,5 @@ __all__ = [
     "ConfigError", "Context", "Coverage", "Finding", "GateInputError",
     "SelfTestCase", "Severity", "SkippedFile", "SourceFile", "Status", "failed",
     "find_profile", "inventory", "is_rule_definition_file", "iter_matches", "ok",
-    "register", "result_for", "snippet", "strip_comments", "unmeasured",
+    "register", "result_for", "snippet", "strip_comments", "to_posix", "unmeasured",
 ]

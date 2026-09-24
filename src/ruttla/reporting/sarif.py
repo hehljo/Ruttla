@@ -31,7 +31,8 @@ def fingerprint(finding: dict) -> str:
     """Stable identity of a finding that survives line moves (P06 prepares
     baselines on top of this): rule, file and the normalised evidence."""
     evidence = " ".join(str(finding.get("evidence") or finding.get("message") or "").split())
-    raw = "\x1f".join((finding["check_id"], finding.get("file") or "", evidence))
+    file_norm = (finding.get("file") or "").replace("\\", "/")
+    raw = "\x1f".join((finding["check_id"], file_norm, evidence))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
@@ -106,7 +107,8 @@ def build_sarif(report: dict, rules: dict[str, dict], scanned_files: list[str]) 
             if f.get("fix"):
                 text += f" Fix: {f['fix']}"
             project_level = not f.get("file")
-            location = {"artifactLocation": {"uri": f.get("file") or anchor,
+            uri = (f.get("file") or anchor).replace("\\", "/")
+            location = {"artifactLocation": {"uri": uri,
                                              "uriBaseId": "%SRCROOT%"}}
             if f.get("line") and not project_level:
                 location["region"] = {"startLine": int(f["line"])}
@@ -122,10 +124,11 @@ def build_sarif(report: dict, rules: dict[str, dict], scanned_files: list[str]) 
             }
             results.append(result)
     for skipped in report.get("coverage", {}).get("files_skipped", []):
+        skipped_file = skipped["file"].replace("\\", "/")
         notifications.append({
             "level": "warning",
             "message": {"text": f"not scanned ({skipped['reason']}, "
-                                f"{skipped['bytes']} bytes): {skipped['file']}"},
+                                f"{skipped['bytes']} bytes): {skipped_file}"},
         })
 
     return {

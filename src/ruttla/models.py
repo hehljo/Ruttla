@@ -65,6 +65,10 @@ class Finding:
     # code (True) or is it advisory (False)? None = not evaluated yet.
     blocking: bool | None = None
 
+    def __post_init__(self) -> None:
+        if self.file is not None and "\\" in self.file:
+            self.file = self.file.replace("\\", "/")
+
     def to_dict(self) -> dict:
         d = asdict(self)
         d["severity"] = self.severity.value
