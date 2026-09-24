@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ruttla"
 dynamic = ["version"]
-description = "Local, deterministic quality gate that turns real failures into self-tested checks — no LLM, no network, target code never executed."
+description = "Local, deterministic quality gate that turns real failures into self-tested checks — offline scans, target code never executed."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"

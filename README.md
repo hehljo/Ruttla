@@ -23,8 +23,8 @@ Ruttla is a **local, deterministic quality gate**: executable engineering
 memory for failures that normal linters miss. A real failure happens → its
 cause is proven → a deterministic rule is written → a broken **and** a healthy
 probe must both behave → from then on the failure costs no debugging or
-agent tokens. No LLM, no network, no telemetry; the scanned code is read,
-never executed.
+agent tokens. Scanning uses no LLM, network, or telemetry; target code is read,
+never executed. Network access happens only when explicitly running `ruttla update`.
 
 > Status: 0.1.0.dev0, public preview. German version: [README.de.md](README.de.md).
 
@@ -33,7 +33,7 @@ never executed.
 Coding agents (Claude Code, Cursor, OpenAI Codex, GitHub Copilot, Aider, Windsurf) waste thousands of tokens looping on subtle bugs and linters' blind spots. Ruttla provides:
 
 - **Token-dense output (`--format agent`)**: One line per finding with `file`, `line`, `severity`, and an exact, non-hallucinated fix instruction (`FIX: ...`).
-- **Zero token burn**: 100% offline, deterministic execution in milliseconds without network calls or LLM queries.
+- **Zero token burn**: Scans are offline and deterministic; no network calls or LLM queries unless you explicitly run `ruttla update`.
 - **Strict exit contracts**: Differentiates between clean (`0`), blocking findings (`1`), unmeasured scopes (`2`), and runner errors (`3`). Never confuses "nothing checked" with success.
 
 ## 30-second start
@@ -51,6 +51,12 @@ ruttla --self-test                     # shake the gates themselves
 ```
 
 From a checkout without installing: `python3 master_gate.py …` (identical).
+
+## Updating
+
+Run `ruttla update` to install the current GitHub `main` version into the active Python environment. This explicit command uses pip and requires network access; ordinary scans remain offline. It does not pull or modify a source checkout.
+
+For an editable clone (`pip install -e .`), update the checkout with `git pull` instead.
 
 ## Exit codes
 

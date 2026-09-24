@@ -30,7 +30,7 @@ Sekunden. Gedacht als Schritt **nach jedem Arbeitsblock**, in jeder CLI.
 Coding-Agents (Claude Code, Cursor, OpenAI Codex, GitHub Copilot, Aider, Windsurf) verbrennen tausende Token in Korrekturschleifen, wenn sie auf subtile Fallen stoßen. Ruttla liefert:
 
 - **Token-dichte Agent-Ausgabe (`--format agent`)**: Genau eine tabgetrennte Zeile je Befund mit Datei, Zeile, Schweregrad und einem fertigen, belegten Fix (`FIX: ...`).
-- **Null Token-Verbrauch**: Läuft komplett offline und deterministisch in Millisekunden.
+- **Null Token-Verbrauch**: Scans laufen offline und deterministisch; Netz gibt’s nur beim ausdrücklich gestarteten `ruttla update`.
 - **Echte CLI-Verträge**: Unterscheidet glasklar zwischen fehlerfrei (`0`), blockierenden Fehlern (`1`), ungemessenen Checks (`2`) und Laufzeitfehlern (`3`). Kein falsches Grün bei fehlenden Tests.
 
 ## 🔴 Fehler kommt herein → Check bauen, nicht Code fixen
@@ -62,6 +62,12 @@ Lokal im geklonten Repository:
 ```bash
 python -m pip install -e .
 ```
+
+## Update
+
+`ruttla update` installiert den aktuellen GitHub-Stand von `main` in die aktive Python-Umgebung. Der ausdrücklich gestartete Befehl nutzt pip und braucht Netz; normale Scans bleiben offline. Ein lokaler Quellcode-Klon wird dabei nicht verändert.
+
+Bei einer editierbaren Installation (`pip install -e .`) stattdessen den Klon mit `git pull` aktualisieren.
 
 ## Aufruf
 

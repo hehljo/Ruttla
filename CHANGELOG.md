@@ -6,6 +6,7 @@ when added, changed or deprecated.
 ## [Unreleased] — 0.1.0 (public preview)
 
 ### Added
+- Explicit `ruttla update` command installs the current GitHub `main` revision in the active Python environment through pip; scans stay offline and source checkouts are not pulled or modified.
 - `web.empty_catch_block`: detects empty JavaScript/TypeScript catch blocks that silently discard exceptions; advisory only because intentional best-effort catches can be valid.
 - Package `ruttla` (console script, `python -m ruttla`); `master_gate.py` and `core.py` remain as shims.
 - `--version`, `--explain ID`, `--list --format json|markdown`, `--format sarif`, `--sarif FILE`.

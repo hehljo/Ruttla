@@ -105,7 +105,8 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
     ap = RunnerArgumentParser(
         prog=prog,
         description="Ruttla — lokales, deterministisches Quality Gate. "
-                    "Kein LLM, kein Netz, Zielcode wird nie ausgeführt.",
+                    "Scans sind offline; nur `ruttla update` greift aufs Netz zu. "
+                    "Zielcode wird nie ausgeführt.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Exit: 0 grün · 1 blockierende Befunde · 2 nicht gemessen · 3 Absturz/Fehlbedienung",
     )
@@ -140,7 +141,13 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
 
 
 def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
-    args = build_parser(prog).parse_args(sys.argv[1:] if argv is None else argv)
+    raw_argv = sys.argv[1:] if argv is None else argv
+    if raw_argv and raw_argv[0] == "update":
+        from .update import run_update
+
+        return run_update(raw_argv[1:], prog=prog)
+
+    args = build_parser(prog).parse_args(raw_argv)
 
     if args.version:
         print(f"ruttla {__version__} (report schema {SCHEMA_VERSION})")

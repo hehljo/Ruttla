@@ -8,7 +8,7 @@ stable ID + `introduced_in` / lifecycle.
 |---|---|---|
 | Exit codes | 0 measured & no blocking finding · 1 blocking finding · 2 nothing measured · 3 runner/input/config/plugin error | major |
 | Check IDs | stable, `<namespace>.<rule>`; frozen list `tests/golden/check_ids.txt` | deprecation cycle, major for removal |
-| CLI flags | `--format text|agent|json|sarif`, `--json`, `--sarif`, `--platform`, `--check`, `--config`, `--strict`, `--changed-only`, `--max-findings`, `--list`, `--explain`, `--self-test`, `--version` | major |
+| CLI flags | `--format text|agent|json|sarif`, `--json`, `--sarif`, `--platform`, `--check`, `--config`, `--strict`, `--changed-only`, `--max-findings`, `--list`, `--explain`, `--self-test`, `--version`, `update` | major |
 | Profile | `.ruttla.toml` (alias `.qualitygate.toml`), unknown keys are errors | config_version bump |
 | JSON report | `schemas/report.schema.json`, `schema_version` 1.1; consumers ignore unknown fields; `tool` stays `master_quality_gate` for 1.x, `tool_name` = `ruttla` | schema major |
 | Agent format | tab-separated; new header keys and trailing fields are only appended; every field is one line | schema major |
