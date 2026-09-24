@@ -1,0 +1,25 @@
+// !$*UTF8*$!
+{
+objects = {
+        AAA111 /* SampleMac */ = {
+                isa = PBXNativeTarget;
+                buildConfigurationList = LLL111 /* Build configuration list */;
+                name = SampleMac;
+                productType = "com.apple.product-type.application";
+        };
+        LLL111 /* Build configuration list */ = {
+                isa = XCConfigurationList;
+                buildConfigurations = (
+                        CCC111 /* Release */,
+                );
+        };
+        CCC111 /* Release */ = {
+                isa = XCBuildConfiguration;
+                buildSettings = {
+					DEVELOPMENT_TEAM = ABCDE12345;
+					PRODUCT_BUNDLE_IDENTIFIER = com.example.App;
+                };
+                name = Release;
+        };
+};
+}

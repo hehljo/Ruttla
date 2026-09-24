@@ -1,0 +1,21 @@
+// !$*UTF8*$!
+objects = {
+/* Begin PBXNativeTarget section */
+AAA111 /* App */ = {
+    isa = PBXNativeTarget;
+    name = App;
+};
+/* End PBXNativeTarget section */
+/* Begin XCBuildConfiguration section */
+BBB111 /* Debug */ = {
+    isa = XCBuildConfiguration;
+    buildSettings = {};
+    name = Debug;
+};
+BBB222 /* Release */ = {
+    isa = XCBuildConfiguration;
+    buildSettings = {};
+    name = Release;
+};
+/* End XCBuildConfiguration section */
+};

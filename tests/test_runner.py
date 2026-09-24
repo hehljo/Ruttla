@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import io
-import json
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -32,6 +30,14 @@ from core import (
     Severity,
     Status,
 )
+
+
+def symlink_or_skip(test: unittest.TestCase, link: Path, target: Path) -> None:
+    """Windows without developer mode cannot create symlinks."""
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError) as exc:
+        test.skipTest(f"symlinks unavailable: {exc}")
 
 
 class ConfigTests(unittest.TestCase):
@@ -87,12 +93,12 @@ class ConfigTests(unittest.TestCase):
     def test_project_metadata_and_singular_brand_source_are_supported(self) -> None:
         cfg = self.load_text(textwrap.dedent("""
             [project]
-            name = "Henga"
+            name = "SampleApp"
             platform = "apple"
             [brand]
             source = "Sources/Core/AppConfig.swift:brandName"
         """))
-        self.assertEqual(cfg.brand_names, ["Henga"])
+        self.assertEqual(cfg.brand_names, ["SampleApp"])
         self.assertEqual(cfg.brand_source_globs, ["Sources/Core/AppConfig.swift"])
 
     def test_unknown_table_is_rejected_during_load(self) -> None:
@@ -115,7 +121,7 @@ class InputAndGitTests(unittest.TestCase):
 
     def test_dangling_input_is_not_silently_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            Path(tmp, "broken.py").symlink_to(Path(tmp, "missing.py"))
+            symlink_or_skip(self, Path(tmp, "broken.py"), Path(tmp, "missing.py"))
             with self.assertRaises(GateInputError):
                 Context(tmp, Config()).all_files()
 
@@ -125,7 +131,7 @@ class InputAndGitTests(unittest.TestCase):
             root.mkdir()
             outside = Path(parent, "outside.py")
             outside.write_text("secret = 1\n", encoding="utf-8")
-            Path(root, "linked.py").symlink_to(outside)
+            symlink_or_skip(self, Path(root, "linked.py"), outside)
             with self.assertRaises(GateInputError):
                 Context(str(root), Config()).all_files()
 
@@ -360,6 +366,7 @@ class CliContractTests(unittest.TestCase):
             [sys.executable, str(REPO / "master_gate.py"), *args],
             cwd=cwd,
             text=True,
+            encoding="utf-8",
             capture_output=True,
             timeout=60,
         )
@@ -398,7 +405,7 @@ class CliContractTests(unittest.TestCase):
 
     def test_unreadable_input_uses_exit_three(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            Path(tmp, "broken.py").symlink_to(Path(tmp, "missing.py"))
+            symlink_or_skip(self, Path(tmp, "broken.py"), Path(tmp, "missing.py"))
             result = self.run_cli(tmp, "--format", "agent")
         self.assertEqual(result.returncode, master_gate.EXIT_CRASH)
         self.assertIn("RUNNER_ERROR\tinput_unreadable", result.stdout)

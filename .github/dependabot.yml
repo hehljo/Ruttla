@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Actions are referenced by major tag; Dependabot proposes updates as
+  # reviewable PRs (docs/SECURITY_DESIGN.md, R-013).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [ci]

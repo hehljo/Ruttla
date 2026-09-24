@@ -1,0 +1,3 @@
+TargetAttributes = {};
+DEVELOPMENT_TEAM = ABC;
+{ path = Localizable.xcstrings; lastKnownFileType = text.plist; };

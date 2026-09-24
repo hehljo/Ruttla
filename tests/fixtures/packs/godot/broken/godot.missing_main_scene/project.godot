@@ -1,0 +1,3 @@
+[application]
+config/name="Test"
+run/main_scene="res://scenes/missing.tscn"

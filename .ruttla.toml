@@ -1,0 +1,7 @@
+# Ruttla's own profile (dogfood run in CI: `ruttla . --strict`).
+config_version = 1
+
+[gate]
+# Fixture trees are deliberately broken test data (tests/test_golden.py).
+# scripts/benchmark.py plants findings into its synthetic corpus on purpose.
+exclude = ["tests/fixtures/**", "scripts/benchmark.py"]

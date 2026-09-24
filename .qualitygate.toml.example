@@ -5,7 +5,7 @@
 strict = false
 
 # exclude: Glob auf den RELATIVEN PFAD. Pfade mit Leerzeichen brauchen nichts
-# Besonderes — "extracted/**" fängt auch "extracted/dm Foto/web/index.html".
+# Besonderes — "extracted/**" fängt auch "extracted/Some Vendor/web/index.html".
 # Hier gehört entpacktes Fremdmaterial hinein: es ist nicht dein Code, und ein
 # Check, der tausendfach darüber meldet, deckt die echten Befunde zu.
 # .gitignore wird bewusst NICHT gelesen — "nicht versioniert" und "nicht

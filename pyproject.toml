@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ruttla"
+dynamic = ["version"]
+description = "Local, deterministic quality gate that turns real failures into self-tested checks — no LLM, no network, target code never executed."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "hehljo" }]
+keywords = ["quality-gate", "static-analysis", "linter", "sarif", "ci", "coding-agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+# Runtime is standard-library only (ADR-0002). Keep this list empty.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2",
+    "coverage>=7.6",
+    "jsonschema>=4.23",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+ruttla = "ruttla.cli:entry"
+
+[tool.hatch.version]
+path = "src/ruttla/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ruttla"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/ruttla",
+    "tests",
+    "schemas",
+    "docs",
+    "scripts/gen_rule_docs.py",
+    "master_gate.py",
+    "core.py",
+    "README.md",
+    "README.de.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = ["tests/fixtures"]
+
+[tool.ruff.lint]
+# Correctness only for now; style rules are adopted per module later.
+select = ["E9", "F63", "F7", "F82", "F401", "F811", "F841"]
+
+[tool.coverage.run]
+branch = true
+source = ["ruttla"]
+parallel = true
+# CLI tests run `python -m ruttla` in subprocesses; measure those too.
+patch = ["subprocess"]
+
+[tool.coverage.paths]
+source = ["src/ruttla", "*/site-packages/ruttla"]
+
+[tool.coverage.report]
+show_missing = false
+skip_covered = true
