@@ -1,15 +1,21 @@
+<p align="center">
+  <img src="docs/icon/logo.svg" alt="Ruttla Logo" width="140">
+</p>
+
 # Ruttla
 
-**Ruttla** comes from the German *rütteln* — "to shake".
+**Ruttla** comes from the German *rütteln* ("to shake") — and the woodpecker metaphor.
 
-A normal linter looks at your code. Ruttla shakes it.
+A normal linter looks at the bark. Ruttla behaves like a woodpecker tapping
+against the trunk: it knocks firmly against the code structure until hidden
+hollows, bugs and brittle spots become audible — shaking out flaws that passive
+reading never catches.
+
+*Code → Structure → Ruttla taps → Weak spots resonate.*
 
 It doesn't just check whether a rule turns green — it actively tries to make
 every rule fail with a counter-probe. And when nothing was measured, Ruttla
-doesn't simply claim that everything is fine.
-
-*Ruttla — because production code shouldn't just be checked, it should be
-properly shaken.*
+never claims that everything is fine.
 
 ---
 
@@ -25,7 +31,7 @@ never executed.
 ## 30-second start
 
 ```bash
-python -m pip install "ruttla @ git+https://github.com/OWNER/REPO@COMMIT_SHA"  # until PyPI
+python -m pip install "ruttla @ git+https://github.com/hehljo/Ruttla@main"  # until PyPI
 ruttla path/to/project                 # human-readable report
 ruttla . --format agent                # one line per finding, for scripts and agents
 ruttla . --format json                 # full report (schemas/report.schema.json)

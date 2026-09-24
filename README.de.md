@@ -1,16 +1,25 @@
+<p align="center">
+  <img src="docs/icon/logo.svg" alt="Ruttla Logo" width="140">
+</p>
+
 # Ruttla — deutsche Dokumentation
 
 > Englische Hauptdokumentation: [README.md](README.md). Verträge (Exit-Codes,
 > JSON, SARIF) sind in [docs/CONTRACTS.md](docs/CONTRACTS.md) verbindlich.
 > `python3 master_gate.py` ist identisch mit dem Befehl `ruttla`.
 
-**Ruttla** kommt von „rütteln“. Ein normaler Linter schaut deinen Code an.
-Ruttla rüttelt dran. Es prüft nicht nur, ob eine Regel grün wird, sondern
-versucht aktiv, sie mit einer Gegenprobe zum Scheitern zu bringen. Wenn
-nichts gemessen wurde, behauptet Ruttla auch nicht einfach, alles sei okay.
+**Ruttla** kommt von „rütteln“ — und der Specht-Metapher:
 
-*Ruttla – weil Produktionscode nicht nur geprüft, sondern ordentlich
-durchgerüttelt werden sollte.*
+Normale Linter schauen nur oberflächlich auf die Rinde. Ruttla macht es wie der
+Specht am Baum: Gezielt an die Struktur klopfen, bis hohle Stellen, Schädlinge
+und Schwachstellen hörbar werden — und Probleme wachrütteln, die beim reinen
+Lesen unbemerkt bleiben.
+
+*Code → Baum/Struktur → Ruttla klopft dagegen → Schwachstellen werden hörbar.*
+
+Es prüft nicht nur, ob eine Regel grün wird, sondern versucht aktiv, sie mit
+einer Gegenprobe zum Scheitern zu bringen. Wenn nichts gemessen wurde, behauptet
+Ruttla auch nicht einfach, alles sei in Ordnung.
 
 Universelles, **tokenfreies** Quality Gate. Prüft ein Projekt lokal gegen die
 destillierten Architektur- und Qualitätsregeln — ohne LLM, ohne Netz, in
@@ -35,19 +44,34 @@ Eine Regel ohne Gate ist nur ein Vorsatz. Die Guidelines standen als Text da
 und verhinderten trotzdem nichts, weil Text zum Lesen kein Schritt zum
 Durchlaufen ist. Dieses Paket macht die maschinell prüfbaren davon ausführbar.
 
+## Installation
+
+```bash
+python -m pip install "ruttla @ git+https://github.com/hehljo/Ruttla@main"
+```
+
+Lokal im geklonten Repository:
+```bash
+python -m pip install -e .
+```
+
 ## Aufruf
 
 ```bash
-python3 master_gate.py /pfad/zum/projekt              # Textbericht
-python3 master_gate.py . --format agent               # eine Zeile je Befund
-python3 master_gate.py . --format json                # vollständiger Report
-python3 master_gate.py . --json report.json           # Report in eine Datei
-python3 master_gate.py . --changed-only HEAD~1        # nur Geändertes
-python3 master_gate.py . --platform apple             # nur eine Plattform
-python3 master_gate.py . --check 'secrets.*'          # nur diese Checks
-python3 master_gate.py --list                         # alle Checks zeigen
-python3 master_gate.py --self-test                    # Sabotage-Gegenprobe
+ruttla /pfad/zum/projekt                              # Textbericht
+ruttla . --format agent                               # eine Zeile je Befund (für KIs/Scripts)
+ruttla . --format json                                # vollständiger Report
+ruttla . --json report.json                           # Report in eine Datei
+ruttla . --sarif ruttla.sarif                         # SARIF 2.1.0 für CI
+ruttla . --changed-only origin/main                   # nur Geändertes
+ruttla . --platform apple                             # nur eine Plattform
+ruttla . --check 'secrets.*'                          # nur diese Checks
+ruttla --list                                         # alle Checks zeigen
+ruttla --explain <rule_id>                            # Doku & Begründung der Regel
+ruttla --self-test                                    # Sabotage-Gegenprobe
 ```
+
+Ohne Installation direkt aus dem Checkout: `python3 master_gate.py …` (identisch).
 
 ## Exit-Codes — der Vertrag mit der aufrufenden CLI
 

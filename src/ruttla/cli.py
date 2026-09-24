@@ -124,8 +124,8 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
     ap.add_argument("--config", help="Pfad zu einem Profil (.ruttla.toml)")
     ap.add_argument("--strict", action="store_true",
                     help="jeder FAIL blockiert, auch ohne Profil")
-    ap.add_argument("--changed-only", metavar="REF",
-                    help="nur Dateien, die sich gegen REF geändert haben")
+    ap.add_argument("--changed-only", nargs="?", const="HEAD", default=None, metavar="REF",
+                    help="nur Dateien, die sich gegen REF geändert haben (Vorgabe: HEAD)")
     ap.add_argument("--max-findings", type=int, default=20,
                     help="Befunde je Check (Vorgabe 20)")
     ap.add_argument("--list", action="store_true", help="Checks auflisten")

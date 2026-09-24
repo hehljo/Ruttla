@@ -34,7 +34,14 @@ DENY = {
 }
 # The maintainer handle is legitimate where ownership is stated.
 OWNER = "2c8df694b0532f1c1771e549"
-OWNER_ALLOWED = {"NOTICE", ".github/CODEOWNERS", "pyproject.toml"}
+OWNER_ALLOWED = {
+    "NOTICE",
+    ".github/CODEOWNERS",
+    "pyproject.toml",
+    "README.md",
+    "README.de.md",
+    "docs/integrations/github-actions.md",
+}
 
 SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "build", "dist", ".ruff_cache"}
 TOKEN = re.compile(r"[a-z0-9]+")

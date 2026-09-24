@@ -29,9 +29,9 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install Ruttla
-        # Pin an exact commit until 0.1.0 is on PyPI. Never install an
+        # Pin an exact commit or @main until 0.1.0 is on PyPI. Never install an
         # unpublished name from PyPI: anyone could register it first.
-        run: python -m pip install "ruttla @ git+https://github.com/OWNER/REPO@COMMIT_SHA"
+        run: python -m pip install "ruttla @ git+https://github.com/hehljo/Ruttla@main"
       - name: Scan
         shell: bash
         run: |

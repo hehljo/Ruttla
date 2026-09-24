@@ -440,6 +440,19 @@ class CliContractTests(unittest.TestCase):
         self.assertEqual(result.returncode, master_gate.EXIT_CRASH)
         self.assertIn("RUNNER_ERROR\tchanged_only_failed", result.stdout)
 
+    def test_changed_only_defaults_to_head_when_arg_omitted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            subprocess.run(["git", "-C", tmp, "init", "-q"], check=True)
+            subprocess.run(["git", "-C", tmp, "config", "user.email", "test@example.invalid"], check=True)
+            subprocess.run(["git", "-C", tmp, "config", "user.name", "Test"], check=True)
+            (repo / "a.py").write_text("x = 1\n", encoding="utf-8")
+            subprocess.run(["git", "-C", tmp, "add", "."], check=True)
+            subprocess.run(["git", "-C", tmp, "commit", "-qm", "initial"], check=True)
+            result = self.run_cli(tmp, "--changed-only", "--format", "agent")
+        self.assertEqual(result.returncode, master_gate.EXIT_UNMEASURED)
+        self.assertIn("RUNNER_UNMEASURED\tchanged_only_empty", result.stdout)
+
     def test_soft_warning_remains_exit_zero_without_strict(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "gate.ts").write_text(
