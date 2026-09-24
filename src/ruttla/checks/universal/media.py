@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Statische Checks für lokale Audio-/Video-Pipelines.
 
 Belegte Fehlerbilder aus einer realen Offline-Synchronpipeline:
@@ -22,7 +21,7 @@ from __future__ import annotations
 
 import re
 
-from core import (
+from ruttla.core import (
     CheckResult,
     Context,
     Finding,
@@ -39,7 +38,7 @@ from core import (
 MEDIA_SOURCE_EXTS = (
     ".py", ".ps1", ".sh", ".bash", ".zsh", ".ts", ".tsx", ".js", ".mjs",
 )
-GUIDELINE = "qualitygate/README.md § Medien-Pipelines"
+GUIDELINE = "GUIDELINES.md § Media pipelines"
 
 
 def _sources(ctx: Context):

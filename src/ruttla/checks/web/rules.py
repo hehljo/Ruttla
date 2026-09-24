@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Web-Checks aus CODE_QUALITY_GUIDELINES_WEB.md.
 
@@ -18,7 +17,7 @@ from __future__ import annotations
 import os
 import re
 
-from core import (
+from ruttla.core import (
     Context, CheckResult, Finding, Severity, Status, SelfTestCase,
     register, unmeasured, result_for, iter_matches, snippet, strip_comments,
 )

@@ -1,4 +1,14 @@
 __pycache__/
 *.pyc
-.qualitygate.toml
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.ruff_cache/
 report.json
+*.sarif

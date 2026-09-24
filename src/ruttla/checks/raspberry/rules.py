@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Raspberry-/Messtechnik-Checks aus CODE_QUALITY_GUIDELINES_RASPBERRY.md.
 
@@ -16,9 +15,9 @@ from __future__ import annotations
 import os
 import re
 
-from core import (
+from ruttla.core import (
     Context, CheckResult, Finding, Severity, Status, SelfTestCase,
-    register, unmeasured, result_for, iter_matches, snippet, strip_comments,
+    register, unmeasured, result_for, snippet, strip_comments,
 )
 
 PLATFORM = "raspberry"

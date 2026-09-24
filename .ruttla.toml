@@ -1,0 +1,6 @@
+# Ruttla's own profile (dogfood run in CI: `ruttla . --strict`).
+config_version = 1
+
+[gate]
+# Fixture trees are deliberately broken test data (tests/test_golden.py).
+exclude = ["tests/fixtures/**"]

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Statische Checks für langlaufende Python-Dienste (Bots, Scheduler, Datenabrufe).
 
 Belegte Fehlerbilder aus einem Live-Trading-Bot (23.09.2026),
@@ -28,7 +27,7 @@ from __future__ import annotations
 import os
 import re
 
-from core import (
+from ruttla.core import (
     CheckResult,
     Context,
     Finding,
@@ -43,7 +42,7 @@ from core import (
 )
 
 PLATFORM = "python"
-GUIDELINE = "qualitygate/README.md § Python-Dienste"
+GUIDELINE = "GUIDELINES.md § Python services"
 
 
 def _body(source) -> str:

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Dokumentations- und Playtest-Checks.
 
@@ -11,9 +10,9 @@ from __future__ import annotations
 
 import re
 
-from core import (
+from ruttla.core import (
     Context, CheckResult, Finding, Severity, Status, SelfTestCase,
-    register, ok, failed, unmeasured, result_for, snippet,
+    register, result_for, snippet,
 )
 
 SHELL_LANGS = {"bash", "sh", "zsh", "shell", "powershell", "pwsh", "cmd", "console"}
@@ -24,7 +23,7 @@ SHELL_LANGS = {"bash", "sh", "zsh", "shell", "powershell", "pwsh", "cmd", "conso
     "Unquotierter Angle-Bracket-Platzhalter in Shell-Codeblock",
     platform="universal",
     severity=Severity.ERROR,
-    guideline="DH-003 Quality Gates DH003-GC-001",
+    guideline="GUIDELINES.md § Documentation — copy-paste-safe shell snippets",
     self_tests=[
         SelfTestCase(
             name="Unquotierter Platzhalter im Shell-Block",
@@ -99,7 +98,7 @@ def check_unquoted_shell_placeholders(ctx: Context) -> CheckResult:
                     line=idx,
                     evidence=snippet(line),
                     fix=f"Platzhalter in Anführungszeichen setzen (z. B. \"{raw_token}\") oder konkretes Zahlenbeispiel verwenden.",
-                    guideline="DH-003 Quality Gates DH003-GC-001",
+                    guideline="GUIDELINES.md § Documentation — copy-paste-safe shell snippets",
                 ))
 
     return result_for("docs.unquoted_shell_placeholder", title, findings, units, "Markdown-Dateien")
@@ -110,7 +109,7 @@ def check_unquoted_shell_placeholders(ctx: Context) -> CheckResult:
     "Trailing Whitespace in Markdown-Dateien",
     platform="universal",
     severity=Severity.WARNING,
-    guideline="DH-003 Quality Gates DH003-GC-005",
+    guideline="GUIDELINES.md § Documentation — git diff --check clean",
     self_tests=[
         SelfTestCase(
             name="Trailing Whitespace in Liste",
@@ -149,7 +148,7 @@ def check_trailing_whitespace(ctx: Context) -> CheckResult:
                     line=idx,
                     evidence=snippet(line),
                     fix="Leerzeichen am Zeilenende entfernen.",
-                    guideline="DH-003 Quality Gates DH003-GC-005",
+                    guideline="GUIDELINES.md § Documentation — git diff --check clean",
                 ))
 
     return result_for("docs.trailing_whitespace", title, findings, units, "Markdown-Dateien")

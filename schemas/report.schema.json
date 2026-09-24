@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruttla.invalid/schemas/report-1.1.schema.json",
+  "title": "Ruttla JSON report (schema_version 1.x)",
+  "description": "Output of `ruttla --format json`. Fields are only ever added within a major schema version (ADR-0007). Consumers must ignore unknown fields.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/scanReport" },
+    { "$ref": "#/$defs/runnerStateReport" }
+  ],
+  "$defs": {
+    "severity": { "enum": ["error", "warning", "info"] },
+    "status": { "enum": ["pass", "fail", "unmeasured", "error"] },
+    "verdict": { "enum": ["green", "failed", "unmeasured", "crash"] },
+    "exitCode": { "enum": [0, 1, 2, 3] },
+    "severityCounts": {
+      "type": "object",
+      "required": ["error", "warning", "info"],
+      "properties": {
+        "error": { "type": "integer", "minimum": 0 },
+        "warning": { "type": "integer", "minimum": 0 },
+        "info": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["check_id", "severity", "message", "file", "line", "evidence", "fix", "guideline", "blocking"],
+      "properties": {
+        "check_id": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "message": { "type": "string" },
+        "file": { "type": ["string", "null"], "description": "Path relative to the scan root, always '/'-separated." },
+        "line": { "type": ["integer", "null"], "minimum": 1 },
+        "evidence": { "type": ["string", "null"] },
+        "fix": { "type": ["string", "null"] },
+        "guideline": { "type": ["string", "null"] },
+        "blocking": { "type": "boolean", "description": "true = this finding decides exit code 1." }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": ["check_id", "title", "status", "platform", "reason", "units_examined", "unit_label",
+                   "findings", "findings_total", "findings_emitted", "findings_truncated", "blocking_findings"],
+      "properties": {
+        "check_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "status": { "$ref": "#/$defs/status" },
+        "platform": { "type": "string" },
+        "reason": { "type": ["string", "null"] },
+        "units_examined": { "type": "integer", "minimum": 0 },
+        "unit_label": { "type": "string" },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "findings_total": { "type": "integer", "minimum": 0 },
+        "findings_emitted": { "type": "integer", "minimum": 0 },
+        "findings_truncated": { "type": "integer", "minimum": 0 },
+        "blocking_findings": { "type": "integer", "minimum": 0 }
+      },
+      "allOf": [
+        { "if": { "properties": { "status": { "const": "unmeasured" } } },
+          "then": { "properties": { "reason": { "type": "string", "minLength": 1 } } } },
+        { "if": { "properties": { "status": { "const": "error" } } },
+          "then": { "properties": { "reason": { "type": "string", "minLength": 1 } } } }
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["files_scanned", "files_skipped", "files_skipped_total",
+                   "files_excluded_agent_instructions", "files_excluded_by_config", "max_file_bytes"],
+      "properties": {
+        "files_scanned": { "type": "integer", "minimum": 0 },
+        "files_skipped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["file", "reason", "bytes"],
+            "properties": {
+              "file": { "type": "string" },
+              "reason": { "enum": ["max_file_bytes"] },
+              "bytes": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "files_skipped_total": { "type": "integer", "minimum": 0 },
+        "files_excluded_agent_instructions": { "type": "integer", "minimum": 0 },
+        "files_excluded_by_config": { "type": "integer", "minimum": 0 },
+        "max_file_bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "scanReport": {
+      "type": "object",
+      "required": ["schema_version", "tool", "tool_name", "tool_version", "root", "verdict", "exit_code",
+                   "next_action", "platforms_detected", "platforms_without_pack", "profile", "strict",
+                   "checks", "blocking_findings", "advisory_findings", "findings_by_severity",
+                   "findings_emitted_by_severity", "findings_truncated", "files_scanned", "coverage", "results"],
+      "properties": {
+        "schema_version": { "type": "string", "pattern": "^1\\.[0-9]+$" },
+        "tool": { "const": "master_quality_gate", "description": "Legacy identifier, kept for schema 1.x (ADR-0001)." },
+        "tool_name": { "const": "ruttla" },
+        "tool_version": { "type": "string" },
+        "root": { "type": "string" },
+        "verdict": { "$ref": "#/$defs/verdict" },
+        "exit_code": { "$ref": "#/$defs/exitCode" },
+        "next_action": { "type": "string" },
+        "platforms_detected": { "type": "array", "items": { "type": "string" } },
+        "platforms_without_pack": { "type": "array", "items": { "type": "string" } },
+        "profile": { "type": ["string", "null"] },
+        "strict": { "type": "boolean" },
+        "checks": {
+          "type": "object",
+          "required": ["pass", "fail", "unmeasured", "error"],
+          "properties": {
+            "pass": { "type": "integer", "minimum": 0 },
+            "fail": { "type": "integer", "minimum": 0 },
+            "unmeasured": { "type": "integer", "minimum": 0 },
+            "error": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "blocking_findings": { "type": "integer", "minimum": 0 },
+        "advisory_findings": { "type": "integer", "minimum": 0 },
+        "findings_by_severity": { "$ref": "#/$defs/severityCounts" },
+        "findings_emitted_by_severity": { "$ref": "#/$defs/severityCounts" },
+        "findings_truncated": { "type": "integer", "minimum": 0 },
+        "files_scanned": { "type": "integer", "minimum": 0 },
+        "coverage": { "$ref": "#/$defs/coverage" },
+        "results": { "type": "array", "items": { "$ref": "#/$defs/result" } }
+      }
+    },
+    "runnerStateReport": {
+      "type": "object",
+      "required": ["schema_version", "tool", "tool_name", "tool_version", "verdict", "exit_code", "runner_state"],
+      "properties": {
+        "schema_version": { "type": "string", "pattern": "^1\\.[0-9]+$" },
+        "tool": { "const": "master_quality_gate" },
+        "tool_name": { "const": "ruttla" },
+        "tool_version": { "type": "string" },
+        "verdict": { "enum": ["unmeasured", "crash"] },
+        "exit_code": { "enum": [2, 3] },
+        "runner_state": {
+          "type": "object",
+          "required": ["id", "message"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "message": { "type": "string" }
+          }
+        }
+      },
+      "not": { "required": ["results"] }
+    }
+  }
+}

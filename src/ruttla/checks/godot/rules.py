@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Godot/Gamedev-Checks aus CODE_QUALITY_GUIDELINES_GAMEDEV.md.
 
@@ -17,7 +16,7 @@ from __future__ import annotations
 import os
 import re
 
-from core import (
+from ruttla.core import (
     Context, CheckResult, Finding, Severity, Status, SelfTestCase,
     register, unmeasured, result_for, iter_matches, snippet, strip_comments,
 )
@@ -639,13 +638,11 @@ def check_rpc_sender_identity(ctx: Context) -> CheckResult:
             # Suche die zugehörige Funktionsdeklaration in den nächsten 3 Zeilen
             func_name = None
             func_line = idx + 1
-            has_params = False
             for look_idx in range(idx + 1, min(len(lines), idx + 4)):
                 fm = func_decl.match(lines[look_idx])
                 if fm:
                     func_name = fm.group(1)
                     func_line = look_idx + 1
-                    has_params = bool(fm.group(2).strip())
                     break
 
             if not func_name:
