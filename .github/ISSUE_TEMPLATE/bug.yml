@@ -1,0 +1,23 @@
+name: Bug in the runner
+description: Crash, wrong exit code, wrong report, broken CLI
+labels: [core]
+body:
+  - type: input
+    id: version
+    attributes: { label: "ruttla --version", placeholder: "ruttla 0.1.0 (report schema 1.1)" }
+    validations: { required: true }
+  - type: input
+    id: env
+    attributes: { label: OS and Python version }
+    validations: { required: true }
+  - type: textarea
+    id: command
+    attributes: { label: Exact command and exit code, render: shell }
+    validations: { required: true }
+  - type: textarea
+    id: output
+    attributes: { label: Output (agent or JSON format preferred), render: text }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected behaviour }
+    validations: { required: true }

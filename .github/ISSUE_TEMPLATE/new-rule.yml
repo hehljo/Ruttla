@@ -1,0 +1,34 @@
+name: New real-world failure (rule proposal)
+description: A failure that happened and should never cost debugging time again
+labels: [new-rule, needs-reproduction]
+body:
+  - type: input
+    id: toolchain
+    attributes: { label: Toolchain / platform and versions }
+    validations: { required: true }
+  - type: textarea
+    id: error
+    attributes: { label: Exact failure text, render: text }
+    validations: { required: true }
+  - type: textarea
+    id: broken
+    attributes: { label: Minimal broken code/config }
+    validations: { required: true }
+  - type: textarea
+    id: fixed
+    attributes: { label: Fixed code/config }
+    validations: { required: true }
+  - type: textarea
+    id: source
+    attributes: { label: Source / documentation proving the cause }
+    validations: { required: true }
+  - type: textarea
+    id: why-missed
+    attributes: { label: Why existing tools (compiler, linters, Ruttla rules) missed it }
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Consent
+      options:
+        - label: The reproduction may be published in anonymized form (no private project names).
+          required: true

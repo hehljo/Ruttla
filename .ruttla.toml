@@ -3,4 +3,5 @@ config_version = 1
 
 [gate]
 # Fixture trees are deliberately broken test data (tests/test_golden.py).
-exclude = ["tests/fixtures/**"]
+# scripts/benchmark.py plants findings into its synthetic corpus on purpose.
+exclude = ["tests/fixtures/**", "scripts/benchmark.py"]

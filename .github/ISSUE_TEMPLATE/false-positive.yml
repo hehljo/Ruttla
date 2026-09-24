@@ -1,0 +1,23 @@
+name: False positive
+description: A rule reports healthy code
+labels: [false-positive]
+body:
+  - type: input
+    id: check
+    attributes: { label: Check ID }
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes: { label: "ruttla --version" }
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes: { label: Minimal healthy reproduction }
+    validations: { required: true }
+  - type: textarea
+    id: why
+    attributes: { label: Why this code is valid (docs link) }
+    validations: { required: true }
+  - type: textarea
+    id: config
+    attributes: { label: Profile (.ruttla.toml), render: toml }
