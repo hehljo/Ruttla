@@ -1,0 +1,175 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: CI only reads the repository. Release credentials never
+# live in this workflow (docs/SECURITY_DESIGN.md).
+permissions:
+  contents: read
+
+# A push and its pull_request run share one group; the newer run wins.
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+  SARIF_SCHEMA_URL: https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12", "3.13", "3.14"]
+        include:
+          - { os: windows-latest, python: "3.11" }
+          - { os: windows-latest, python: "3.13" }
+          - { os: windows-latest, python: "3.14" }
+          - { os: macos-latest, python: "3.11" }
+          - { os: macos-latest, python: "3.13" }
+          - { os: macos-latest, python: "3.14" }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install test-only tools (the runtime has no dependencies)
+        run: python -m pip install --upgrade pip jsonschema
+      - name: Fetch the official SARIF 2.1.0 schema
+        shell: bash
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sarif-schema.json" "$SARIF_SCHEMA_URL"
+          echo "RUTTLA_SARIF_SCHEMA=$RUNNER_TEMP/sarif-schema.json" >> "$GITHUB_ENV"
+      - name: Unit, contract, golden, provenance and fuzz tests
+        run: python -m unittest discover -s tests -v
+      - name: Sabotage self-test (broken and healthy probe per rule)
+        run: python master_gate.py --self-test --no-color
+
+  python-prerelease:
+    name: test (ubuntu-latest, py3.15 prerelease)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.15"
+          allow-prereleases: true
+      - run: python -m unittest discover -s tests
+      - run: python master_gate.py --self-test --no-color
+
+  lint-and-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python -m pip install ruff
+      - name: Ruff (correctness rules)
+        run: ruff check .
+      - name: Generated rule catalog is up to date
+        run: python scripts/gen_rule_docs.py --check
+
+  dogfood:
+    name: dogfood (ruttla scans itself, strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Strict self-scan
+        shell: bash
+        run: |
+          # Status first, filtering second — a pipe would report its last command.
+          set +e
+          python master_gate.py . --strict --format agent --sarif ruttla.sarif > scan.txt
+          status=$?
+          set -e
+          cat scan.txt
+          echo "EXIT: $status"
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dogfood-sarif
+          path: ruttla.sarif
+          if-no-files-found: ignore
+
+  package:
+    name: package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Build wheel and sdist
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check --strict dist/*
+      - name: Install the wheel into a fresh virtual environment
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/smoke"
+          if [ -x "$RUNNER_TEMP/smoke/bin/python" ]; then PY="$RUNNER_TEMP/smoke/bin/python"; else PY="$RUNNER_TEMP/smoke/Scripts/python.exe"; fi
+          "$PY" -m pip install dist/*.whl
+          echo "SMOKE_PY=$PY" >> "$GITHUB_ENV"
+      - name: Smoke test from outside the checkout
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -u
+          "$SMOKE_PY" -m ruttla --version
+          count=$("$SMOKE_PY" -m ruttla --list --format json | "$SMOKE_PY" -c "import json,sys; print(len(json.load(sys.stdin)['rules']))")
+          echo "rules: $count"; test "$count" -ge 90
+          "$SMOKE_PY" -m ruttla --self-test --no-color
+          set +e
+          "$SMOKE_PY" -m ruttla "$GITHUB_WORKSPACE/tests/fixtures/packs/web/broken" --format agent > broken.txt; broken=$?
+          "$SMOKE_PY" -m ruttla "$GITHUB_WORKSPACE/tests/fixtures/packs/web/healthy" --format agent > healthy.txt; healthy=$?
+          set -e
+          echo "broken EXIT: $broken, healthy EXIT: $healthy"
+          test "$broken" -eq 1 && test "$healthy" -eq 0
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: dist
+          path: dist/
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python -m pip install coverage jsonschema
+      - name: Measure (subprocess CLI runs included)
+        run: |
+          coverage run -m unittest discover -s tests
+          coverage combine
+          echo "## Coverage" >> "$GITHUB_STEP_SUMMARY"
+          coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+          echo "Core only (without rule packs):"
+          coverage report --omit "src/ruttla/checks/*" | tail -1
+          # Floor = measured baseline 2026-09-24 (87 %), minus 1 point of
+          # platform noise. Raise it, never lower it (docs/TESTING.md).
+          coverage report --fail-under=86 | tail -1
+          coverage xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml

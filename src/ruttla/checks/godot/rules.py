@@ -391,7 +391,7 @@ def check_balance_values(ctx: Context) -> CheckResult:
         return unmeasured("godot.balance_value_in_code", title,
                           "Keine GDScript-Dateien gefunden.", PLATFORM)
     pat = re.compile(
-        r"^\s*const\s+(\w*(?:SPEED|DAMAGE|HEALTH|HP|COST|PRICE|REWARD|"
+        r"^[ \t]*const\s+(\w*(?:SPEED|DAMAGE|HEALTH|HP|COST|PRICE|REWARD|"
         r"DURATION|COOLDOWN|CHANCE|RATE|AMOUNT|MAX_\w+|MIN_\w+)\w*)\s*"
         # GDScript kennt 'const X = 1', 'const X := 1' und 'const X: int = 1'.
         r"(?::\s*\w*\s*)?=\s*[-\d.]+",

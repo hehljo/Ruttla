@@ -362,7 +362,7 @@ def check_restart(ctx: Context) -> CheckResult:
             )], 1, "Dauerläufer", PLATFORM)
     findings: list[Finding] = []
     for sf in units:
-        if re.search(r"^\s*Restart\s*=\s*(always|on-failure)", sf.text, re.MULTILINE):
+        if re.search(r"^[ \t]*Restart\s*=\s*(always|on-failure)", sf.text, re.MULTILINE):
             continue
         findings.append(Finding(
             check_id="rpi.no_restart_policy", severity=Severity.WARNING,

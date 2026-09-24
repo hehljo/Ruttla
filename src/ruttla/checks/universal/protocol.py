@@ -51,7 +51,7 @@ def check_protocol_enum(ctx: Context) -> CheckResult:
         r"JSONDecoder|json\.loads|JSON\.parse|z\.enum|Protobuf|from_json|to_json)"
     )
     enum_decl = re.compile(
-        r"^\s*(public\s+|export\s+|internal\s+)?enum\s+(\w+)", re.MULTILINE
+        r"^[ \t]*(public\s+|export\s+|internal\s+)?enum\s+(\w+)", re.MULTILINE
     )
     fallback = re.compile(r"(?i)\b(unknown|unrecognized|other|default|fallback|future)\b")
     findings: list[Finding] = []
@@ -120,7 +120,7 @@ def check_ui_naming(ctx: Context) -> CheckResult:
     # Gemessen wird am Protokoll-/API-Bereich, nicht an Komponenten.
     api_hint = re.compile(r"(?i)(api|rpc|proto|schema|dto|payload|message|event|command|server)")
     field_decl = re.compile(
-        r"(?i)^\s*(\"?\w*" + ui_words + r"\w*\"?)\s*[:?]\s*\w", re.MULTILINE
+        r"(?i)^[ \t]*(\"?\w*" + ui_words + r"\w*\"?)\s*[:?]\s*\w", re.MULTILINE
     )
     findings: list[Finding] = []
     units = 0

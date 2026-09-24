@@ -57,10 +57,10 @@ def check_mainactor(ctx: Context) -> CheckResult:
         return unmeasured("apple.mainactor_missing_on_observable", title,
                           "Keine Swift-Dateien gefunden.", PLATFORM)
     decl = re.compile(
-        r"^\s*(?:public\s+|internal\s+|final\s+|open\s+)*class\s+(\w+)\s*:\s*[^{]*\bObservableObject\b",
+        r"^[ \t]*(?:public\s+|internal\s+|final\s+|open\s+)*class\s+(\w+)\s*:\s*[^{]*\bObservableObject\b",
         re.MULTILINE,
     )
-    observable_macro = re.compile(r"^\s*@Observable\s*$", re.MULTILINE)
+    observable_macro = re.compile(r"^[ \t]*@Observable[ \t]*$", re.MULTILINE)
     findings: list[Finding] = []
     for sf in swift:
         body = strip_comments(sf.text, sf.ext)

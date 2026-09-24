@@ -234,7 +234,7 @@ def _target_ids(text: str) -> set[str] | None:
     PBXNativeTarget-Deklaration keinen Begin-Sektionskommentar. Kommentare sind
     daher kein Vertrag; maßgeblich sind nur Top-Level-Objekte unter `objects`.
     """
-    objects_match = re.search(r"^\s*objects\s*=\s*\{", text, re.MULTILINE)
+    objects_match = re.search(r"^[ \t]*objects\s*=\s*\{", text, re.MULTILINE)
     if not objects_match:
         return None
     lines = text[objects_match.end():].splitlines()
@@ -373,7 +373,7 @@ def _pbx_objects(text: str, isa: str) -> list[tuple[str, str]]:
     kommentaren: die fehlen in Xcode-generierten Projekten teilweise (belegt
     an einer realen macOS-App) und sind deshalb kein Vertrag.
     """
-    objects_match = re.search(r"^\s*objects\s*=\s*\{", text, re.MULTILINE)
+    objects_match = re.search(r"^[ \t]*objects\s*=\s*\{", text, re.MULTILINE)
     if not objects_match:
         return []
     body = _balanced_block(text, objects_match.end() - 1)
@@ -406,7 +406,7 @@ def _setting(block: str, key: str) -> str | None:
     und ist damit unterscheidbar von 'Schlüssel nicht vorhanden' — genau die
     Unterscheidung, an der der reale Signing-Fehler hing.
     """
-    match = re.search(rf"^\s*{re.escape(key)}\s*=\s*(.*?);\s*$",
+    match = re.search(rf"^[ \t]*{re.escape(key)}\s*=\s*(.*?);\s*$",
                       block, re.MULTILINE)
     if not match:
         return None

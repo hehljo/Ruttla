@@ -75,7 +75,8 @@ select = ["E9", "F63", "F7", "F82", "F401", "F811", "F841"]
 branch = true
 source = ["ruttla"]
 parallel = true
-concurrency = ["thread"]
+# CLI tests run `python -m ruttla` in subprocesses; measure those too.
+patch = ["subprocess"]
 
 [tool.coverage.paths]
 source = ["src/ruttla", "*/site-packages/ruttla"]

@@ -196,7 +196,7 @@ def check_apscheduler_misfire(ctx: Context) -> CheckResult:
 # Telegram-Token über httpx/urllib3-Logs
 # ---------------------------------------------------------------------------
 
-_PTB_OR_HTTPX = re.compile(r"^\s*(?:from|import)\s+(?:telegram|httpx)\b", re.M)
+_PTB_OR_HTTPX = re.compile(r"^[ \t]*(?:from|import)\s+(?:telegram|httpx)\b", re.M)
 _TELEGRAM_RAW = re.compile(r"api\.telegram\.org")
 _BASIC_CONFIG = re.compile(r"\blogging\.basicConfig\s*\(")
 _ROOT_LEVEL = re.compile(r"level\s*=\s*(?:logging\.)?[\"']?(INFO|DEBUG)\b")

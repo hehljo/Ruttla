@@ -28,7 +28,7 @@ KNOWN_PLATFORMS: tuple[str, ...] = PACK_PLATFORMS + PLATFORMS_WITHOUT_PACK
 # laufen. Belegt in der Gegenprobe: 'import serial' wurde vom Check erkannt,
 # von der Plattform nicht, und ein echter Verstoß meldete grün.
 RASPBERRY_HW_IMPORT = re.compile(
-    r"^\s*(?:import|from)\s+(RPi\.GPIO|RPi|gpiozero|smbus2?|spidev|"
+    r"^[ \t]*(?:import|from)\s+(RPi\.GPIO|RPi|gpiozero|smbus2?|spidev|"
     r"pigpio|serial|w1thermsensor|board|busio|adafruit_\w+|"
     r"picamera2?|luma\.\w+)\b",
     re.MULTILINE,

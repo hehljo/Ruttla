@@ -32,6 +32,14 @@ from core import (
 )
 
 
+def symlink_or_skip(test: unittest.TestCase, link: Path, target: Path) -> None:
+    """Windows without developer mode cannot create symlinks."""
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError) as exc:
+        test.skipTest(f"symlinks unavailable: {exc}")
+
+
 class ConfigTests(unittest.TestCase):
     def load_text(self, text: str) -> Config:
         with tempfile.TemporaryDirectory() as tmp:
@@ -113,7 +121,7 @@ class InputAndGitTests(unittest.TestCase):
 
     def test_dangling_input_is_not_silently_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            Path(tmp, "broken.py").symlink_to(Path(tmp, "missing.py"))
+            symlink_or_skip(self, Path(tmp, "broken.py"), Path(tmp, "missing.py"))
             with self.assertRaises(GateInputError):
                 Context(tmp, Config()).all_files()
 
@@ -123,7 +131,7 @@ class InputAndGitTests(unittest.TestCase):
             root.mkdir()
             outside = Path(parent, "outside.py")
             outside.write_text("secret = 1\n", encoding="utf-8")
-            Path(root, "linked.py").symlink_to(outside)
+            symlink_or_skip(self, Path(root, "linked.py"), outside)
             with self.assertRaises(GateInputError):
                 Context(str(root), Config()).all_files()
 
@@ -358,6 +366,7 @@ class CliContractTests(unittest.TestCase):
             [sys.executable, str(REPO / "master_gate.py"), *args],
             cwd=cwd,
             text=True,
+            encoding="utf-8",
             capture_output=True,
             timeout=60,
         )
@@ -396,7 +405,7 @@ class CliContractTests(unittest.TestCase):
 
     def test_unreadable_input_uses_exit_three(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            Path(tmp, "broken.py").symlink_to(Path(tmp, "missing.py"))
+            symlink_or_skip(self, Path(tmp, "broken.py"), Path(tmp, "missing.py"))
             result = self.run_cli(tmp, "--format", "agent")
         self.assertEqual(result.returncode, master_gate.EXIT_CRASH)
         self.assertIn("RUNNER_ERROR\tinput_unreadable", result.stdout)

@@ -290,8 +290,24 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
     return exit_code
 
 
+def _utf8_streams() -> None:
+    """Machine output is UTF-8 on every OS (docs/CONTRACTS.md).
+
+    Windows pipes default to the ANSI code page; the reports contain ✓/✗,
+    umlauts and file names that cp1252 cannot encode.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        encoding = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        if encoding != "utf8" and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
 def run(argv: list[str] | None = None, prog: str = "ruttla") -> int:
     """``main`` plus process-level edge cases shared by every entry point."""
+    _utf8_streams()
     try:
         return main(argv, prog=prog)
     except KeyboardInterrupt:
