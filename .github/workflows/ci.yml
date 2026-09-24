@@ -97,7 +97,7 @@ jobs:
           cat scan.txt
           echo "EXIT: $status"
           exit "$status"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dogfood-sarif
@@ -143,7 +143,7 @@ jobs:
           set -e
           echo "broken EXIT: $broken, healthy EXIT: $healthy"
           test "$broken" -eq 1 && test "$healthy" -eq 0
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.os == 'ubuntu-latest'
         with:
           name: dist
@@ -169,7 +169,7 @@ jobs:
           # platform noise. Raise it, never lower it (docs/TESTING.md).
           coverage report --fail-under=86 | tail -1
           coverage xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage.xml
