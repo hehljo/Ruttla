@@ -4,7 +4,7 @@ Stand: 2026-09-23
 
 ## Letzter abgeschlossener Arbeitsblock
 
-- 23.09.: Neues `checks/python_services.py` (5 Checks, Plattform python) aus dem CondrianoInvest-Audit. 192/192 Selbsttest-Proben grün. Gegen den rekonstruierten Originalstand (git HEAD) rot, gegen den gefixten grün. Sweep über /root: Fehlalarme in Telegram-Check (Monorepo-Projektgrenze, Schleifen-Drossel) und FX-Check (`_bot_value_eur`) gefunden und mit eigenen Proben behoben.
+- 23.09.: Neues `checks/python_services.py` (5 Checks, Plattform python) aus einem Trading-Bot-Audit. 192/192 Selbsttest-Proben grün. Gegen den rekonstruierten Originalstand (git HEAD) rot, gegen den gefixten grün. Sweep über lokale Projekte: Fehlalarme in Telegram-Check (Monorepo-Projektgrenze, Schleifen-Drossel) und FX-Check (`_bot_value_eur`) gefunden und mit eigenen Proben behoben.
 
 - Runner gegen falsches Grün gehärtet: ungültige Konfiguration, Pluginfehler, null Checks, null geprüfte Einheiten und unlesbare Eingaben liefern keinen Erfolg.
 - `--changed-only` berücksichtigt jetzt auch ungetrackte Dateien und begrenzt Pfade auf die Prüfwurzel.
@@ -12,8 +12,8 @@ Stand: 2026-09-23
 - 41 Runner-Unittests grün.
 - Alle 70 registrierten Checks besitzen beide Selbsttestrichtungen; 153/153 Proben grün.
 - Neues Apple-Release-Modul mit sieben Checks für Shared Schemes, Target-Verweise, Archivierung sowie Plist-/String-Catalog-/Asset-JSON-Syntax.
-- Bestehendes Henga-Profil (`[project]`, `brand.source`) bleibt trotz strikter Konfiguration kompatibel.
-- Henga read-only mit `apple.release.*`: 7 bestanden, 0 fehlgeschlagen, 0 nicht gemessen.
+- Bestehendes Profil einer macOS-App (`[project]`, `brand.source`) bleibt trotz strikter Konfiguration kompatibel.
+- Diese macOS-App read-only mit `apple.release.*`: 7 bestanden, 0 fehlgeschlagen, 0 nicht gemessen.
 - Neues `checks/media.py` mit vier tokenfreien Checks: FFmpeg-Limiter-Auto-Level, fehlende TTS-Dauerschranke, fehlende Stream-/Sprachprüfung nach Mux und PowerShell-Freitextzerlegung über `Start-Process`.
 - PowerShell-Zeilen- und Blockkommentare werden in `core.py` jetzt korrekt aus statischen Prüfflächen entfernt.
 - 74 Checks registriert; alle besitzen beide Selbsttestrichtungen. 161/161 Selbsttest-Proben grün; alle vier neuen Checks zusätzlich isoliert über die echte CLI jeweils gesund grün und sabotiert rot.

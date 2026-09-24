@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Statische Checks für langlaufende Python-Dienste (Bots, Scheduler, Datenabrufe).
 
-Belegte Fehlerbilder aus dem Live-Trading-Bot CondrianoInvest (23.09.2026),
+Belegte Fehlerbilder aus einem Live-Trading-Bot (23.09.2026),
 alle code-technisch vermeidbar:
 
 * APScheduler verwirft jeden Job, der mehr als ``misfire_grace_time``
@@ -10,7 +10,7 @@ alle code-technisch vermeidbar:
   5:42 min. Dasselbe in zwei Schwesterprojekten (177× / 119×).
 * Yahoo ``v8/finance/chart`` liefert die letzte XETRA-Tageskerze mit
   ``close=None``. ``dropna`` warf sie weg; EU-Signale rechneten mit dem
-  Schluss von vorgestern (ENR Signal 135,18 → Fill 151,54).
+  Schluss von vorgestern (Signal 135,18 → Fill 151,54).
 * Eine Retry-Schleife wiederholte auch ``POST /orders`` nach einem Timeout —
   eine mögliche Doppelorder.
 * ``ecb_eurusd()`` fiel stillschweigend auf ``return 1.05`` zurück; die
@@ -541,7 +541,7 @@ def check_http_retry_non_idempotent(ctx: Context) -> CheckResult:
 # ---------------------------------------------------------------------------
 
 # Auf den Kurs zielen, nicht auf die Währung im Namen: `_bot_value_eur()`
-# liefert einen Betrag, keinen Kurs (Fehlalarm in CondrianoKrypto, 23.09.26).
+# liefert einen Betrag, keinen Kurs (Fehlalarm in einem Schwesterprojekt, 23.09.26).
 _FX_FUNC = re.compile(
     r"(?i)(?:eur_?usd|usd_?eur|eur_?chf|chf_?eur|eur_?gbp|gbp_?eur|\bfx|_fx|forex|"
     r"exchange_?rate|conversion_?rate|wechselkurs)")

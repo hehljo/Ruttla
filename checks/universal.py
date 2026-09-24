@@ -101,17 +101,17 @@ def _brand_candidates(ctx: Context) -> list[str]:
         SelfTestCase(
             name="Markenname im JSX",
             files={
-                "package.json": '{"name": "tellunia-web"}',
-                "src/App.tsx": 'export const A = () => <h1>Willkommen bei Tellunia</h1>;\n',
+                "package.json": '{"name": "acme-web"}',
+                "src/App.tsx": 'export const A = () => <h1>Willkommen bei Acme</h1>;\n',
             },
             expect=Status.FAIL,
-            expect_finding_contains="Tellunia",
+            expect_finding_contains="Acme",
         ),
         SelfTestCase(
             name="Markenname nur in der Quelle",
             files={
-                "package.json": '{"name": "tellunia-web"}',
-                "src/brand.ts": 'export const BRAND = { name: "Tellunia" };\n',
+                "package.json": '{"name": "acme-web"}',
+                "src/brand.ts": 'export const BRAND = { name: "Acme" };\n',
                 "src/App.tsx": 'import { BRAND } from "./brand";\nexport const A = () => <h1>{BRAND.name}</h1>;\n',
             },
             expect=Status.PASS,
@@ -217,12 +217,12 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
     self_tests=[
         SelfTestCase(
             name="Asset traegt Markennamen",
-            files={"package.json": '{"name": "tellunia-web"}', "public/tellunia-logo.png": "x"},
+            files={"package.json": '{"name": "acme-web"}', "public/acme-logo.png": "x"},
             expect=Status.FAIL,
         ),
         SelfTestCase(
             name="generisch benannt",
-            files={"package.json": '{"name": "tellunia-web"}', "public/wordmark.png": "x"},
+            files={"package.json": '{"name": "acme-web"}', "public/wordmark.png": "x"},
             expect=Status.PASS,
         ),
     ],
@@ -338,7 +338,7 @@ def check_lab_flag(ctx: Context) -> CheckResult:
     # 'Label', 'Laboratory', 'collaborate' enthalten alle 'lab' als Fragment.
     # Gemessen gehört ein Flag-Bezeichner, keine Teilzeichenkette: das Wort
     # 'lab' muss an einer Wortgrenze oder camelCase-Grenze enden. Belegt an
-    # SchnitzeljagdAI: 'buildCheckerLabel' und 'mirrorLabel' wurden als
+    # einer realen Web-App: 'buildCheckerLabel' und 'mirrorLabel' wurden als
     # Labor-Flags gemeldet.
     name_pat = re.compile(
         r"(?:^|_|\b)(?:is|enable|use|with)?_?"
@@ -638,7 +638,7 @@ def check_secrets(ctx: Context) -> CheckResult:
         # Der blosse Rollenname ist ein SQL-Bezeichner und kommt in jedem
         # Grant/Policy vor — ein Signal, das im legitimen Normalfall anschlägt,
         # ist eine Warnung, nie allein ein Befund. Gemeldet wird nur, wo der
-        # Name einen WERT zugewiesen bekommt. Belegt an SchnitzeljagdAI:
+        # Name einen WERT zugewiesen bekommt. Belegt an einer realen Web-App:
         # 1042 von 1045 Treffern kamen aus generierten Katalog-Dumps.
         (re.compile(r"(?i)service_role[\w]*\s*[:=]\s*[\"'][A-Za-z0-9._\-]{20,}[\"']"),
          "Supabase service_role-Schlüssel", Severity.ERROR),

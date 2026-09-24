@@ -650,14 +650,14 @@ def check_legal(ctx: Context) -> CheckResult:
 )
 def check_touch_targets(ctx: Context) -> CheckResult:
     """Statische Annäherung: explizit gesetzte Höhen/Breiten unter 44px an
-    Interaktions-Selektoren. Die echte Messung macht der web-pruefstand im
-    Browser — das hier fängt die offensichtlichen Fälle früher ab."""
+    Interaktions-Selektoren. Die echte Messung gehört in einen Browser-Lauf
+    (z. B. Playwright) — das hier fängt die offensichtlichen Fälle früher ab."""
     title = "Trefferfläche unter 44px"
     styles = ctx.files(*WEB_STYLE)
     if not styles:
         return unmeasured("web.touch_target_too_small", title,
                           "Keine Stylesheets gefunden. Die verlässliche Messung "
-                          "läuft im Browser (web-pruefstand).", PLATFORM)
+                          "läuft im Browser (gerenderte Messung).", PLATFORM)
     rule = re.compile(r"([^{}]+)\{([^}]*)\}", re.DOTALL)
     size = re.compile(r"(?:min-)?(?:height|width)\s*:\s*(\d+(?:\.\d+)?)px")
     interactive = re.compile(r"(?i)(button|\.btn|\[role=\"?button|a[:\s.,{]|input|"

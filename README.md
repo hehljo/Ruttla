@@ -89,7 +89,7 @@ strict = false
 exclude = ["legacy/**", "vendor/**"]
 
 [brand]
-names   = ["Tellunia"]                  # sonst aus package.json abgeleitet
+names   = ["Acme"]                  # sonst aus package.json abgeleitet
 sources = ["src/brand.ts", "src/i18n/*"] # hier GEHÖRT der Name hin
 
 [severity]
@@ -106,7 +106,7 @@ sources = ["src/brand.ts", "src/i18n/*"] # hier GEHÖRT der Name hin
 | `exclude_dirs` | den **Verzeichnisnamen** allein, auf jeder Ebene | ganzer Ast wird beim Durchlaufen abgeschnitten — schneller bei großen Bäumen |
 
 Pfade mit Leerzeichen brauchen keine Sonderbehandlung: `"extracted/**"` fängt
-auch `extracted/dm Foto/web/index.html`.
+auch `extracted/Some Vendor/web/index.html`.
 
 Eine Reihe Ordner ist **immer** ausgeschlossen, ohne Profil: `node_modules`,
 `.git`, `build`, `dist`, `DerivedData`, `Pods`, `.godot`, `vendor`, `venv`,
@@ -117,7 +117,7 @@ Eine Reihe Ordner ist **immer** ausgeschlossen, ohne Profil: `node_modules`,
 > gehört geprüft, ein entpacktes Fremdarchiv nicht. Wer ignorierte Ordner
 > ausschließen will, schreibt sie hierher.
 
-**Warum das kein Schönheitsthema ist:** Belegt am 18.09.2026 (FotobuchGenie) —
+**Warum das kein Schönheitsthema ist:** Belegt am 18.09.2026 (Fotobuch-App) —
 ein Lauf meldete **5825 Befunde**, davon **5812 (99,8 %)** aus `extracted/`,
 einem 754 MB großen entpackten Fremdarchiv mit fremdem Marketing-HTML. Übrig
 blieben **13** echte, alle auf INFO-Ebene. Ein Check, der tausendfach über
@@ -204,7 +204,7 @@ wertet „null Module geladen" ausdrücklich als Fehler.
 ## Apple: Store-Pflichtangaben im App-Target
 
 Fünf Checks aus einem einzigen belegten Upload nach App Store Connect
-(Henga, `com.hehljo.Henga`, 2026-09-22). Alle fünf Fehler bauen lokal
+(reale macOS-App, Bundle-ID anonymisiert, 2026-09-22). Alle fünf Fehler bauen lokal
 fehlerfrei durch und fallen erst bei Apple auf:
 
 - `apple.release.app_category_missing` — kein `LSApplicationCategoryType`
@@ -220,7 +220,7 @@ fehlerfrei durch und fallen erst bei Apple auf:
 
 **Warum der Prüfbereich das Target ist, nicht die Datei.** Der bestehende
 Check `apple.project_settings` sucht `DEVELOPMENT_TEAM` mit einem
-dateiweiten `re.search`. Bei Henga blieb er dadurch grün, obwohl das
+dateiweiten `re.search`. Bei der macOS-App blieb er dadurch grün, obwohl das
 App-Target kein Team trug: irgendein anderes Objekt in der `project.pbxproj`
 enthielt den Schlüssel. Die neuen Checks lösen deshalb
 `PBXNativeTarget` → `XCConfigurationList` → `XCBuildConfiguration` auf und
@@ -234,12 +234,12 @@ am echten Projekt gefunden:
 
 | Erste Fassung | Warum sie falsch war |
 |---|---|
-| `SDKROOT` nur in der Target-Konfiguration lesen | Xcode legt es auf **Projektebene** ab. Henga galt dadurch als plattformlos, der Sandbox-Check meldete `UNMEASURED` statt des vorhandenen Fehlers |
-| `MACOSX_DEPLOYMENT_TARGET` als Mac-Merkmal werten | Ein reines iOS-Projekt (Dienstreise, `SDKROOT = iphoneos`) trägt es als Beiwerk von Mac Catalyst. Jede iOS-App hätte eine fehlende Mac-Sandbox gemeldet — ein falsch-positives **hartes** Gate |
+| `SDKROOT` nur in der Target-Konfiguration lesen | Xcode legt es auf **Projektebene** ab. Die macOS-App galt dadurch als plattformlos, der Sandbox-Check meldete `UNMEASURED` statt des vorhandenen Fehlers |
+| `MACOSX_DEPLOYMENT_TARGET` als Mac-Merkmal werten | Ein reines iOS-Projekt (`SDKROOT = iphoneos`) trägt es als Beiwerk von Mac Catalyst. Jede iOS-App hätte eine fehlende Mac-Sandbox gemeldet — ein falsch-positives **hartes** Gate |
 
 Maßgeblich ist das SDK, gegen das gebaut wird. Gegengeprobt an vier realen
-Projekten: Henga (macOS) rot, Dienstreise und GreetGen (iOS, GreetGen ist
-final im App Store) grün beziehungsweise ehrlich `UNMEASURED`.
+Projekten: die macOS-App rot, zwei iOS-Apps (eine davon final im App Store)
+grün beziehungsweise ehrlich `UNMEASURED`.
 
 **Zwei Checks stehen hart ohne Profil** (`safe_by_default=True`), weil ein
 falsch-positiver Fall ausgeschlossen ist: beide zulässigen Bauformen werden
@@ -262,8 +262,8 @@ Ausgabeprüfungen; Existenz eines Filters ist nicht seine Wirkung.
 
 ## Python-Dienste
 
-`checks/python_services.py` — fünf Fehlerklassen aus dem Live-Trading-Bot
-CondrianoInvest (23.09.2026), alle code-technisch vermeidbar:
+`checks/python_services.py` — fünf Fehlerklassen aus einem Live-Trading-Bot
+(23.09.2026), alle code-technisch vermeidbar:
 
 - `python.apscheduler_misfire_default` (error): Scheduler ohne
   `misfire_grace_time` — Default 1 s, verspätete Jobs werden **verworfen**.
@@ -283,7 +283,7 @@ CondrianoInvest (23.09.2026), alle code-technisch vermeidbar:
 
 **Nicht statisch prüfbar, deshalb kein Gate:** ob ein Signal vor der Order
 gegen einen Live-Kurs gehalten wird (Kurs-Schutz) und ob async-Jobs
-synchron blockieren — beides steht als Regel in `Finanz/AGENTS.md` und ist
+synchron blockieren — beides steht als Regel in den Projektregeln des Dienstes und ist
 im Projekt per Test (`tests/test_signal_freshness.py`) abgesichert.
 Dateirechte (`.env` weltlesbar) lassen sich im Selbsttest-Format nicht
 herstellen — ebenfalls kein Gate.
@@ -292,7 +292,6 @@ herstellen — ebenfalls kein Gate.
 
 Statische Textanalyse sieht Positionen, keine Kollisionen und keine Kontraste.
 Für Gerendertes (PDF, Canvas, Layout im Browser) bleibt die Messung an der
-Ausgabe nötig — `web-pruefstand`, `pdf-pruefstand`. Dieses Gate fängt die
+Ausgabe nötig (Browser- bzw. PDF-Rendermessung). Dieses Gate fängt die
 Fälle ab, die schon in der Quelle sichtbar sind.
 
-# Repo: https://github.com/hehljo/CODE_QUALITY_GENERAL

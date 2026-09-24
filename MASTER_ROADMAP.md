@@ -24,7 +24,7 @@ Stand: 2026-09-20
 - [x] Plist-/Entitlements-/Privacy-Manifest-Syntax prüfen
 - [x] String-Catalog-JSON prüfen
 - [x] Asset-Catalog-Contents-JSON prüfen
-- [x] Gegen Henga read-only erfolgreich durchgestochen
+- [x] Gegen eine reale macOS-App read-only erfolgreich durchgestochen
 
 ## Phase 4: Pflege und Ausbau [ ]
 - [x] Medien-Pipeline-Modul für FFmpeg-Limiter, TTS-Dauerschranken, Mux-Verifikation und PowerShell-Freitextargumente ergänzen

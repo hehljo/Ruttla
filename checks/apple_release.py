@@ -235,7 +235,7 @@ def _brace_delta(line: str) -> int:
 def _target_ids(text: str) -> set[str] | None:
     """Liest PBX-Objekte anhand ihrer ISA, ohne Target-Settings aufzulösen.
 
-    Manche gültigen Projekte (belegt an Henga) besitzen vor der ersten
+    Manche gültigen Projekte (belegt an einer realen macOS-App) besitzen vor der ersten
     PBXNativeTarget-Deklaration keinen Begin-Sektionskommentar. Kommentare sind
     daher kein Vertrag; maßgeblich sind nur Top-Level-Objekte unter `objects`.
     """
@@ -324,7 +324,7 @@ def _read_project(path: str) -> str | None:
 # dateiweites re.search findet den Schlüssel in irgendeinem Target (Tests,
 # Helper, Extension) und meldet grün, während das App-Target ihn nicht trägt.
 #
-# Belegt am 2026-09-22 (Henga, com.hehljo.Henga): DEVELOPMENT_TEAM war im
+# Belegt am 2026-09-22 (macOS-App, Bundle-ID anonymisiert): DEVELOPMENT_TEAM war im
 # App-Target leer, `apple.project_settings` blieb trotzdem grün, weil sein
 # re.search über die ganze Datei lief. Apple lehnte den Upload erst in
 # App Store Connect ab.
@@ -376,7 +376,7 @@ def _pbx_objects(text: str, isa: str) -> list[tuple[str, str]]:
 
     Ankert an der ISA im Objektrumpf, nicht an den Begin/End-Sektions-
     kommentaren: die fehlen in Xcode-generierten Projekten teilweise (belegt
-    an Henga) und sind deshalb kein Vertrag.
+    an einer realen macOS-App) und sind deshalb kein Vertrag.
     """
     objects_match = re.search(r"^\s*objects\s*=\s*\{", text, re.MULTILINE)
     if not objects_match:
@@ -409,7 +409,7 @@ def _setting(block: str, key: str) -> str | None:
 
     Ein leerer Wert (`DEVELOPMENT_TEAM = "";`) kommt als leerer String zurück
     und ist damit unterscheidbar von 'Schlüssel nicht vorhanden' — genau die
-    Unterscheidung, an der der Henga-Signing-Fehler hing.
+    Unterscheidung, an der der reale Signing-Fehler hing.
     """
     match = re.search(rf"^\s*{re.escape(key)}\s*=\s*(.*?);\s*$",
                       block, re.MULTILINE)
@@ -477,12 +477,12 @@ def _builds_for_macos(text: str) -> bool:
     über die des Targets: Xcode legt SDKROOT und das Deployment Target
     üblicherweise auf Projektebene ab, das Target erbt sie. Eine Erkennung,
     die nur in der Target-Konfiguration nachsieht, hält ein echtes
-    macOS-Projekt für plattformlos (belegt an Henga, 2026-09-22 — der
+    macOS-Projekt für plattformlos (belegt an einer realen macOS-App, 2026-09-22 — der
     Sandbox-Check meldete dadurch UNMEASURED statt des vorhandenen Fehlers).
 
     Maßgeblich ist das SDK, gegen das gebaut wird, NICHT das bloße
     Vorhandensein eines MACOSX_DEPLOYMENT_TARGET. Belegt am 2026-09-22
-    (Dienstreise): ein reines iOS-Projekt (SDKROOT = iphoneos) trägt
+    an einer realen iOS-App: ein reines iOS-Projekt (SDKROOT = iphoneos) trägt
     MACOSX_DEPLOYMENT_TARGET = 14.0 als Beiwerk von Mac Catalyst
     beziehungsweise 'Designed for iPad'. Wer darauf anspringt, meldet für
     jede iOS-App eine fehlende Mac-Sandbox — ein falsch-positives hartes
@@ -1053,7 +1053,7 @@ def check_asset_contents_json(ctx: Context) -> CheckResult:
 # App-Store-Pflichtangaben im App-Target
 #
 # Alle vier Checks darunter stammen aus einem einzigen belegten Durchlauf:
-# Henga (com.hehljo.Henga) wurde am 2026-09-22 nach App Store Connect
+# Eine reale macOS-App wurde am 2026-09-22 nach App Store Connect
 # hochgeladen. Vier Dinge fehlten, die kein bestehendes Gate gemessen hat —
 # jedes davon fällt erst bei Apple auf, nicht beim lokalen Build.
 # --------------------------------------------------------------------------
@@ -1061,10 +1061,10 @@ def check_asset_contents_json(ctx: Context) -> CheckResult:
 _PROJECT_WITH_APP_TARGET = """// !$*UTF8*$!
 {{
 objects = {{
-        AAA111 /* Henga */ = {{
+        AAA111 /* SampleMac */ = {{
                 isa = PBXNativeTarget;
                 buildConfigurationList = LLL111 /* Build configuration list */;
-                name = Henga;
+                name = SampleMac;
                 productType = "com.apple.product-type.application";
         }};
         LLL111 /* Build configuration list */ = {{
@@ -1092,7 +1092,7 @@ def _project_fixture(**settings: str) -> str:
 
 
 _HEALTHY_SIGNING = _project_fixture(
-    DEVELOPMENT_TEAM="G7AU53ARQH",
+    DEVELOPMENT_TEAM="ABCDE12345",
     PRODUCT_BUNDLE_IDENTIFIER="com.example.App",
 )
 _BROKEN_SIGNING = _project_fixture(
@@ -1104,7 +1104,7 @@ _HEALTHY_IDENTITY_PLIST = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleDisplayName</key><string>Henga</string>
+  <key>CFBundleDisplayName</key><string>SampleMac</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
 </dict></plist>
 """
@@ -1252,7 +1252,7 @@ def check_app_category(ctx: Context) -> CheckResult:
     Info.plist ODER als INFOPLIST_KEY_* im Target. Beide Wege sind gültig,
     ein Gate, das nur einen verlangt, verbietet den anderen.
 
-    Belegt am 2026-09-22 (Henga): Im Target unter Identity war 'App Category'
+    Belegt am 2026-09-22 (reale macOS-App): Im Target unter Identity war 'App Category'
     leer und der Schlüssel fehlte im Custom macOS Application Target
     Properties. Der lokale Build war grün, Apple meldete den Fehler erst
     nach dem Upload.
@@ -1284,7 +1284,7 @@ def check_app_category(ctx: Context) -> CheckResult:
                 # erzeugt Xcode die Datei erst beim Build, die Quelle enthält
                 # sie nicht. Das ist NICHT GEMESSEN, nie bestanden — sonst
                 # meldet der Check für genau die Projekte grün, deren Angabe
-                # er gar nicht sehen kann (belegt an GreetGen, 2026-09-22).
+                # er gar nicht sehen kann (belegt an einer veröffentlichten iOS-App, 2026-09-22).
                 unresolved += 1
                 examined -= 1
                 continue
@@ -1340,7 +1340,7 @@ def check_app_category(ctx: Context) -> CheckResult:
 def check_display_name(ctx: Context) -> CheckResult:
     """Ohne CFBundleDisplayName zeigt der Finder den Dateinamen.
 
-    Belegt am 2026-09-22 (Henga): Display Name war im Target unter Identity
+    Belegt am 2026-09-22 (reale macOS-App): Display Name war im Target unter Identity
     leer. Das bricht keinen Build — es fällt erst auf, wenn die App unter
     ihrem Produktnamen statt ihrem Markennamen im Dock steht.
     """
@@ -1419,7 +1419,7 @@ def check_signing_team(ctx: Context) -> CheckResult:
 
     Der Prüfbereich ist die einzelne Target-Konfiguration. Das bestehende
     `apple.project_settings` sucht denselben Schlüssel mit einem dateiweiten
-    re.search — bei Henga blieb es dadurch grün, obwohl das App-Target kein
+    re.search — bei einer realen macOS-App blieb es dadurch grün, obwohl das App-Target kein
     Team trug und die Signierung bei Apple scheiterte (2026-09-22).
     """
     check_id = "apple.release.signing_team_missing"
@@ -1499,7 +1499,7 @@ def check_app_sandbox(ctx: Context) -> CheckResult:
     Entitlements-Datei mit Sandbox-Unterschlüsseln, aber ohne den
     Sandbox-Schalter selbst, sieht vollständig aus und ist es nicht.
 
-    Belegt am 2026-09-22 (Henga): Die Datei trug
+    Belegt am 2026-09-22 (reale macOS-App): Die Datei trug
     com.apple.security.network.client und files.user-selected.read-write,
     aber nicht com.apple.security.app-sandbox. Unter Signing & Capabilities
     fehlte die Capability 'App Sandbox' deshalb ganz.
@@ -1604,7 +1604,7 @@ def check_xcstrings_complete(ctx: Context) -> CheckResult:
     Katalog selbst abgeleitet (jede Sprache, die irgendein Schlüssel trägt) —
     eine gepflegte Sprachliste im Gate wäre die zweite Liste.
 
-    Belegt am 2026-09-22 (Henga): Der Katalog wuchs von 27 auf 52 Schlüssel,
+    Belegt am 2026-09-22 (reale macOS-App): Der Katalog wuchs von 27 auf 52 Schlüssel,
     47 davon blieben in mindestens einer Sprache unübersetzt. In der App war
     die Oberfläche dadurch nur teilweise lokalisiert.
     """

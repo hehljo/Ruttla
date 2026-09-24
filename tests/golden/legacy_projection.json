@@ -1,0 +1,3486 @@
+{
+ "apple/broken": {
+  "exit_code": 1,
+  "platforms_detected": [
+   "apple",
+   "universal"
+  ],
+  "results": [
+   {
+    "check_id": "apple.api_availability_unguarded",
+    "findings": [
+     [
+      "apple.api_availability_unguarded",
+      "warning",
+      "apple.api_availability_unguarded/App/V.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.bundle_id_mismatch",
+    "findings": [
+     [
+      "apple.bundle_id_mismatch",
+      "error",
+      "apple.bundle_id_mismatch/App/Info.plist",
+      0
+     ],
+     [
+      "apple.bundle_id_mismatch",
+      "error",
+      "apple.release.plist_syntax/App/Info.plist",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.bundle_module_outside_spm_resources",
+    "findings": [
+     [
+      "apple.bundle_module_outside_spm_resources",
+      "error",
+      "apple.bundle_module_outside_spm_resources/Sources/App/V.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.force_unwrap_or_try",
+    "findings": [
+     [
+      "apple.force_unwrap_or_try",
+      "warning",
+      "apple.force_unwrap_or_try/App/A.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.hardcoded_font_size",
+    "findings": [
+     [
+      "apple.hardcoded_font_size",
+      "warning",
+      "apple.hardcoded_font_size/App/V.swift",
+      2
+     ],
+     [
+      "apple.hardcoded_font_size",
+      "warning",
+      "apple.system_font_relative_to/App/V.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.mainactor_missing_on_observable",
+    "findings": [
+     [
+      "apple.mainactor_missing_on_observable",
+      "warning",
+      "apple.mainactor_missing_on_observable/App/VM.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.navigationdestination_not_at_root",
+    "findings": [
+     [
+      "apple.navigationdestination_not_at_root",
+      "error",
+      "apple.navigationdestination_not_at_root/App/Sub.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.print_in_production",
+    "findings": [
+     [
+      "apple.print_in_production",
+      "info",
+      "apple.print_in_production/App/Service.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.privacy_usage_description_missing",
+    "findings": [
+     [
+      "apple.privacy_usage_description_missing",
+      "error",
+      "apple.privacy_usage_description_missing/App/Cam.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.project_settings",
+    "findings": [
+     [
+      "apple.project_settings",
+      "warning",
+      "apple.api_availability_unguarded/P.xcodeproj/project.pbxproj",
+      0
+     ],
+     [
+      "apple.project_settings",
+      "warning",
+      "apple.api_availability_unguarded/P.xcodeproj/project.pbxproj",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.app_category_missing",
+    "findings": [
+     [
+      "apple.release.app_category_missing",
+      "error",
+      "apple.release.app_category_missing/App/Info.plist",
+      0
+     ],
+     [
+      "apple.release.app_category_missing",
+      "error",
+      "apple.release.display_name_missing/App/Info.plist",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.app_sandbox_missing",
+    "findings": [
+     [
+      "apple.release.app_sandbox_missing",
+      "error",
+      "apple.release.app_sandbox_missing/App/App.entitlements",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.archive_action",
+    "findings": [
+     [
+      "apple.release.archive_action",
+      "error",
+      "apple.release.archive_action/P.xcodeproj/xcshareddata/xcschemes/App.xcscheme",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.asset_contents_json",
+    "findings": [
+     [
+      "apple.release.asset_contents_json",
+      "error",
+      "apple.release.asset_contents_json/App/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.display_name_missing",
+    "findings": [
+     [
+      "apple.release.display_name_missing",
+      "warning",
+      "apple.release.app_category_missing/App/Info.plist",
+      0
+     ],
+     [
+      "apple.release.display_name_missing",
+      "warning",
+      "apple.release.display_name_missing/App/Info.plist",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.plist_syntax",
+    "findings": [
+     [
+      "apple.release.plist_syntax",
+      "error",
+      "apple.release.plist_syntax/App/Info.plist",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.scheme_target_reference",
+    "findings": [
+     [
+      "apple.release.scheme_target_reference",
+      "error",
+      "apple.release.scheme_target_reference/P.xcodeproj/xcshareddata/xcschemes/App.xcscheme",
+      0
+     ],
+     [
+      "apple.release.scheme_target_reference",
+      "error",
+      "apple.release.scheme_target_reference/P.xcodeproj/xcshareddata/xcschemes/App.xcscheme",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.shared_scheme_present",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.shared_scheme_xml",
+    "findings": [
+     [
+      "apple.release.shared_scheme_xml",
+      "error",
+      "apple.release.shared_scheme_xml/P.xcodeproj/xcshareddata/xcschemes/App.xcscheme",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.signing_team_missing",
+    "findings": [
+     [
+      "apple.release.signing_team_missing",
+      "warning",
+      "apple.release.app_category_missing/P.xcodeproj/project.pbxproj",
+      0
+     ],
+     [
+      "apple.release.signing_team_missing",
+      "warning",
+      "apple.release.app_sandbox_missing/P.xcodeproj/project.pbxproj",
+      0
+     ],
+     [
+      "apple.release.signing_team_missing",
+      "warning",
+      "apple.release.display_name_missing/P.xcodeproj/project.pbxproj",
+      0
+     ],
+     [
+      "apple.release.signing_team_missing",
+      "warning",
+      "apple.release.signing_team_missing/P.xcodeproj/project.pbxproj",
+      0
+     ],
+     [
+      "apple.release.signing_team_missing",
+      "warning",
+      "apple.release.xcstrings_incomplete/P.xcodeproj/project.pbxproj",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.xcstrings_incomplete",
+    "findings": [
+     [
+      "apple.release.xcstrings_incomplete",
+      "warning",
+      "apple.release.xcstrings_incomplete/App/Localizable.xcstrings",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.xcstrings_json",
+    "findings": [
+     [
+      "apple.release.xcstrings_json",
+      "error",
+      "apple.release.xcstrings_json/App/Localizable.xcstrings",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.smb_mount_without_nobrowse",
+    "findings": [
+     [
+      "apple.smb_mount_without_nobrowse",
+      "error",
+      "apple.smb_mount_without_nobrowse/Sources/Core/MountExecutor.swift",
+      5
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.splitview_detail_without_navigation_title",
+    "findings": [
+     [
+      "apple.splitview_detail_without_navigation_title",
+      "warning",
+      "apple.splitview_detail_without_navigation_title/Sources/App/SettingsView.swift",
+      6
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.swiftdata_predicate_capture",
+    "findings": [
+     [
+      "apple.swiftdata_predicate_capture",
+      "warning",
+      "apple.swiftdata_predicate_capture/App/Q.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.system_font_relative_to",
+    "findings": [
+     [
+      "apple.system_font_relative_to",
+      "error",
+      "apple.system_font_relative_to/App/V.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.ui_update_off_main",
+    "findings": [
+     [
+      "apple.ui_update_off_main",
+      "warning",
+      "apple.ui_update_off_main/App/VM.swift",
+      4
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.unguarded_module_import",
+    "findings": [
+     [
+      "apple.unguarded_module_import",
+      "error",
+      "apple.unguarded_module_import/App/V.swift",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "failed"
+ },
+ "apple/healthy": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "apple",
+   "universal"
+  ],
+  "results": [
+   {
+    "check_id": "apple.api_availability_unguarded",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.bundle_id_mismatch",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.bundle_module_outside_spm_resources",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.force_unwrap_or_try",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.hardcoded_font_size",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.mainactor_missing_on_observable",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.navigationdestination_not_at_root",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.print_in_production",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.privacy_usage_description_missing",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.project_settings",
+    "findings": [
+     [
+      "apple.project_settings",
+      "warning",
+      "apple.api_availability_unguarded/P.xcodeproj/project.pbxproj",
+      0
+     ],
+     [
+      "apple.project_settings",
+      "warning",
+      "apple.api_availability_unguarded/P.xcodeproj/project.pbxproj",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.app_category_missing",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.app_sandbox_missing",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.archive_action",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.asset_contents_json",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.display_name_missing",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.plist_syntax",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.scheme_target_reference",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.shared_scheme_present",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.shared_scheme_xml",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.signing_team_missing",
+    "findings": [
+     [
+      "apple.release.signing_team_missing",
+      "warning",
+      "apple.release.app_category_missing/P.xcodeproj/project.pbxproj",
+      0
+     ],
+     [
+      "apple.release.signing_team_missing",
+      "warning",
+      "apple.release.app_sandbox_missing/P.xcodeproj/project.pbxproj",
+      0
+     ],
+     [
+      "apple.release.signing_team_missing",
+      "warning",
+      "apple.release.display_name_missing/P.xcodeproj/project.pbxproj",
+      0
+     ],
+     [
+      "apple.release.signing_team_missing",
+      "warning",
+      "apple.release.xcstrings_incomplete/P.xcodeproj/project.pbxproj",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "apple.release.xcstrings_incomplete",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.release.xcstrings_json",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.smb_mount_without_nobrowse",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.splitview_detail_without_navigation_title",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.swiftdata_predicate_capture",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.system_font_relative_to",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.ui_update_off_main",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "apple.unguarded_module_import",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ },
+ "godot/broken": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "godot",
+   "universal"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "godot.add_child_before_configure",
+    "findings": [
+     [
+      "godot.add_child_before_configure",
+      "error",
+      "godot.add_child_before_configure/src/zone.gd",
+      5
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.allocation_in_hot_loop",
+    "findings": [
+     [
+      "godot.allocation_in_hot_loop",
+      "warning",
+      "godot.allocation_in_hot_loop/src/a.gd",
+      3
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.balance_value_in_code",
+    "findings": [
+     [
+      "godot.balance_value_in_code",
+      "info",
+      "godot.balance_value_in_code/src/a.gd",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.fixed_wait_instead_of_state",
+    "findings": [
+     [
+      "godot.fixed_wait_instead_of_state",
+      "warning",
+      "godot.fixed_wait_instead_of_state/src/a.gd",
+      3
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.fragile_node_path",
+    "findings": [
+     [
+      "godot.fragile_node_path",
+      "warning",
+      "godot.fragile_node_path/src/a.gd",
+      3
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.hardcoded_ui_text",
+    "findings": [
+     [
+      "godot.hardcoded_ui_text",
+      "warning",
+      "godot.hardcoded_ui_text/src/ui.gd",
+      3
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.missing_main_scene",
+    "findings": [
+     [
+      "godot.missing_main_scene",
+      "error",
+      "godot.missing_main_scene/project.godot",
+      3
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.physics_query_before_first_step",
+    "findings": [
+     [
+      "godot.physics_query_before_first_step",
+      "error",
+      "godot.physics_query_before_first_step/src/z.gd",
+      4
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.root_directory_pollution",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.rpc_sender_identity",
+    "findings": [
+     [
+      "godot.rpc_sender_identity",
+      "error",
+      "godot.rpc_sender_identity/src/net.gd",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.untyped_declaration",
+    "findings": [
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.add_child_before_configure/src/zone.gd",
+      2
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.add_child_before_configure/src/zone.gd",
+      3
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.allocation_in_hot_loop/src/a.gd",
+      3
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.fixed_wait_instead_of_state/src/a.gd",
+      2
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.fragile_node_path/src/a.gd",
+      2
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.fragile_node_path/src/a.gd",
+      3
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.hardcoded_ui_text/src/ui.gd",
+      2
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.physics_query_before_first_step/src/z.gd",
+      2
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.physics_query_before_first_step/src/z.gd",
+      3
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.untyped_declaration/src/a.gd",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.warning_in_hot_loop",
+    "findings": [
+     [
+      "godot.warning_in_hot_loop",
+      "warning",
+      "godot.warning_in_hot_loop/src/a.gd",
+      4
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ },
+ "godot/healthy": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "godot",
+   "universal"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "godot.add_child_before_configure",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.allocation_in_hot_loop",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.balance_value_in_code",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.fixed_wait_instead_of_state",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.fragile_node_path",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.hardcoded_ui_text",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.missing_main_scene",
+    "findings": [
+     [
+      "godot.missing_main_scene",
+      "error",
+      "godot.missing_main_scene/project.godot",
+      3
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.physics_query_before_first_step",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.root_directory_pollution",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.rpc_sender_identity",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "godot.untyped_declaration",
+    "findings": [
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.add_child_before_configure/src/zone.gd",
+      2
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.add_child_before_configure/src/zone.gd",
+      3
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.fixed_wait_instead_of_state/src/a.gd",
+      2
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.fragile_node_path/src/a.gd",
+      3
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.fragile_node_path/src/a.gd",
+      4
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.hardcoded_ui_text/src/ui.gd",
+      2
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.physics_query_before_first_step/src/z.gd",
+      2
+     ],
+     [
+      "godot.untyped_declaration",
+      "info",
+      "godot.physics_query_before_first_step/src/z.gd",
+      4
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "godot.warning_in_hot_loop",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ },
+ "python/broken": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "python",
+   "universal"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.apscheduler_misfire_default",
+    "findings": [
+     [
+      "python.apscheduler_misfire_default",
+      "error",
+      "python.apscheduler_misfire_default/bot/sched.py",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "python.hardcoded_fx_fallback",
+    "findings": [
+     [
+      "python.hardcoded_fx_fallback",
+      "warning",
+      "python.hardcoded_fx_fallback/market/fx.py",
+      3
+     ],
+     [
+      "python.hardcoded_fx_fallback",
+      "warning",
+      "python.hardcoded_fx_fallback/market/fx.py",
+      6
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "python.http_retry_non_idempotent",
+    "findings": [
+     [
+      "python.http_retry_non_idempotent",
+      "warning",
+      "python.http_retry_non_idempotent/broker/api.py",
+      4
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "python.telegram_token_log_leak",
+    "findings": [
+     [
+      "python.telegram_token_log_leak",
+      "error",
+      "python.telegram_token_log_leak/main.py",
+      3
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "python.yahoo_chart_last_bar_dropped",
+    "findings": [
+     [
+      "python.yahoo_chart_last_bar_dropped",
+      "error",
+      "python.yahoo_chart_last_bar_dropped/market/data.py",
+      4
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ },
+ "python/healthy": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "python",
+   "universal"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.apscheduler_misfire_default",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "python.hardcoded_fx_fallback",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "python.http_retry_non_idempotent",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "python.telegram_token_log_leak",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "python.yahoo_chart_last_bar_dropped",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ },
+ "raspberry/broken": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "python",
+   "raspberry",
+   "universal"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.apscheduler_misfire_default",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.hardcoded_fx_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.http_retry_non_idempotent",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.telegram_token_log_leak",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.yahoo_chart_last_bar_dropped",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "rpi.bare_except",
+    "findings": [
+     [
+      "rpi.bare_except",
+      "warning",
+      "rpi.bare_except/app/a.py",
+      4
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "rpi.config_not_validated_at_start",
+    "findings": [
+     [
+      "rpi.config_not_validated_at_start",
+      "warning",
+      "rpi.config_not_validated_at_start/app/c.py",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "rpi.hardware_import_not_isolated",
+    "findings": [
+     [
+      "rpi.hardware_import_not_isolated",
+      "warning",
+      "rpi.hardware_import_not_isolated/app/meter.py",
+      3
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "rpi.io_without_timeout",
+    "findings": [
+     [
+      "rpi.io_without_timeout",
+      "error",
+      "rpi.io_without_timeout/app/io.py",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "rpi.no_restart_policy",
+    "findings": [
+     [
+      "rpi.no_restart_policy",
+      "warning",
+      "",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "rpi.raw_measurement_overwritten",
+    "findings": [
+     [
+      "rpi.raw_measurement_overwritten",
+      "error",
+      "rpi.raw_measurement_overwritten/app/m.py",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ },
+ "raspberry/healthy": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "python",
+   "raspberry",
+   "universal"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.apscheduler_misfire_default",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.hardcoded_fx_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.http_retry_non_idempotent",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.telegram_token_log_leak",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.yahoo_chart_last_bar_dropped",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "rpi.bare_except",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "rpi.config_not_validated_at_start",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "rpi.hardware_import_not_isolated",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "rpi.io_without_timeout",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "rpi.no_restart_policy",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "rpi.raw_measurement_overwritten",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ },
+ "universal/broken": {
+  "exit_code": 1,
+  "platforms_detected": [
+   "python",
+   "universal",
+   "web"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [
+     [
+      "brand.derived_asset_named_after_brand",
+      "warning",
+      "brand.derived_asset_named_after_brand/public/acme-logo.png",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [
+     [
+      "brand.manual_derivation_comment",
+      "warning",
+      "brand.manual_derivation_comment/src/gen.ts",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [
+     [
+      "docs.trailing_whitespace",
+      "warning",
+      "docs.trailing_whitespace/docs/test.md",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [
+     [
+      "docs.unquoted_shell_placeholder",
+      "error",
+      "docs.unquoted_shell_placeholder/docs/test.md",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [
+     [
+      "gate.pipe_swallows_exit_status",
+      "error",
+      "gate.pipe_swallows_exit_status/run.sh",
+      3
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [
+     [
+      "gate.runner_accepts_zero_tests",
+      "warning",
+      "gate.runner_accepts_zero_tests/run_tests.sh",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [
+     [
+      "i18n.literal_in_markup",
+      "warning",
+      "brand.hardcoded_in_display/src/App.tsx",
+      1
+     ],
+     [
+      "i18n.literal_in_markup",
+      "warning",
+      "i18n.literal_in_markup/src/App.tsx",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [
+     [
+      "i18n.orphan_catalog_keys",
+      "warning",
+      "i18n.literal_in_markup/src/locales/de.json",
+      1
+     ],
+     [
+      "i18n.orphan_catalog_keys",
+      "warning",
+      "i18n.orphan_catalog_keys/src/locales/de.json",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [
+     [
+      "i18n.string_concatenation",
+      "warning",
+      "i18n.string_concatenation/src/a.ts",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [
+     [
+      "lab.flag_not_statically_evaluable",
+      "error",
+      "lab.flag_not_statically_evaluable/src/lab.ts",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [
+     [
+      "media.ffmpeg_limiter_auto_level",
+      "warning",
+      "media.ffmpeg_limiter_auto_level/mix.py",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [
+     [
+      "media.mux_without_stream_probe",
+      "warning",
+      "media.mux_without_stream_probe/mux.py",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [
+     [
+      "media.powershell_text_argument_split",
+      "error",
+      "media.powershell_text_argument_split/run.ps1",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [
+     [
+      "media.tts_without_duration_guard",
+      "warning",
+      "media.tts_without_duration_guard/pipeline.py",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [
+     [
+      "protocol.ui_named_runtime_term",
+      "warning",
+      "protocol.ui_named_runtime_term/src/api/dto.ts",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [
+     [
+      "protocol.version_bump_without_fallback",
+      "warning",
+      "protocol.version_bump_without_fallback/src/api/types.ts",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "python.apscheduler_misfire_default",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.hardcoded_fx_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.http_retry_non_idempotent",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.telegram_token_log_leak",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.yahoo_chart_last_bar_dropped",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [
+     [
+      "quality.assistant_trace",
+      "warning",
+      "quality.assistant_trace/src/a.ts",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [
+     [
+      "quality.display_text_as_anchor",
+      "warning",
+      "quality.display_text_as_anchor/gate.ts",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [
+     [
+      "quality.duplicate_literal_list",
+      "warning",
+      "quality.duplicate_literal_list/src/a.ts",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [
+     [
+      "secrets.hardcoded_credential",
+      "error",
+      "secrets.hardcoded_credential/src/a.ts",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.a11y_missing_label",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.grid_fr_without_minmax",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.hardcoded_endpoint",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.legal_pages_missing",
+    "findings": [
+     [
+      "web.legal_pages_missing",
+      "error",
+      "",
+      0
+     ],
+     [
+      "web.legal_pages_missing",
+      "error",
+      "",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.loading_without_null_state",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.secret_reaches_browser",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.strictmode_resource_leak",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.swallowed_fetch_error",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.touch_target_too_small",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.undefined_css_token",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.viewport_height_unit",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "failed"
+ },
+ "universal/healthy": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "python",
+   "universal",
+   "web"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "python.apscheduler_misfire_default",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.hardcoded_fx_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.http_retry_non_idempotent",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.telegram_token_log_leak",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "python.yahoo_chart_last_bar_dropped",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.a11y_missing_label",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.grid_fr_without_minmax",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.hardcoded_endpoint",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.legal_pages_missing",
+    "findings": [
+     [
+      "web.legal_pages_missing",
+      "error",
+      "",
+      0
+     ],
+     [
+      "web.legal_pages_missing",
+      "error",
+      "",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.loading_without_null_state",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.secret_reaches_browser",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.strictmode_resource_leak",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.swallowed_fetch_error",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.touch_target_too_small",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.undefined_css_token",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "web.viewport_height_unit",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ },
+ "unreal/broken": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "universal",
+   "unreal"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "unreal.config_value_without_reader",
+    "findings": [
+     [
+      "unreal.config_value_without_reader",
+      "warning",
+      "unreal.config_value_without_reader/Source/DemoSettings.h",
+      8
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "unreal.definition_without_caller",
+    "findings": [
+     [
+      "unreal.definition_without_caller",
+      "error",
+      "unreal.config_value_without_reader/Source/DemoMode.cpp",
+      2
+     ],
+     [
+      "unreal.definition_without_caller",
+      "error",
+      "unreal.definition_without_caller/Source/DemoHealth.cpp",
+      4
+     ],
+     [
+      "unreal.definition_without_caller",
+      "error",
+      "unreal.hit_binding_without_notify/Source/DemoCtrl.cpp",
+      4
+     ],
+     [
+      "unreal.definition_without_caller",
+      "error",
+      "unreal.replicated_write_without_authority/Source/DemoState.cpp",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "unreal.hit_binding_without_notify",
+    "findings": [
+     [
+      "unreal.hit_binding_without_notify",
+      "error",
+      "unreal.hit_binding_without_notify/Source/DemoCtrl.cpp",
+      6
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "unreal.modular_mesh_without_leader_pose",
+    "findings": [
+     [
+      "unreal.modular_mesh_without_leader_pose",
+      "warning",
+      "unreal.modular_mesh_without_leader_pose/Source/DemoChar.cpp",
+      6
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "unreal.objectfinder_silent_failure",
+    "findings": [
+     [
+      "unreal.objectfinder_silent_failure",
+      "error",
+      "unreal.objectfinder_silent_failure/Source/DemoChar.cpp",
+      6
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "unreal.replicated_write_without_authority",
+    "findings": [
+     [
+      "unreal.replicated_write_without_authority",
+      "warning",
+      "unreal.replicated_write_without_authority/Source/DemoState.cpp",
+      4
+     ]
+    ],
+    "status": "fail"
+   }
+  ],
+  "verdict": "green"
+ },
+ "unreal/healthy": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "universal",
+   "unreal"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "unreal.config_value_without_reader",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "unreal.definition_without_caller",
+    "findings": [
+     [
+      "unreal.definition_without_caller",
+      "error",
+      "unreal.config_value_without_reader/Source/DemoMode.cpp",
+      2
+     ],
+     [
+      "unreal.definition_without_caller",
+      "error",
+      "unreal.hit_binding_without_notify/Source/DemoCtrl.cpp",
+      4
+     ],
+     [
+      "unreal.definition_without_caller",
+      "error",
+      "unreal.replicated_write_without_authority/Source/DemoState.cpp",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "unreal.hit_binding_without_notify",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "unreal.modular_mesh_without_leader_pose",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "unreal.objectfinder_silent_failure",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "unreal.replicated_write_without_authority",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ },
+ "web/broken": {
+  "exit_code": 1,
+  "platforms_detected": [
+   "universal",
+   "web"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [
+     [
+      "brand.hardcoded_in_display",
+      "error",
+      "web.legal_pages_missing/src/App.tsx",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.a11y_missing_label",
+    "findings": [
+     [
+      "web.a11y_missing_label",
+      "warning",
+      "web.a11y_missing_label/src/a.tsx",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.grid_fr_without_minmax",
+    "findings": [
+     [
+      "web.grid_fr_without_minmax",
+      "warning",
+      "web.grid_fr_without_minmax/src/a.css",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.hardcoded_endpoint",
+    "findings": [
+     [
+      "web.hardcoded_endpoint",
+      "warning",
+      "web.hardcoded_endpoint/src/api.ts",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.legal_pages_missing",
+    "findings": [
+     [
+      "web.legal_pages_missing",
+      "error",
+      "",
+      0
+     ],
+     [
+      "web.legal_pages_missing",
+      "error",
+      "",
+      0
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.loading_without_null_state",
+    "findings": [
+     [
+      "web.loading_without_null_state",
+      "info",
+      "web.loading_without_null_state/src/a.tsx",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.secret_reaches_browser",
+    "findings": [
+     [
+      "web.secret_reaches_browser",
+      "error",
+      "web.secret_reaches_browser/src/ai.ts",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.strictmode_resource_leak",
+    "findings": [
+     [
+      "web.strictmode_resource_leak",
+      "warning",
+      "web.strictmode_resource_leak/src/a.tsx",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.swallowed_fetch_error",
+    "findings": [
+     [
+      "web.swallowed_fetch_error",
+      "warning",
+      "web.swallowed_fetch_error/src/a.ts",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.touch_target_too_small",
+    "findings": [
+     [
+      "web.touch_target_too_small",
+      "info",
+      "web.touch_target_too_small/src/a.css",
+      1
+     ],
+     [
+      "web.touch_target_too_small",
+      "info",
+      "web.touch_target_too_small/src/a.css",
+      1
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.undefined_css_token",
+    "findings": [
+     [
+      "web.undefined_css_token",
+      "warning",
+      "web.undefined_css_token/src/a.css",
+      2
+     ]
+    ],
+    "status": "fail"
+   },
+   {
+    "check_id": "web.viewport_height_unit",
+    "findings": [
+     [
+      "web.viewport_height_unit",
+      "warning",
+      "web.viewport_height_unit/src/a.css",
+      1
+     ]
+    ],
+    "status": "fail"
+   }
+  ],
+  "verdict": "failed"
+ },
+ "web/healthy": {
+  "exit_code": 0,
+  "platforms_detected": [
+   "universal",
+   "web"
+  ],
+  "results": [
+   {
+    "check_id": "brand.derived_asset_named_after_brand",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "brand.hardcoded_in_display",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "brand.manual_derivation_comment",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "docs.trailing_whitespace",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "docs.unquoted_shell_placeholder",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.pipe_swallows_exit_status",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.reads_from_gitignored_artifact",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "gate.runner_accepts_zero_tests",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.literal_in_markup",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.orphan_catalog_keys",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "i18n.string_concatenation",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "lab.flag_not_statically_evaluable",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.ffmpeg_limiter_auto_level",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.mux_without_stream_probe",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.powershell_text_argument_split",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "media.tts_without_duration_guard",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "protocol.ui_named_runtime_term",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "protocol.version_bump_without_fallback",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
+    "check_id": "quality.assistant_trace",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.display_text_as_anchor",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "quality.duplicate_literal_list",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "secrets.hardcoded_credential",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.a11y_missing_label",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.grid_fr_without_minmax",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.hardcoded_endpoint",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.legal_pages_missing",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.loading_without_null_state",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.secret_reaches_browser",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.strictmode_resource_leak",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.swallowed_fetch_error",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.touch_target_too_small",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.undefined_css_token",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.viewport_height_unit",
+    "findings": [],
+    "status": "pass"
+   }
+  ],
+  "verdict": "green"
+ }
+}

@@ -87,12 +87,12 @@ class ConfigTests(unittest.TestCase):
     def test_project_metadata_and_singular_brand_source_are_supported(self) -> None:
         cfg = self.load_text(textwrap.dedent("""
             [project]
-            name = "Henga"
+            name = "SampleApp"
             platform = "apple"
             [brand]
             source = "Sources/Core/AppConfig.swift:brandName"
         """))
-        self.assertEqual(cfg.brand_names, ["Henga"])
+        self.assertEqual(cfg.brand_names, ["SampleApp"])
         self.assertEqual(cfg.brand_source_globs, ["Sources/Core/AppConfig.swift"])
 
     def test_unknown_table_is_rejected_during_load(self) -> None:

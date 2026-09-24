@@ -1092,7 +1092,7 @@ def check_bundle_module(ctx: Context) -> CheckResult:
 # und der Finder zeigt es unter "Computer"/Netzwerk an — unabhängig davon, wo
 # der Mountpunkt liegt. Ein eigener Ordner unter ~/Library ist KEIN Ersatz:
 # die Sichtbarkeit haengt am Kernel-Flag MNT_NOBROWSE, nicht am Pfad.
-# Belegt: SynologyMount, 18.09.2026 — Mounts unter
+# Belegt: macOS-Mount-Werkzeug für NAS-Freigaben, 18.09.2026 — Mounts unter
 # ~/Library/Application Support/.../Mounts standen weiter in der
 # Systemuebersicht, bis "-o", "nobrowse" in den Argumenten stand.
 # Quelle: mount_smbfs(8) — "nobrowse: indicates to the Carbon subsystem
@@ -1253,7 +1253,7 @@ def check_smb_nobrowse(ctx: Context) -> CheckResult:
 # automatisch einen leeren grauen Toolbar-/Header-Platzhalter, wenn an der
 # Detailansicht kein .navigationTitle(...) gebunden ist. Dieser leere Balken
 # überlagert den oberen Inhalt (Forms, ScrollViews, Eingabefelder).
-# Belegt: Henga, 19.09.2026 — Ein grauer Balken verdeckte Textfelder im Formular,
+# Belegt: reale macOS-App, 19.09.2026 — Ein grauer Balken verdeckte Textfelder im Formular,
 # bis .navigationTitle(...) an der Detailansicht gesetzt wurde.
 
 @register(

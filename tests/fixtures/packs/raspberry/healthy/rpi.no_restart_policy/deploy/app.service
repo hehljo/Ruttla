@@ -1,0 +1,4 @@
+[Service]
+ExecStart=/usr/bin/python3 d.py
+Restart=always
+RestartSec=5

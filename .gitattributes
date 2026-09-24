@@ -1,0 +1,5 @@
+# Normalise line endings; fixtures are byte-exact test data (trailing
+# whitespace, CRLF-sensitive regexes) and must never be converted.
+* text=auto eol=lf
+tests/fixtures/** -text
+*.png binary

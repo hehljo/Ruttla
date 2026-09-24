@@ -18,7 +18,7 @@ Der Fix im Projekt ist Nebensache und wird nur auf ausdrückliche Bitte gemacht.
 Ohne Check ist der Fix wertlos: derselbe Fehler kommt im nächsten Projekt
 wieder, und dann kostet er wieder Token.
 
-Belegt am 18.09.2026: gemeldet wurden zwei Swift-Compilerfehler aus FotobuchGenie.
+Belegt am 18.09.2026: gemeldet wurden zwei Swift-Compilerfehler aus einem App-Projekt (Fotobuch-App).
 Statt den Check zu bauen, wurden fünf Quelldateien im fremden Repo editiert.
 Der User musste korrigieren: *„du sollst eigentlich nur die check pythons
 entsprechend das Fehlerbild implementieren, net den Code ändern"*. Die Regel
@@ -91,7 +91,8 @@ recommended settings", ohne dass das Gate etwas sagte. Schwellen gehören in
 eine **benannte Konstante** mit ihrer Messung im Kommentar, sonst werden sie
 beim nächsten Aufräumen auf eine runde Zahl gesetzt.
 
-Toolchain-Stand steht in `~/.claude/CLAUDE.md`.
+Der aktuelle Toolchain-Stand wird in der globalen Agent-Konfiguration des
+Maintainers gepflegt (nicht Teil dieses Repos).
 
 ---
 

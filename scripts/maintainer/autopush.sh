@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-# Auto-Push für CODE_QUALITY_GENERAL.
+# MAINTAINER-ONLY — nicht Teil des normalen Contributor-Workflows.
+#
+# Committet und pusht automatisch ALLE Änderungen im Arbeitsbaum. Für
+# Contributors gilt stattdessen: Pre-commit-Hook (.githooks/pre-commit) plus
+# normaler Pull Request, siehe CONTRIBUTING.md.
 #
 # Pusht NUR, wenn die Sabotage-Gegenprobe grün ist — ein Gate, dessen eigene
 # Gegenprobe rot ist, hat im Repo nichts verloren.
 #
-#   ./autopush.sh              # einmal: prüfen, committen, pushen
-#   ./autopush.sh --watch      # dauerhaft beobachten (alle 60 s)
-#   ./autopush.sh --watch 300  # eigenes Intervall in Sekunden
+#   scripts/maintainer/autopush.sh              # einmal: prüfen, committen, pushen
+#   scripts/maintainer/autopush.sh --watch      # dauerhaft beobachten (alle 60 s)
+#   scripts/maintainer/autopush.sh --watch 300  # eigenes Intervall in Sekunden
 #
 # Exit: 0 gepusht oder nichts zu tun · 1 Gegenprobe rot · 3 Fehler
 
 set -u
-cd "$(dirname "$0")" || exit 3
+cd "$(dirname "$0")/../.." || exit 3
 
 run_once() {
   # Ausgabe in eine Variable, Status SOFORT danach, dann erst filtern.
@@ -35,9 +39,7 @@ run_once() {
   checks=$(echo "$out" | grep -oE '^[0-9]+ Checks registriert' | grep -oE '^[0-9]+')
 
   git add -A
-  git commit -q -m "Checks aktualisiert: ${checks:-?} Checks, ${proben:-Gegenprobe grün}
-
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>" || return 3
+  git commit -q -m "Checks aktualisiert: ${checks:-?} Checks, ${proben:-Gegenprobe grün}" || return 3
 
   if ! git push -q origin HEAD 2>/dev/null; then
     echo "Push fehlgeschlagen — Commit liegt lokal." >&2

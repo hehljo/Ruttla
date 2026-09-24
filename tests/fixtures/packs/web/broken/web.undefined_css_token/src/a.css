@@ -1,0 +1,2 @@
+:root { --bg: #fff; }
+.card { color: var(--text-primary); }

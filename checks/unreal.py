@@ -3,7 +3,7 @@
 Unreal-Engine-Checks aus CODE_QUALITY_GUIDELINES_UNREAL.md.
 
 Schwerpunkte (jeweils mit dem belegten Fall aus dem Audit vom 19.09.2026,
-Projekt Drink & Hide auf UE 5.8):
+reales Spielprojekt auf UE 5.8):
 
 * § 1a FObjectFinder schlägt STILL fehl — `Succeeded()==false` ohne else-Zweig
       spawnt einen Pawn ohne Mesh. Belegt: zehn hart getippte /Game/…-Pfade in
@@ -12,7 +12,7 @@ Projekt Drink & Hide auf UE 5.8):
       T-Pose. Belegt: alle Einzelteile korrekt, leader_pose_component=None,
       Figur lief korrekt durch die Stadt und blieb in Bind-Pose.
 * § 2   Eine Definition ohne Aufrufer ist keine Fähigkeit. Belegt:
-      UDHHealthComponent::ApplyDamage hatte AUSSERHALB der Tests keinen
+      UDemoHealthComponent::ApplyDamage hatte AUSSERHALB der Tests keinen
       einzigen Aufrufer — die Schadenskomponente konnte keinen Schaden bekommen,
       und das Vertragsgate meldete grün, weil der Name als String existierte.
 * § 3   UPROPERTY(Config) ohne Leser ist ein toter Balancewert.
@@ -95,11 +95,11 @@ _FINDER = re.compile(
     self_tests=[
         SelfTestCase(
             name="Succeeded() ohne else — Pawn spawnt ohne Mesh",
-            files={"Source/DHChar.cpp": (
-                "#include \"DHChar.h\"\n"
+            files={"Source/DemoChar.cpp": (
+                "#include \"DemoChar.h\"\n"
                 "UCLASS()\n"
-                "class ADHChar : public ACharacter { GENERATED_BODY() };\n"
-                "ADHChar::ADHChar()\n"
+                "class ADemoChar : public ACharacter { GENERATED_BODY() };\n"
+                "ADemoChar::ADemoChar()\n"
                 "{\n"
                 "    static ConstructorHelpers::FObjectFinder<USkeletalMesh> BaseMesh(\n"
                 "        TEXT(\"/Game/Character/SKM_Base.SKM_Base\"));\n"
@@ -114,11 +114,11 @@ _FINDER = re.compile(
         ),
         SelfTestCase(
             name="Fehlerfall wird geloggt",
-            files={"Source/DHChar.cpp": (
-                "#include \"DHChar.h\"\n"
+            files={"Source/DemoChar.cpp": (
+                "#include \"DemoChar.h\"\n"
                 "UCLASS()\n"
-                "class ADHChar : public ACharacter { GENERATED_BODY() };\n"
-                "ADHChar::ADHChar()\n"
+                "class ADemoChar : public ACharacter { GENERATED_BODY() };\n"
+                "ADemoChar::ADemoChar()\n"
                 "{\n"
                 "    static ConstructorHelpers::FObjectFinder<USkeletalMesh> BaseMesh(\n"
                 "        TEXT(\"/Game/Character/SKM_Base.SKM_Base\"));\n"
@@ -128,7 +128,7 @@ _FINDER = re.compile(
                 "    }\n"
                 "    else\n"
                 "    {\n"
-                "        UE_LOG(LogTemp, Error, TEXT(\"DH_MESH_MISSING=True\"));\n"
+                "        UE_LOG(LogTemp, Error, TEXT(\"DEMO_MESH_MISSING=True\"));\n"
                 "    }\n"
                 "}\n"
             )},
@@ -254,22 +254,22 @@ def _looks_engine_called(name: str) -> bool:
         SelfTestCase(
             name="ApplyDamage nur im Test gerufen",
             files={
-                "Source/DHHealth.cpp": (
-                    "#include \"DHHealth.h\"\n"
+                "Source/DemoHealth.cpp": (
+                    "#include \"DemoHealth.h\"\n"
                     "UCLASS()\n"
-                    "class UDHHealth : public UActorComponent { GENERATED_BODY() };\n"
-                    "float UDHHealth::ApplyDamage(float Amount)\n"
+                    "class UDemoHealth : public UActorComponent { GENERATED_BODY() };\n"
+                    "float UDemoHealth::ApplyDamage(float Amount)\n"
                     "{\n"
                     "    Health -= Amount;\n"
                     "    return Amount;\n"
                     "}\n"
                 ),
-                "Source/DHTests.cpp": (
-                    "#include \"DHHealth.h\"\n"
-                    "IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDHTest, \"DH.Health\", 1)\n"
-                    "bool FDHTest::RunTest(const FString& P)\n"
+                "Source/DemoTests.cpp": (
+                    "#include \"DemoHealth.h\"\n"
+                    "IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDemoTest, \"Demo.Health\", 1)\n"
+                    "bool FDemoTest::RunTest(const FString& P)\n"
                     "{\n"
-                    "    UDHHealth* H = NewObject<UDHHealth>();\n"
+                    "    UDemoHealth* H = NewObject<UDemoHealth>();\n"
                     "    H->ApplyDamage(34.0f);\n"
                     "    return true;\n"
                     "}\n"
@@ -281,33 +281,33 @@ def _looks_engine_called(name: str) -> bool:
         SelfTestCase(
             name="ApplyDamage aus dem Gameplay gerufen",
             files={
-                "Source/DHHealth.cpp": (
-                    "#include \"DHHealth.h\"\n"
+                "Source/DemoHealth.cpp": (
+                    "#include \"DemoHealth.h\"\n"
                     "UCLASS()\n"
-                    "class UDHHealth : public UActorComponent { GENERATED_BODY() };\n"
-                    "float UDHHealth::ApplyDamage(float Amount)\n"
+                    "class UDemoHealth : public UActorComponent { GENERATED_BODY() };\n"
+                    "float UDemoHealth::ApplyDamage(float Amount)\n"
                     "{\n"
                     "    Health -= Amount;\n"
                     "    return Amount;\n"
                     "}\n"
                 ),
-                "Source/DHVehicle.cpp": (
-                    "#include \"DHHealth.h\"\n"
-                    "void ADHVehicle::HitPedestrian(UDHHealth* Target)\n"
+                "Source/DemoVehicle.cpp": (
+                    "#include \"DemoHealth.h\"\n"
+                    "void ADemoVehicle::HitPedestrian(UDemoHealth* Target)\n"
                     "{\n"
                     "    Target->ApplyDamage(50.0f);\n"
                     "}\n"
-                    "void ADHVehicle::Tick(float Dt)\n"
+                    "void ADemoVehicle::Tick(float Dt)\n"
                     "{\n"
                     "    HitPedestrian(nullptr);\n"
                     "}\n"
                 ),
-                "Source/DHTests.cpp": (
-                    "#include \"DHHealth.h\"\n"
-                    "IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDHTest, \"DH.Health\", 1)\n"
-                    "bool FDHTest::RunTest(const FString& P)\n"
+                "Source/DemoTests.cpp": (
+                    "#include \"DemoHealth.h\"\n"
+                    "IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDemoTest, \"Demo.Health\", 1)\n"
+                    "bool FDemoTest::RunTest(const FString& P)\n"
                     "{\n"
-                    "    UDHHealth* H = NewObject<UDHHealth>();\n"
+                    "    UDemoHealth* H = NewObject<UDemoHealth>();\n"
                     "    H->ApplyDamage(34.0f);\n"
                     "    return true;\n"
                     "}\n"
@@ -322,24 +322,24 @@ def _looks_engine_called(name: str) -> bool:
             # ApplyDamage-Befund unsichtbar.
             name="Nur Header-Deklaration und datei-interner Aufruf",
             files={
-                "Source/DHHealth.h": (
+                "Source/DemoHealth.h": (
                     "#pragma once\n"
                     "UCLASS()\n"
-                    "class UDHHealth : public UActorComponent\n"
+                    "class UDemoHealth : public UActorComponent\n"
                     "{\n"
                     "    GENERATED_BODY()\n"
                     "public:\n"
                     "    float ApplyDamage(float DamageAmount);\n"
                     "};\n"
                 ),
-                "Source/DHHealth.cpp": (
-                    "#include \"DHHealth.h\"\n"
-                    "float UDHHealth::ApplyDamage(float Amount)\n"
+                "Source/DemoHealth.cpp": (
+                    "#include \"DemoHealth.h\"\n"
+                    "float UDemoHealth::ApplyDamage(float Amount)\n"
                     "{\n"
                     "    Health -= Amount;\n"
                     "    return Amount;\n"
                     "}\n"
-                    "void UDHHealth::HandleAnyDamage(float D)\n"
+                    "void UDemoHealth::HandleAnyDamage(float D)\n"
                     "{\n"
                     "    ApplyDamage(D);\n"
                     "}\n"
@@ -353,7 +353,7 @@ def _looks_engine_called(name: str) -> bool:
 def check_definition_without_caller(ctx: Context) -> CheckResult:
     """Eine Funktion ohne Aufrufer ist keine Fähigkeit. Testdateien zählen
     NICHT mit — sonst hält sich jeder tote Code durch seinen eigenen Unit-Test
-    am Leben. Belegt: UDHHealthComponent::ApplyDamage, monatelang ohne
+    am Leben. Belegt: UDemoHealthComponent::ApplyDamage, monatelang ohne
     Gameplay-Aufrufer, Gate grün."""
     title = "Gameplay-Methode ohne Aufrufer außerhalb der Tests"
     if not _is_unreal(ctx):
@@ -475,10 +475,10 @@ _CONFIG_PROP = re.compile(
     self_tests=[
         SelfTestCase(
             name="Config-Wert wird nirgends gelesen",
-            files={"Source/DHSettings.h": (
+            files={"Source/DemoSettings.h": (
                 "#pragma once\n"
                 "UCLASS(Config=Game)\n"
-                "class UDHSettings : public UDeveloperSettings\n"
+                "class UDemoSettings : public UDeveloperSettings\n"
                 "{\n"
                 "    GENERATED_BODY()\n"
                 "public:\n"
@@ -486,11 +486,11 @@ _CONFIG_PROP = re.compile(
                 "    UPROPERTY(Config, EditAnywhere) float UnusedKnob;\n"
                 "};\n"
             ),
-             "Source/DHMode.cpp": (
-                "#include \"DHSettings.h\"\n"
-                "void ADHMode::Start()\n"
+             "Source/DemoMode.cpp": (
+                "#include \"DemoSettings.h\"\n"
+                "void ADemoMode::Start()\n"
                 "{\n"
-                "    float T = GetDefault<UDHSettings>()->RoundSeconds;\n"
+                "    float T = GetDefault<UDemoSettings>()->RoundSeconds;\n"
                 "    StartTimer(T);\n"
                 "}\n"
              )},
@@ -499,21 +499,21 @@ _CONFIG_PROP = re.compile(
         ),
         SelfTestCase(
             name="Alle Config-Werte werden gelesen",
-            files={"Source/DHSettings.h": (
+            files={"Source/DemoSettings.h": (
                 "#pragma once\n"
                 "UCLASS(Config=Game)\n"
-                "class UDHSettings : public UDeveloperSettings\n"
+                "class UDemoSettings : public UDeveloperSettings\n"
                 "{\n"
                 "    GENERATED_BODY()\n"
                 "public:\n"
                 "    UPROPERTY(Config, EditAnywhere) float RoundSeconds;\n"
                 "};\n"
             ),
-             "Source/DHMode.cpp": (
-                "#include \"DHSettings.h\"\n"
-                "void ADHMode::Start()\n"
+             "Source/DemoMode.cpp": (
+                "#include \"DemoSettings.h\"\n"
+                "void ADemoMode::Start()\n"
                 "{\n"
-                "    float T = GetDefault<UDHSettings>()->RoundSeconds;\n"
+                "    float T = GetDefault<UDemoSettings>()->RoundSeconds;\n"
                 "    StartTimer(T);\n"
                 "}\n"
              )},
@@ -595,27 +595,27 @@ _HIT_BIND = re.compile(r"OnComponentHit\s*\.\s*(?:Add|AddDynamic|AddUniqueDynami
     self_tests=[
         SelfTestCase(
             name="Bindung ohne Notify — Callback feuert nie",
-            files={"Source/DHCtrl.cpp": (
-                "#include \"DHCtrl.h\"\n"
+            files={"Source/DemoCtrl.cpp": (
+                "#include \"DemoCtrl.h\"\n"
                 "UCLASS()\n"
-                "class ADHCtrl : public APlayerController { GENERATED_BODY() };\n"
-                "void ADHCtrl::Bind(UPrimitiveComponent* Mesh)\n"
+                "class ADemoCtrl : public APlayerController { GENERATED_BODY() };\n"
+                "void ADemoCtrl::Bind(UPrimitiveComponent* Mesh)\n"
                 "{\n"
-                "    Mesh->OnComponentHit.AddDynamic(this, &ADHCtrl::HandleHit);\n"
+                "    Mesh->OnComponentHit.AddDynamic(this, &ADemoCtrl::HandleHit);\n"
                 "}\n"
             )},
             expect=Status.FAIL,
         ),
         SelfTestCase(
             name="Notify wird gesetzt",
-            files={"Source/DHCtrl.cpp": (
-                "#include \"DHCtrl.h\"\n"
+            files={"Source/DemoCtrl.cpp": (
+                "#include \"DemoCtrl.h\"\n"
                 "UCLASS()\n"
-                "class ADHCtrl : public APlayerController { GENERATED_BODY() };\n"
-                "void ADHCtrl::Bind(UPrimitiveComponent* Mesh)\n"
+                "class ADemoCtrl : public APlayerController { GENERATED_BODY() };\n"
+                "void ADemoCtrl::Bind(UPrimitiveComponent* Mesh)\n"
                 "{\n"
                 "    Mesh->SetNotifyRigidBodyCollision(true);\n"
-                "    Mesh->OnComponentHit.AddDynamic(this, &ADHCtrl::HandleHit);\n"
+                "    Mesh->OnComponentHit.AddDynamic(this, &ADemoCtrl::HandleHit);\n"
                 "}\n"
             )},
             expect=Status.PASS,
@@ -683,11 +683,11 @@ def check_hit_binding_without_notify(ctx: Context) -> CheckResult:
     self_tests=[
         SelfTestCase(
             name="Mehrere Meshes, keine Kopplung",
-            files={"Source/DHChar.cpp": (
-                "#include \"DHChar.h\"\n"
+            files={"Source/DemoChar.cpp": (
+                "#include \"DemoChar.h\"\n"
                 "UCLASS()\n"
-                "class ADHChar : public ACharacter { GENERATED_BODY() };\n"
-                "ADHChar::ADHChar()\n"
+                "class ADemoChar : public ACharacter { GENERATED_BODY() };\n"
+                "ADemoChar::ADemoChar()\n"
                 "{\n"
                 "    VisibleBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT(\"Body\"));\n"
                 "    VisibleBody->SetupAttachment(GetMesh());\n"
@@ -699,18 +699,18 @@ def check_hit_binding_without_notify(ctx: Context) -> CheckResult:
         ),
         SelfTestCase(
             name="Kopplung vorhanden",
-            files={"Source/DHChar.cpp": (
-                "#include \"DHChar.h\"\n"
+            files={"Source/DemoChar.cpp": (
+                "#include \"DemoChar.h\"\n"
                 "UCLASS()\n"
-                "class ADHChar : public ACharacter { GENERATED_BODY() };\n"
-                "ADHChar::ADHChar()\n"
+                "class ADemoChar : public ACharacter { GENERATED_BODY() };\n"
+                "ADemoChar::ADemoChar()\n"
                 "{\n"
                 "    VisibleBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT(\"Body\"));\n"
                 "    VisibleBody->SetupAttachment(GetMesh());\n"
                 "    VisibleHead = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT(\"Head\"));\n"
                 "    VisibleHead->SetupAttachment(GetMesh());\n"
                 "}\n"
-                "void ADHChar::BeginPlay()\n"
+                "void ADemoChar::BeginPlay()\n"
                 "{\n"
                 "    Super::BeginPlay();\n"
                 "    VisibleBody->SetLeaderPoseComponent(GetMesh(), true, false);\n"
@@ -789,17 +789,17 @@ _REPLICATED_FIELD = re.compile(
     self_tests=[
         SelfTestCase(
             name="Client schreibt repliziertes Feld",
-            files={"Source/DHState.h": (
+            files={"Source/DemoState.h": (
                 "#pragma once\n"
-                "UCLASS()\nclass ADHState : public AGameStateBase\n{\n"
+                "UCLASS()\nclass ADemoState : public AGameStateBase\n{\n"
                 "    GENERATED_BODY()\n"
                 "private:\n"
                 "    UPROPERTY(Replicated) int32 RoundScore;\n"
                 "};\n"
             ),
-             "Source/DHState.cpp": (
-                "#include \"DHState.h\"\n"
-                "void ADHState::AddPoints(int32 P)\n"
+             "Source/DemoState.cpp": (
+                "#include \"DemoState.h\"\n"
+                "void ADemoState::AddPoints(int32 P)\n"
                 "{\n"
                 "    RoundScore += P;\n"
                 "}\n"
@@ -809,17 +809,17 @@ _REPLICATED_FIELD = re.compile(
         ),
         SelfTestCase(
             name="Schreibzugriff hinter HasAuthority()",
-            files={"Source/DHState.h": (
+            files={"Source/DemoState.h": (
                 "#pragma once\n"
-                "UCLASS()\nclass ADHState : public AGameStateBase\n{\n"
+                "UCLASS()\nclass ADemoState : public AGameStateBase\n{\n"
                 "    GENERATED_BODY()\n"
                 "private:\n"
                 "    UPROPERTY(Replicated) int32 RoundScore;\n"
                 "};\n"
             ),
-             "Source/DHState.cpp": (
-                "#include \"DHState.h\"\n"
-                "void ADHState::AddPoints(int32 P)\n"
+             "Source/DemoState.cpp": (
+                "#include \"DemoState.h\"\n"
+                "void ADemoState::AddPoints(int32 P)\n"
                 "{\n"
                 "    if (!HasAuthority()) return;\n"
                 "    RoundScore += P;\n"
