@@ -78,6 +78,7 @@ unreal.modular_mesh_without_leader_pose
 unreal.objectfinder_silent_failure
 unreal.replicated_write_without_authority
 web.a11y_missing_label
+web.empty_catch_block
 web.grid_fr_without_minmax
 web.hardcoded_endpoint
 web.legal_pages_missing

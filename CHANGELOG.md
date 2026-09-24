@@ -3,9 +3,10 @@
 Format: Keep a Changelog; versions: SemVer (ADR-0007). Rule IDs are listed
 when added, changed or deprecated.
 
-## [Unreleased] — 0.1.0 (private pre-release)
+## [Unreleased] — 0.1.0 (public preview)
 
 ### Added
+- `web.empty_catch_block`: detects empty JavaScript/TypeScript catch blocks that silently discard exceptions; advisory only because intentional best-effort catches can be valid.
 - Package `ruttla` (console script, `python -m ruttla`); `master_gate.py` and `core.py` remain as shims.
 - `--version`, `--explain ID`, `--list --format json|markdown`, `--format sarif`, `--sarif FILE`.
 - SARIF 2.1.0 reporter; JSON report schema 1.1 (`schemas/report.schema.json`) with

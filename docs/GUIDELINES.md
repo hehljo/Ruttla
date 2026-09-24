@@ -146,10 +146,12 @@ that must only name APIs that actually exist.
   since 28 June 2025.
 - **Secrets:** variables with public prefixes (`VITE_`, `NEXT_PUBLIC_`,
   `REACT_APP_`) end up in the shipped bundle.
-- **Errors and state:** a fetch without an error branch swallows 403s; a
-  boolean loading flag cannot express "not checked yet"; React StrictMode
-  double-mounts expose resources without cleanup; undefined CSS custom
-  properties fail silently.
+- **Errors and state:** a fetch without an error branch swallows 403s; an
+  empty JavaScript/TypeScript `catch` discards the exception without reporting
+  or recovery; a boolean loading flag cannot express "not checked yet"; React
+  StrictMode double-mounts expose resources without cleanup; undefined CSS
+  custom properties fail silently. Empty catches can be intentional for
+  best-effort operations, so Ruttla reports them as advisory findings.
 - **Legal:** German sites need an imprint (§ 5 DDG) and a privacy policy
   (GDPR Art. 13) before deployment.
 

@@ -2379,6 +2379,11 @@
     "status": "pass"
    },
    {
+    "check_id": "web.empty_catch_block",
+    "findings": [],
+    "status": "unmeasured"
+   },
+   {
     "check_id": "web.grid_fr_without_minmax",
     "findings": [],
     "status": "unmeasured"
@@ -2591,6 +2596,11 @@
     "check_id": "web.a11y_missing_label",
     "findings": [],
     "status": "pass"
+   },
+   {
+    "check_id": "web.empty_catch_block",
+    "findings": [],
+    "status": "unmeasured"
    },
    {
     "check_id": "web.grid_fr_without_minmax",
@@ -3174,6 +3184,18 @@
     "status": "fail"
    },
    {
+    "check_id": "web.empty_catch_block",
+    "findings": [
+     [
+      "web.empty_catch_block",
+      "warning",
+      "web.empty_catch_block/src/api.ts",
+      4
+     ]
+    ],
+    "status": "fail"
+   },
+   {
     "check_id": "web.grid_fr_without_minmax",
     "findings": [
      [
@@ -3427,6 +3449,11 @@
    },
    {
     "check_id": "web.a11y_missing_label",
+    "findings": [],
+    "status": "pass"
+   },
+   {
+    "check_id": "web.empty_catch_block",
     "findings": [],
     "status": "pass"
    },

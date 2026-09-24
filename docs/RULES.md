@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-90 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+91 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -13,7 +13,7 @@
 | raspberry | 6 | 0 |
 | universal | 22 | 2 |
 | unreal | 6 | 0 |
-| web | 11 | 1 |
+| web | 12 | 1 |
 
 ## Pack `apple`
 
@@ -4232,6 +4232,45 @@ export const A = () => <button><Icon /></button>;
 
 ```text
 export const A = () => <button aria-label="Schliessen"><Icon /></button>;
+```
+
+</details>
+
+### `web.empty_catch_block`
+
+**Leerer catch-Block verschluckt den Fehler vollständig**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § Fehlerbehandlung
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+- Reference: <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch>
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein leerer catch-Block verwirft die gefangene Exception ohne sichtbare Behandlung. Das erschwert Diagnose und kann Fehlerzustände als Erfolg erscheinen lassen. Absichtlich ignorierte Fehler (z. B. optionale Best-Effort-Arbeit) sind eine mögliche legitime Ausnahme; deshalb ist der Check advisory und nicht safe-by-default. Er prüft nur syntaktisch leere JavaScript/TypeScript-catch-Blöcke, keine allgemeine Qualität der Fehlerbehandlung oder DB-RLS-Rechte.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Exception wird lautlos verworfen</summary>
+
+`src/api.ts`
+
+```text
+try { await save(); } catch {}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Fehler wird protokolliert und Stringliteral ist kein Treffer</summary>
+
+`src/api.ts`
+
+```text
+const example = "catch {}";
+try { await save(); } catch (error) { console.error(error); }
 ```
 
 </details>

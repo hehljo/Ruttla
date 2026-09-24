@@ -1,7 +1,7 @@
 # STATUS
 
 ## Current Phase
-P05 abgeschlossen (P00–P05 umgesetzt, Repo bleibt privat). Nächste Phase: P06.
+P05 abgeschlossen (P00–P05 umgesetzt). P06 aktiv; Repository ist seit 2026-09-24 öffentlich.
 
 ## Last Completed (2026-09-24)
 - P00 Anonymisierung, History-/Provenienz-Audit, Apache-2.0, Golden-Baseline
@@ -11,6 +11,7 @@ P05 abgeschlossen (P00–P05 umgesetzt, Repo bleibt privat). Nächste Phase: P06
 - P04 SARIF, --version/--list json/--explain, Workflow-Beispiel (ADR-0009)
 - P05 README (en/de), CONTRIBUTING, SECURITY, CoC, CODEOWNERS, Templates, CHANGELOG, RULES.md
 - LESSONS_LEARNED.md
+- `web.empty_catch_block`: advisory Check für leere JS/TS-catch-Blöcke, mit broken/healthy Proben und False-Positive-Hinweis
 
 ## Next Unblocked Task
 - P06-T001 Finding-Fingerprint (Basis `ruttla/v1` in SARIF existiert)
@@ -22,8 +23,8 @@ P05 abgeschlossen (P00–P05 umgesetzt, Repo bleibt privat). Nächste Phase: P06
 - Trademark-Kurzcheck für „Ruttla“ vor 0.1.0
 
 ## Validation State
-- unit/contract/golden/fuzz: 99 Tests grün (Python 3.11, 3.12, 3.13 lokal)
-- self-test: 206/206 Proben, 90/90 Checks beide Richtungen
+- unit/contract/golden/fuzz: 102 Tests grün (lokal)
+- self-test: 208/208 Proben, 91/91 Checks beide Richtungen
 - self-scan strict: Exit 0
 - coverage: 87 % gesamt (Kern 86 %), CI-Floor 86 %
 - wheel/sdist: gebaut, frische Installation getestet

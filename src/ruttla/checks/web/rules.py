@@ -267,6 +267,105 @@ def check_swallowed_error(ctx: Context) -> CheckResult:
 
 
 @register(
+    "web.empty_catch_block",
+    "Leerer catch-Block verschluckt den Fehler vollständig",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CODE_QUALITY_GUIDELINES_WEB.md § Fehlerbehandlung",
+    references=(
+        "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch",
+    ),
+    rationale=(
+        "Ein leerer catch-Block verwirft die gefangene Exception ohne sichtbare "
+        "Behandlung. Das erschwert Diagnose und kann Fehlerzustände als Erfolg "
+        "erscheinen lassen. Absichtlich ignorierte Fehler (z. B. optionale "
+        "Best-Effort-Arbeit) sind eine mögliche legitime Ausnahme; deshalb ist "
+        "der Check advisory und nicht safe-by-default. Er prüft nur syntaktisch "
+        "leere JavaScript/TypeScript-catch-Blöcke, keine allgemeine Qualität "
+        "der Fehlerbehandlung oder DB-RLS-Rechte."
+    ),
+    self_tests=[
+        SelfTestCase(
+            name="Exception wird lautlos verworfen",
+            files={"src/api.ts": "try { await save(); } catch {}\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Fehler wird protokolliert und Stringliteral ist kein Treffer",
+            files={
+                "src/api.ts": (
+                    'const example = "catch {}";\n'
+                    "try { await save(); } catch (error) { console.error(error); }\n"
+                ),
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_empty_catch_block(ctx: Context) -> CheckResult:
+    """Ein leeres catch verwirft den Fehler und verschleiert den Laufzeitstatus."""
+    title = "Leerer catch-Block verschluckt den Fehler vollständig"
+    files = ctx.files(*WEB_CODE)
+    if not files:
+        return unmeasured("web.empty_catch_block", title,
+                          "Keine Web-Quelldateien gefunden.", PLATFORM)
+
+    catch_start = re.compile(r"\bcatch\s*(?:\([^)]*\)\s*)?\{")
+    empty_catch = re.compile(r"\bcatch\s*(?:\([^)]*\)\s*)?\{\s*\}")
+    findings: list[Finding] = []
+    measured = 0
+    for sf in files:
+        body = _mask_js_strings(strip_comments(sf.text, sf.ext))
+        matches = list(catch_start.finditer(body))
+        measured += len(matches)
+        for match in empty_catch.finditer(body):
+            line_no = body.count("\n", 0, match.start()) + 1
+            raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""
+            findings.append(Finding(
+                check_id="web.empty_catch_block", severity=Severity.WARNING,
+                message="Leerer catch-Block verwirft den Fehler ohne Meldung oder Fallback.",
+                file=sf.rel, line=line_no, evidence=snippet(raw),
+                fix="Fehler sichtbar behandeln (z. B. protokollieren, dem Aufrufer "
+                    "melden oder erneut werfen). Absichtliches Ignorieren begründen "
+                    "und den Fehlerfall anderweitig abdecken.",
+                guideline="CODE_QUALITY_GUIDELINES_WEB.md § Fehlerbehandlung",
+            ))
+    if measured == 0:
+        return unmeasured("web.empty_catch_block", title,
+                          "Keine JavaScript/TypeScript-catch-Blöcke gefunden.", PLATFORM)
+    return result_for("web.empty_catch_block", title, findings, measured,
+                      "catch-Blöcke", PLATFORM)
+
+
+def _mask_js_strings(source: str) -> str:
+    """Maskiert String- und Template-Literale, erhält Zeilen- und Offset-Bezug."""
+    out = list(source)
+    quote: str | None = None
+    i = 0
+    while i < len(source):
+        char = source[i]
+        if quote is not None:
+            if char == "\\":
+                if char != "\n":
+                    out[i] = " "
+                if i + 1 < len(source) and source[i + 1] != "\n":
+                    out[i + 1] = " "
+                i += 2
+                continue
+            if char == quote:
+                quote = None
+            elif char != "\n":
+                out[i] = " "
+            i += 1
+            continue
+        if char in ('"', "'", "`"):
+            quote = char
+            out[i] = " "
+        i += 1
+    return "".join(out)
+
+
+@register(
     "web.loading_without_null_state",
     "Ladezustand kennt kein 'noch nicht geprüft' (null als dritter Zustand)",
     platform=PLATFORM,
