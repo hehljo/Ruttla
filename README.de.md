@@ -25,6 +25,14 @@ Universelles, **tokenfreies** Quality Gate. Prüft ein Projekt lokal gegen die
 destillierten Architektur- und Qualitätsregeln — ohne LLM, ohne Netz, in
 Sekunden. Gedacht als Schritt **nach jedem Arbeitsblock**, in jeder CLI.
 
+## Entwickelt für Coding-Agents & KIs
+
+Coding-Agents (Claude Code, Cursor, OpenAI Codex, GitHub Copilot, Aider, Windsurf) verbrennen tausende Token in Korrekturschleifen, wenn sie auf subtile Fallen stoßen. Ruttla liefert:
+
+- **Token-dichte Agent-Ausgabe (`--format agent`)**: Genau eine tabgetrennte Zeile je Befund mit Datei, Zeile, Schweregrad und einem fertigen, belegten Fix (`FIX: ...`).
+- **Null Token-Verbrauch**: Läuft komplett offline und deterministisch in Millisekunden.
+- **Echte CLI-Verträge**: Unterscheidet glasklar zwischen fehlerfrei (`0`), blockierenden Fehlern (`1`), ungemessenen Checks (`2`) und Laufzeitfehlern (`3`). Kein falsches Grün bei fehlenden Tests.
+
 ## 🔴 Fehler kommt herein → Check bauen, nicht Code fixen
 
 Wer einen Build-/Compiler-/Laufzeitfehler aus einem Projekt hierher meldet,

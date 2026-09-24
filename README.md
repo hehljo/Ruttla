@@ -26,7 +26,15 @@ probe must both behave → from then on the failure costs no debugging or
 agent tokens. No LLM, no network, no telemetry; the scanned code is read,
 never executed.
 
-> Status: 0.1.0.dev0, private pre-release. German version: [README.de.md](README.de.md).
+> Status: 0.1.0.dev0, public preview. German version: [README.de.md](README.de.md).
+
+## Built for Coding Agents & LLMs
+
+Coding agents (Claude Code, Cursor, OpenAI Codex, GitHub Copilot, Aider, Windsurf) waste thousands of tokens looping on subtle bugs and linters' blind spots. Ruttla provides:
+
+- **Token-dense output (`--format agent`)**: One line per finding with `file`, `line`, `severity`, and an exact, non-hallucinated fix instruction (`FIX: ...`).
+- **Zero token burn**: 100% offline, deterministic execution in milliseconds without network calls or LLM queries.
+- **Strict exit contracts**: Differentiates between clean (`0`), blocking findings (`1`), unmeasured scopes (`2`), and runner errors (`3`). Never confuses "nothing checked" with success.
 
 ## 30-second start
 
