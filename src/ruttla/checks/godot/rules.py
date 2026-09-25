@@ -829,3 +829,6 @@ def check_hardcoded_ui_text(ctx: Context) -> CheckResult:
                           "Keine Zuweisungen an UI-Text-Eigenschaften gefunden.", PLATFORM)
     return result_for("godot.hardcoded_ui_text", title, findings, measured,
                       "UI-Text-Zuweisungen", PLATFORM)
+
+
+

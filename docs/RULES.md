@@ -3,17 +3,17 @@
 
 # Rule catalog
 
-92 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+96 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 28 | 6 |
-| godot | 12 | 0 |
+| godot | 15 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 22 | 2 |
 | unreal | 6 | 0 |
-| web | 12 | 1 |
+| web | 13 | 1 |
 
 ## Pack `apple`
 
@@ -2053,6 +2053,55 @@ func setup():
 
 </details>
 
+### `godot.ios_export_preset_missing_signing`
+
+**iOS-Exportpreset ohne Team-ID oder Bundle-Identifier (bricht Xcode Cloud / Signing ab)**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § 22
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Prüft, ob für das iOS-Exportpreset in export_presets.cfg sowohl eine gültige
+Team-ID als auch ein Bundle-Identifier hinterlegt sind. Fehlt eines davon, bricht
+Godot den Export ab oder Xcode Cloud scheitert beim automatischen Signieren.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): iOS-Preset ohne Team-ID</summary>
+
+`export_presets.cfg`
+
+```text
+[preset.0]
+name="iOS"
+platform="iOS"
+[preset.0.options]
+application/bundle_identifier="com.example.app"
+application/app_store_team_id=""
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Gültiges iOS-Preset</summary>
+
+`export_presets.cfg`
+
+```text
+[preset.0]
+name="iOS"
+platform="iOS"
+[preset.0.options]
+application/bundle_identifier="com.example.app"
+application/app_store_team_id="ABCDE12345"
+```
+
+</details>
+
 ### `godot.missing_main_scene`
 
 **Hauptszene in project.godot existiert nicht im Dateisystem**
@@ -2097,6 +2146,91 @@ run/main_scene="res://scenes/main.tscn"
 
 ```text
 [gd_scene format=3]
+```
+
+</details>
+
+### `godot.mobile_orientation_mismatch`
+
+**Handheld-Orientierung passt nicht zum Viewport (Verzerrung/Black Bars auf Mobile)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Display
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Prüft, ob die Orientierung (Portrait vs Landscape) zu den konfigurierten
+Viewport-Dimensionen passt.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Portrait-Modus mit Landscape-Viewport</summary>
+
+`project.godot`
+
+```text
+[display]
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/handheld/orientation=1
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Portrait-Modus mit Portrait-Viewport</summary>
+
+`project.godot`
+
+```text
+[display]
+window/size/viewport_width=1080
+window/size/viewport_height=1920
+window/handheld/orientation=1
+```
+
+</details>
+
+### `godot.mobile_renderer_forward_plus`
+
+**Forward+-Renderer für Mobile konfiguriert (Forward+ läuft nicht auf iOS/Android)**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Rendering
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Godot 4 unterstützt Forward+ ausschließlich auf Desktop-Plattformen.
+Wird Forward+ für mobile Targets konfiguriert, stürzt die App auf iOS/Android ab
+oder fällt unkontrolliert zurück.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Forward+ als Mobile-Renderer</summary>
+
+`project.godot`
+
+```text
+[rendering]
+renderer/rendering_method.mobile="forward_plus"
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Sauberer Mobile-Renderer</summary>
+
+`project.godot`
+
+```text
+[rendering]
+renderer/rendering_method.mobile="mobile"
 ```
 
 </details>
@@ -4471,6 +4605,58 @@ const [isChecked, setIsChecked] = useState(false);
 
 ```text
 const [isChecked, setIsChecked] = useState<boolean | null>(null);
+```
+
+</details>
+
+### `web.search_selection_resets_category`
+
+**Suchtreffer-Auswahl leert Suchfeld ohne Kategorie-Sync (UI springt weg)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § 3b
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Wenn in einer gefilterten oder kategorisierten Liste ein Treffer ausgewählt
+wird und der Click-Handler die Suche leert (''), aber die aktive Kategorie/Gruppe
+nicht synchronisiert, springt die Ansicht nach dem Leeren der Suche sofort auf
+die alte vorherige Kategorie zurück und das gewählte Element wird unsichtbar.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Auswahl leert Suche ohne Kategorie</summary>
+
+`src/Modal.jsx`
+
+```text
+export function Modal() {
+  return (
+    <button onClick={() => { handleTypeChange(val); setSearchQuery(''); }}>
+      Select
+    </button>
+  );
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Auswahl synchronisiert Kategorie mit</summary>
+
+`src/Modal.jsx`
+
+```text
+export function Modal() {
+  return (
+    <button onClick={() => { handleTypeChange(val); setSelectedCategory(cat); setSearchQuery(''); }}>
+      Select
+    </button>
+  );
+}
 ```
 
 </details>

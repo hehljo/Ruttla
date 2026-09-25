@@ -789,3 +789,134 @@ def check_touch_targets(ctx: Context) -> CheckResult:
                           PLATFORM)
     return result_for("web.touch_target_too_small", title, findings, measured,
                       "Interaktionsregeln", PLATFORM)
+
+
+@register(
+    "web.search_selection_resets_category",
+    "Suchtreffer-Auswahl leert Suchfeld ohne Kategorie-Sync (UI springt weg)",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CODE_QUALITY_GUIDELINES_WEB.md § 3b",
+    self_tests=[
+        SelfTestCase(
+            name="Auswahl leert Suche ohne Kategorie",
+            files={
+                "src/Modal.jsx": (
+                    "export function Modal() {\n"
+                    "  return (\n"
+                    "    <button onClick={() => { handleTypeChange(val); setSearchQuery(''); }}>\n"
+                    "      Select\n"
+                    "    </button>\n"
+                    "  );\n"
+                    "}\n"
+                ),
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="setSearchQuery",
+        ),
+        SelfTestCase(
+            name="Auswahl synchronisiert Kategorie mit",
+            files={
+                "src/Modal.jsx": (
+                    "export function Modal() {\n"
+                    "  return (\n"
+                    "    <button onClick={() => { handleTypeChange(val); setSelectedCategory(cat); setSearchQuery(''); }}>\n"
+                    "      Select\n"
+                    "    </button>\n"
+                    "  );\n"
+                    "}\n"
+                ),
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_search_selection_resets_category(ctx: Context) -> CheckResult:
+    """Wenn in einer gefilterten oder kategorisierten Liste ein Treffer ausgewählt
+    wird und der Click-Handler die Suche leert (''), aber die aktive Kategorie/Gruppe
+    nicht synchronisiert, springt die Ansicht nach dem Leeren der Suche sofort auf
+    die alte vorherige Kategorie zurück und das gewählte Element wird unsichtbar."""
+    title = "Suchtreffer-Auswahl leert Suchfeld ohne Kategorie-Sync"
+    code = ctx.files(".tsx", ".jsx", ".vue", ".svelte", ".js", ".ts")
+    if not code:
+        return unmeasured("web.search_selection_resets_category", title,
+                          "Keine Frontend-Dateien gefunden.", PLATFORM)
+
+    inline_pattern = re.compile(
+        r'(?:onClick|onSelect)\s*=\s*\{(?:\(\s*\)\s*=>\s*\{?|\bfunction\s*\(\)\s*\{?)([^}]+)\}?',
+        re.DOTALL
+    )
+    fn_pattern = re.compile(
+        r'(?:const|let|function)\s+(\w+)\s*=\s*(?:\([^)]*\)|[a-zA-Z0-9_]+)\s*=>\s*\{([^}]+)\}',
+        re.DOTALL
+    )
+
+    findings: list[Finding] = []
+    measured = 0
+
+    def check_body(body_str: str, file_rel: str, line_no: int, raw_snippet: str, sf_full_text: str):
+        nonlocal measured
+        has_clear = bool(re.search(r'setSearch(?:Query)?\s*\(\s*[\'"]\s*[\'"]\s*\)', body_str))
+        if not has_clear:
+            return
+
+        select_match = re.search(
+            r'(\b(?:handle(?:Type|Item|Source|Option)(?:Change)?|set(?:Selected)?(?:Type|Item|Source|Option)))\s*\(',
+            body_str
+        )
+        if not select_match:
+            return
+
+        measured += 1
+        has_cat = bool(re.search(
+            r'(?:setSelected(?:Category|Tab|Group|Filter|Section)|handle(?:Category|Tab|Group)Change|setCategory)\s*\(',
+            body_str
+        ))
+        if has_cat:
+            return
+
+        # Prüfen, ob die aufgerufene Handler-Funktion in derselben Datei selbst die Kategorie synchronisiert
+        handler_name = select_match.group(1)
+        handler_def = re.search(
+            r'(?:const|let|function)\s+' + re.escape(handler_name) + r'\b[^=]*=\s*(?:\([^)]*\)|[a-zA-Z0-9_]+)\s*=>\s*\{([^}]+)\}',
+            sf_full_text,
+            re.DOTALL
+        )
+        if handler_def and re.search(
+            r'(?:setSelected(?:Category|Tab|Group|Filter|Section)|handle(?:Category|Tab|Group)Change|setCategory)\s*\(',
+            handler_def.group(1)
+        ):
+            return
+
+        findings.append(Finding(
+            check_id="web.search_selection_resets_category",
+            severity=Severity.WARNING,
+            message="Auswahl-Handler leert das Suchfeld, ohne die zugehörige Kategorie/den Tab zu aktualisieren.",
+            file=file_rel,
+            line=line_no,
+            evidence=snippet(raw_snippet),
+            fix="Kategorie des gewählten Eintrags mitsynchronisieren (z. B. setSelectedCategory(item.category)), "
+                "damit die UI nach Leeren der Suche nicht auf die alte Kategorie zurückspringt.",
+            guideline="CODE_QUALITY_GUIDELINES_WEB.md § 3b",
+        ))
+
+    for sf in code:
+        body = strip_comments(sf.text, sf.ext)
+        for m in inline_pattern.finditer(body):
+            content = m.group(1)
+            line_no = body.count("\n", 0, m.start()) + 1
+            raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else m.group(0)
+            check_body(content, sf.rel, line_no, raw, body)
+
+        for m in fn_pattern.finditer(body):
+            content = m.group(2)
+            line_no = body.count("\n", 0, m.start()) + 1
+            raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else m.group(0)
+            check_body(content, sf.rel, line_no, raw, body)
+
+    if measured == 0:
+        return unmeasured("web.search_selection_resets_category", title,
+                          "Keine Auswahl-Handler mit Suchfeld-Bereinigung gefunden.", PLATFORM)
+    return result_for("web.search_selection_resets_category", title, findings, measured,
+                      "Suchauswahl-Handler", PLATFORM)
+

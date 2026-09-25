@@ -6,6 +6,8 @@ when added, changed or deprecated.
 ## [Unreleased] — 0.1.0 (public preview)
 
 ### Added
+- `web.search_selection_resets_category`: detects search result item selections that clear the search query without synchronizing the active category or tab state, causing the item to disappear immediately after selection.
+- `godot.mobile_renderer_forward_plus`, `godot.mobile_orientation_mismatch`, `godot.ios_export_preset_missing_signing`: mobile renderer and export configuration checks for Godot.
 - `python.compare_digest_unicode_password`: advisory check for password-like Python strings passed directly to `hmac`/`secrets.compare_digest`, which raises on non-ASCII input; includes healthy and broken Unicode probes.
 - Explicit `ruttla update` command installs the current GitHub `main` revision in the active Python environment through pip; scans stay offline and source checkouts are not pulled or modified.
 - `web.empty_catch_block`: detects empty JavaScript/TypeScript catch blocks that silently discard exceptions; advisory only because intentional best-effort catches can be valid.
