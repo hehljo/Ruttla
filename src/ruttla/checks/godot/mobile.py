@@ -299,3 +299,75 @@ def check_ios_export_preset_signing(ctx: Context) -> CheckResult:
                           "Kein iOS-Exportpreset in export_presets.cfg gefunden.", PLATFORM)
     return result_for("godot.ios_export_preset_missing_signing", title, findings, measured,
                       "iOS-Exportpresets", PLATFORM)
+
+
+@register(
+    "godot.app_config_missing_support_email",
+    "Zentrale AppConfig/Branding-Klasse ohne SUPPORT_EMAIL (Pflicht für Support & TestFlight)",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § 22",
+    self_tests=[
+        SelfTestCase(
+            name="AppConfig ohne SUPPORT_EMAIL",
+            files={
+                "scripts/core/app_config.gd": (
+                    "class_name AppConfig\n"
+                    "extends RefCounted\n\n"
+                    'const BRAND_NAME: String = "Test"\n'
+                ),
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="SUPPORT_EMAIL",
+        ),
+        SelfTestCase(
+            name="AppConfig mit SUPPORT_EMAIL",
+            files={
+                "scripts/core/app_config.gd": (
+                    "class_name AppConfig\n"
+                    "extends RefCounted\n\n"
+                    'const BRAND_NAME: String = "Test"\n'
+                    'const SUPPORT_EMAIL: String = "support@example.com"\n'
+                ),
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_app_config_support_email(ctx: Context) -> CheckResult:
+    """In Godot-Mobilprojekten muss die zentrale App-Konfiguration eine
+    SUPPORT_EMAIL definieren, damit Fehlerberichte, Impressum und TestFlight-Metadaten
+    immer synchron und gültig sind."""
+    title = "Zentrale AppConfig/Branding-Klasse ohne SUPPORT_EMAIL"
+    files = ctx.files(".gd")
+    if not files:
+        return unmeasured("godot.app_config_missing_support_email", title,
+                          "Keine GDScript-Dateien gefunden.", PLATFORM)
+
+    class_pat = re.compile(r"^\s*class_name\s+(AppConfig|Branding)\b", re.MULTILINE)
+    email_pat = re.compile(r"^\s*const\s+SUPPORT_EMAIL\s*[:=]", re.MULTILINE)
+
+    findings: list[Finding] = []
+    measured = 0
+
+    for sf in files:
+        if not class_pat.search(sf.text):
+            continue
+        measured += 1
+        if not email_pat.search(sf.text):
+            findings.append(Finding(
+                check_id="godot.app_config_missing_support_email",
+                severity=Severity.WARNING,
+                message=f"'{sf.rel}' definiert keine 'SUPPORT_EMAIL'-Konstante.",
+                file=sf.rel,
+                line=1,
+                evidence=snippet(sf.lines[0]),
+                fix="Definiere 'const SUPPORT_EMAIL: String = \"deine@email.de\"' für Support- & Feedback-Routing.",
+                guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § 22",
+            ))
+
+    if measured == 0:
+        return unmeasured("godot.app_config_missing_support_email", title,
+                          "Keine AppConfig- oder Branding-Klasse gefunden.", PLATFORM)
+    return result_for("godot.app_config_missing_support_email", title, findings, measured,
+                      "Konfigurationsklassen", PLATFORM)

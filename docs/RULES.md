@@ -3,12 +3,12 @@
 
 # Rule catalog
 
-100 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+101 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 31 | 6 |
-| godot | 15 | 0 |
+| godot | 16 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 23 | 2 |
@@ -2044,6 +2044,52 @@ func _ready():
 	t = get_node("Target")
 func _process(delta):
 	t.position.x += delta
+```
+
+</details>
+
+### `godot.app_config_missing_support_email`
+
+**Zentrale AppConfig/Branding-Klasse ohne SUPPORT_EMAIL (Pflicht für Support & TestFlight)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § 22
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+In Godot-Mobilprojekten muss die zentrale App-Konfiguration eine
+SUPPORT_EMAIL definieren, damit Fehlerberichte, Impressum und TestFlight-Metadaten
+immer synchron und gültig sind.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): AppConfig ohne SUPPORT_EMAIL</summary>
+
+`scripts/core/app_config.gd`
+
+```text
+class_name AppConfig
+extends RefCounted
+
+const BRAND_NAME: String = "Test"
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): AppConfig mit SUPPORT_EMAIL</summary>
+
+`scripts/core/app_config.gd`
+
+```text
+class_name AppConfig
+extends RefCounted
+
+const BRAND_NAME: String = "Test"
+const SUPPORT_EMAIL: String = "support@example.com"
 ```
 
 </details>
