@@ -72,6 +72,25 @@ def _brand_candidates(ctx: Context) -> list[str]:
             for part in re.split(r"[-_.\s]+", m.group(1)):
                 if len(part) >= 4 and part.isalpha():
                     names.add(part)
+    # Apple: der Anzeigename steht im Target-Build-Setting oder in der
+    # Info.plist. PRODUCT_NAME ist meist "$(TARGET_NAME)" — eine Variable,
+    # kein Name — und wird deshalb nur als wörtlicher Wert gelesen.
+    apple_patterns = (
+        r'INFOPLIST_KEY_CFBundleDisplayName\s*=\s*"?([^";$]+?)"?\s*;',
+        r'PRODUCT_NAME\s*=\s*"?([^";$]+?)"?\s*;',
+    )
+    for sf in ctx.all_files():
+        values: list[str] = []
+        if sf.ext == ".pbxproj":
+            for pat in apple_patterns:
+                values += [m.group(1) for m in re.finditer(pat, sf.text)]
+        elif sf.ext == ".plist":
+            values += re.findall(
+                r"<key>CFBundleDisplayName</key>\s*<string>([^<$]+)</string>", sf.text)
+        for value in values:
+            for part in re.split(r"[-_.\s]+", value):
+                if len(part) >= 4 and part.isalpha():
+                    names.add(part)
     # Generische Wörter taugen nicht als Markenanker.
     generic = {
         "main", "test", "demo", "core", "util", "utils", "common", "shared",

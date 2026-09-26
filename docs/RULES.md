@@ -3,15 +3,15 @@
 
 # Rule catalog
 
-96 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+100 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 28 | 6 |
+| apple | 31 | 6 |
 | godot | 15 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
-| universal | 22 | 2 |
+| universal | 23 | 2 |
 | unreal | 6 | 0 |
 | web | 13 | 1 |
 
@@ -60,6 +60,50 @@ struct V: View { var body: some View {
     ContentUnavailableView("leer", systemImage: "x")
   }
 } }
+```
+
+</details>
+
+### `apple.automatic_signing_distribution_conflict`
+
+**Automatisches Signing mit festem 'Apple Distribution' (bricht lokalen Xcode-Build ab)**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: IOS_DEBUGGING_GUIDELINES.md § Signing
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Wenn CODE_SIGN_STYLE auf Automatic steht, bricht Xcode bei hartem CODE_SIGN_IDENTITY = 'Apple Distribution'
+mit 'conflicting provisioning settings' ab. Für automatisches Signing gehört 'Apple Development' (oder kein manueller Override) hinein.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Konflikt Automatic Signing mit Apple Distribution</summary>
+
+`App.xcodeproj/project.pbxproj`
+
+```text
+buildSettings = {
+    CODE_SIGN_IDENTITY = "Apple Distribution";
+    CODE_SIGN_STYLE = Automatic;
+};
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Sauberes Automatic Signing</summary>
+
+`App.xcodeproj/project.pbxproj`
+
+```text
+buildSettings = {
+    CODE_SIGN_IDENTITY = "Apple Development";
+    CODE_SIGN_STYLE = Automatic;
+};
 ```
 
 </details>
@@ -179,6 +223,52 @@ let b = Bundle.module
 
 </details>
 
+### `apple.empty_usage_description`
+
+**Leerer Privacy-String (NS*UsageDescription) in Info.plist (bricht Xcode-Build ab)**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: IOS_DEBUGGING_GUIDELINES.md § Privacy Keys
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Xcode und App Store Connect verlangen, dass jede deklarierte Usage-Description
+einen nicht-leeren Begründungstext enthält. Leere Strings brechen den Build sofort ab.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Leere Kamera-Beschreibung</summary>
+
+`App/Info.plist`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+<key>NSCameraUsageDescription</key>
+<string></string>
+</dict></plist>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Gültige Kamera-Beschreibung</summary>
+
+`App/Info.plist`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+<key>NSCameraUsageDescription</key>
+<string>Wird für Belege benötigt.</string>
+</dict></plist>
+```
+
+</details>
+
 ### `apple.force_unwrap_or_try`
 
 **Force-Unwrap oder try! im Produktivcode**
@@ -206,6 +296,60 @@ let c = try! JSONDecoder().decode(X.self, from: d)
 ```text
 import Foundation
 let c = try? JSONDecoder().decode(X.self, from: d)
+```
+
+</details>
+
+### `apple.gitignore_xcode_user_data`
+
+**Xcode-Benutzerdaten (xcuserdata / *.xcuserstate) nicht in .gitignore ignoriert**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: IOS_DEBUGGING_GUIDELINES.md § Version Control
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+In jedem Apple-/Xcode-Projekt müssen xcuserdata und *.xcuserstate zwingend
+in .gitignore ignoriert werden, um Merge-Konflikte, lokale IDE-Zustände und
+Pfad-Leaks im Git-Repository zu verhindern.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Xcode-Projekt ohne xcuserdata in gitignore</summary>
+
+`App.xcodeproj/project.pbxproj`
+
+```text
+// Xcode project
+```
+
+`.gitignore`
+
+```text
+build/
+.DS_Store
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Xcode-Projekt mit xcuserdata in gitignore</summary>
+
+`App.xcodeproj/project.pbxproj`
+
+```text
+// Xcode project
+```
+
+`.gitignore`
+
+```text
+build/
+xcuserdata/
+*.xcuserstate
 ```
 
 </details>
@@ -3330,6 +3474,70 @@ out=$(pytest tests/)
 if echo "$out" | grep -q 'no tests ran'; then
   echo 'nicht gemessen'; exit 2
 fi
+```
+
+</details>
+
+### `i18n.catalog_key_parity`
+
+**Sprachkataloge haben nicht dieselben Schlüssel**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Grundsatz C — 'Fehlender Schlüssel ist sichtbar, nicht still leer'
+- Public rationale: [GUIDELINES.md › principle-c-visible-text-lives-in-a-catalog](GUIDELINES.md#principle-c-visible-text-lives-in-a-catalog)
+
+<details><summary>Why it exists</summary>
+
+```text
+Apple fällt bei einem fehlenden Schlüssel still auf den Schlüssel selbst
+zurück — der Nutzer liest dann `tab.search` statt eines Worts. Gemessen
+wird je Katalogdatei (gleicher Dateiname in mehreren `<lang>.lproj/`),
+dass jede Sprache die Vereinigung aller Schlüssel trägt.
+
+Eine Katalogdatei, die nur in EINER Sprache existiert (z. B.
+InfoPlist.strings), hat nichts zum Vergleichen und zählt nicht als
+geprüft — null verglichene Kataloge sind nicht gemessen, nicht bestanden.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Schluessel fehlt in einer Sprache</summary>
+
+`App/en.lproj/Localizable.strings`
+
+```text
+"tab.home" = "Home";
+"tab.search" = "Search";
+```
+
+`App/de.lproj/Localizable.strings`
+
+```text
+"tab.home" = "Start";
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): alle Sprachen deckungsgleich</summary>
+
+`App/en.lproj/Localizable.strings`
+
+```text
+"tab.home" = "Home";
+```
+
+`App/de.lproj/Localizable.strings`
+
+```text
+/* Start */
+"tab.home" = "Start";
+```
+
+`App/de.lproj/InfoPlist.strings`
+
+```text
+"CFBundleDisplayName" = "Acme";
 ```
 
 </details>

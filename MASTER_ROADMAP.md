@@ -35,6 +35,7 @@ P06-T001 — stable finding fingerprint; P03-T007 performance budget follow-up.
 
 ## Evidence Log — 2026-09-24 (Umsetzung P00–P05)
 
+- [x] Web-UI-Gate `web.search_selection_resets_category` ergänzt; erkennt Suchtreffer-Auswahl, die das Suchfeld leert, ohne die Ziel-Kategorie/den Tab mitzusynchronisieren (inkl. gesunder und sabotierter Selbsttests).
 - [x] Python-Auth-Gate für Nicht-ASCII-`compare_digest` ergänzt; gebrochene/gesunde Proben, echte Fehlerstelle und gefixten Stand geprüft. Legacy-Golden-Vergleich bleibt auf ursprüngliche Check-IDs begrenzt.
 
 - License Apache-2.0 (ADR-0006), name Ruttla / `ruttla` (ADR-0001, PyPI name free at 404 check)
@@ -689,6 +690,27 @@ At least one 0.x release used externally.
 - [ ] **P09-T007 — Release 1.0.0**
   - **Owner role:** Maintainer
   - **Depends on:** P09-T006
+
+- [ ] **P09-T008 — Evaluate user-authored quality gates and a community pack hub**
+  - **Owner role:** Principal
+  - **Entry condition:** demonstrated external adoption and repeated demand for project-specific checks.
+  - **Depends on:** P07-T006, P07-T007
+  - **Scope:** assess a documented authoring path for custom checks and an optional hub for discovering and installing community packs.
+  - **Security boundary:** packs must be explicitly installed and trusted; scanning a target must never auto-load or execute code from that target or hub.
+  - **Acceptance criteria:** user demand is evidenced; authoring, review/conformance, version compatibility, provenance and install/update trust decisions are documented; a small external pack can be built and installed without modifying Ruttla core. Defer the hub if demand or safe maintenance model is insufficient.
+
+- [ ] **P09-T009 — Design a cross-CLI failure-evidence format and intake workflow**
+  - **Owner role:** Principal
+  - **Entry condition:** external users or contributors need a repeatable way to turn failures seen in different CLIs into candidate Ruttla checks.
+  - **Scope:** define a compact, deterministic evidence format and reusable CLI instructions/adapters that capture failure context, cause, reproducible broken and healthy probes, false-positive risks and a proposed fix direction with minimal user/token effort. Evaluate optional API submission for candidate evidence.
+  - **Privacy and runtime boundary:** normal Ruttla scans remain offline with no telemetry. Any remote submission must be separately reviewed and explicitly opt-in, with data minimization, redaction, consent and retention documented; never upload source or secrets by default.
+  - **Acceptance criteria:** schema and CLI guidance are documented; a sample failure can be captured without an LLM-dependent workflow; redaction/privacy and API threat models are reviewed; API submission remains deferred unless there is demonstrated demand and an approved consent/security design.
+
+- [ ] **P09-T010 — Evaluate an optional terminal woodpecker animation**
+  - **Owner role:** Maintainer
+  - **Entry condition:** interactive CLI polish is prioritized after core adoption needs.
+  - **Scope:** explore a lightweight animated woodpecker while a scan is running, with a static fallback where terminal capabilities are limited.
+  - **Acceptance criteria:** animation is restricted to interactive TTY sessions, disabled for CI/pipes and by a user-facing opt-out, does not alter scan output, timing semantics or exit codes, and respects reduced/no-color terminal settings where applicable. Defer if it adds dependency or maintenance burden without user value.
 
 ## Exit Gate
 1.0 contracts can be maintained without frequent breaking changes.

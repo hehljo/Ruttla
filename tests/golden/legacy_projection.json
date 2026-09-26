@@ -701,7 +701,7 @@
    {
     "check_id": "brand.hardcoded_in_display",
     "findings": [],
-    "status": "unmeasured"
+    "status": "pass"
    },
    {
     "check_id": "brand.manual_derivation_comment",

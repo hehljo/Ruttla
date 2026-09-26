@@ -50,6 +50,28 @@ from ._common import _brand_candidates, MARKUP_EXTS, SOURCE_EXTS
             },
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="SwiftUI-Text traegt Anzeigenamen aus dem Xcode-Projekt",
+            files={
+                "App.xcodeproj/project.pbxproj":
+                    'INFOPLIST_KEY_CFBundleDisplayName = Acme;\nPRODUCT_NAME = "$(TARGET_NAME)";\n',
+                "App/AuthView.swift": 'struct A: View { var body: some View { Text("Willkommen bei Acme") } }\n',
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="Acme",
+        ),
+        SelfTestCase(
+            name="Swift-Entwicklerlog und Testimport sind kein Anzeigepfad",
+            files={
+                "App.xcodeproj/project.pbxproj": 'INFOPLIST_KEY_CFBundleDisplayName = Acme;\n',
+                "App/Brand.swift": 'enum Brand { static let name = "Acme" }\n',
+                "App/AuthView.swift": 'struct A: View { var body: some View { Text(Brand.name) } }\n'
+                                      'func f() { print("[Acme] tap"); NSLog("Acme start") }\n',
+                "Tests/ATests.swift": '@testable import Acme\n',
+                "App/Api.swift": 'let clientIdentifier = "acme-tvos-client"\n',
+            },
+            expect=Status.PASS,
+        ),
     ],
 )
 def check_brand_hardcoded(ctx: Context) -> CheckResult:
@@ -88,8 +110,10 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
     contract_ctx = re.compile(
         r"(bundleIdentifier|PRODUCT_BUNDLE_IDENTIFIER|localStorage|sessionStorage"
         r"|from\s*\(|\.from\(|table\s*[:=]|bucket|schema"
-        r"|package\s|namespace\s|^\s*import\s|require\s*\(|#include"
+        r"|package\s|namespace\s|^\s*(?:@testable\s+)?import\s|require\s*\(|#include"
         r"|url\s*[:=]|href\s*=|src\s*=|\bpath\b|\bclassName\b|data-testid"
+        # Geräte-/Client-Kennungen sind registrierte Identitäten beim Dienst.
+        r"|identifier|client[-_]?id"
         r")",
         re.IGNORECASE,
     )
@@ -97,6 +121,12 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
         r"\b(?:interface|type|class|struct|enum|extends|implements|func|"
         r"function|def|const|let|var|protocol|actor|new|instanceof|as)\s+$"
         r"|[:<]\s*$|\.\s*$"
+    )
+    # Offener Aufruf einer Log-/Debugfunktion links vom Treffer.
+    dev_output = re.compile(
+        r"\b(?:print|dbgPrint|debugPrint|debugLog|NSLog|os_log|dump|fatalError"
+        r"|assert(?:ionFailure)?|precondition(?:Failure)?|console\.\w+"
+        r"|logger\.\w+|log\.\w+)\s*\([^()]*$"
     )
     findings: list[Finding] = []
     units = 0
@@ -115,6 +145,12 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
                 line_no = body.count("\n", 0, m.start()) + 1
                 raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""
                 if contract_ctx.search(raw):
+                    continue
+                # Entwicklerausgabe ist kein Anzeigepfad (Grundsatz C: Logs
+                # gehören nicht in den Katalog). Geprüft wird der Aufruf, der
+                # den Treffer UMSCHLIESST, nicht die ganze Zeile.
+                line_start = body.rfind("\n", 0, m.start()) + 1
+                if dev_output.search(body[line_start:m.start()]):
                     continue
                 # Der Prüfbereich ist die FUNDSTELLE, nicht die Zeile: direkt
                 # vor dem Treffer ein Deklarations-Schlüsselwort heißt, dass

@@ -26,6 +26,30 @@ from ruttla.core import (
 from ._common import MARKUP_EXTS, SOURCE_EXTS
 
 
+_CATALOG_PATH = re.compile(
+    r"(^|/)(locales?|i18n|lang|translations?|strings)(/|\.|$)", re.IGNORECASE)
+# Apple-Stringskatalog: "schluessel" = "Wert"; — je Sprache in <lang>.lproj/.
+_APPLE_STRINGS_KEY = re.compile(r'^\s*"((?:[^"\\\n]|\\.)+)"\s*=\s*"', re.MULTILINE)
+
+
+def _is_apple_catalog(sf) -> bool:
+    return sf.ext == ".strings" and ".lproj/" in sf.rel
+
+
+def _catalog_files(ctx: Context) -> list:
+    return [
+        sf for sf in ctx.all_files()
+        if (sf.ext in (".json", ".ts", ".js", ".csv", ".po")
+            and _CATALOG_PATH.search(sf.rel))
+        or _is_apple_catalog(sf)
+    ]
+
+
+def _apple_keys(sf) -> list[tuple[str, int]]:
+    return [(m.group(1), sf.line_of(m.start()))
+            for m in _APPLE_STRINGS_KEY.finditer(sf.text)]
+
+
 # ===========================================================================
 # C · Textkatalog
 # ===========================================================================
@@ -59,18 +83,17 @@ def check_orphan_keys(ctx: Context) -> CheckResult:
     falsch-positives Gate nicht ausgeschlossen.
     """
     title = "Katalogschlüssel, die niemand aufruft (Karteileichen)"
-    catalogs = [
-        sf for sf in ctx.all_files()
-        if sf.ext in (".json", ".ts", ".js", ".csv", ".po")
-        and re.search(r"(^|/)(locales?|i18n|lang|translations?|strings)(/|\.|$)",
-                      sf.rel, re.IGNORECASE)
-    ]
+    catalogs = _catalog_files(ctx)
     if not catalogs:
         return unmeasured("i18n.orphan_catalog_keys", title,
                           "Kein Textkatalog gefunden (locales/, i18n/, strings.*).")
 
     keys: dict[str, tuple[str, int]] = {}
     for sf in catalogs:
+        if _is_apple_catalog(sf):
+            for key, line in _apple_keys(sf):
+                keys.setdefault(key, (sf.rel, line))
+            continue
         if sf.ext == ".json":
             # Ein einzeiliges JSON hat alle Schlüssel in EINER Zeile — eine
             # zeilenweise Suche findet dort höchstens den ersten. Über den
@@ -132,6 +155,25 @@ def check_orphan_keys(ctx: Context) -> CheckResult:
                 "src/App.tsx": 'export const A = () => <button>{t("studio.save")}</button>;\n',
             },
             expect=Status.PASS,
+        ),        SelfTestCase(
+            name="SwiftUI-Literal ohne Katalogschluessel",
+            files={
+                "App/en.lproj/Localizable.strings": '"tab.home" = "Home";\n',
+                "App/HomeView.swift": 'struct H: View { var body: some View { Text("Continue watching now") } }\n',
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="Continue watching",
+        ),
+        SelfTestCase(
+            name="SwiftUI-Schluessel, Kuerzel, verbatim und Preview",
+            files={
+                "App/en.lproj/Localizable.strings": '"tab.home" = "Home";\n',
+                "App/HomeView.swift": 'struct H: View { var body: some View { VStack {\n'
+                    '  Text("tab.home"); Text("HDR"); Text(verbatim: "Plex Media Server")\n'
+                    '  Text(L10n.home); Text("\\(count) items") } } }\n'
+                    '#Preview { Text("Preview only text") }\n',
+            },
+            expect=Status.PASS,
         ),
     ],
 )
@@ -143,11 +185,8 @@ def check_literal_text(ctx: Context) -> CheckResult:
     Dinge rot wird, ist die Bauform-Falle.
     """
     title = "Sichtbarer Text steht fest im Markup statt im Katalog"
-    has_catalog = any(
-        re.search(r"(^|/)(locales?|i18n|lang|translations?|strings)(/|\.|$)",
-                  sf.rel, re.IGNORECASE)
-        for sf in ctx.all_files()
-    )
+    has_catalog = any(_CATALOG_PATH.search(sf.rel) or _is_apple_catalog(sf)
+                      for sf in ctx.all_files())
     if not has_catalog:
         return unmeasured(
             "i18n.literal_in_markup", title,
@@ -182,6 +221,45 @@ def check_literal_text(ctx: Context) -> CheckResult:
                 file=sf.rel, line=line_no, evidence=snippet(text),
                 fix="In den Textkatalog verschieben und über den Schlüssel "
                     "beziehen. Marke/Zahlen als Platzhalter {brand}, {count}.",
+                guideline="CLAUDE.md § Grundsatz C",
+            ))
+
+    # SwiftUI: ein String-Literal in Text/Button/Label/... ist ein
+    # LocalizedStringKey. Er kommt nur dann aus dem Katalog, wenn der Katalog
+    # genau diesen Schlüssel kennt — sonst zeigt die App das Literal selbst.
+    apple_keys = {key for sf in ctx.all_files() if _is_apple_catalog(sf)
+                  for key, _ in _apple_keys(sf)}
+    swift_ui = re.compile(
+        r"(?:\b(?:Text|Button|Label|Toggle|Section|Picker|TextField|SecureField"
+        r"|Link|Menu|LabeledContent)|\.(?:navigationTitle|alert|confirmationDialog"
+        r"|help|accessibilityLabel|accessibilityHint))"
+        r'\s*\(\s*"((?:[^"\\\n]|\\.)*)"')
+    for sf in ctx.files(".swift"):
+        units += 1
+        body = strip_comments(sf.text, sf.ext)
+        # Vorschauen sind Entwicklerfläche, keine ausgelieferte Oberfläche.
+        preview = re.search(r"^\s*#Preview\b|PreviewProvider\b", body, re.MULTILINE)
+        end = preview.start() if preview else len(body)
+        for m in swift_ui.finditer(body, 0, end):
+            text = m.group(1)
+            if text in apple_keys or "\\(" in text:
+                continue
+            words = re.findall(r"[A-Za-zÄÖÜäöüß]{2,}", text)
+            if not words:
+                continue
+            # Ein einzelnes Kürzel (HDR, 4K, OK) ist kein Satz; ein einzelnes
+            # Wort mit Kleinbuchstaben ("Settings") dagegen schon.
+            if len(words) < 2 and (len(words[0]) < 4 or words[0].isupper()):
+                continue
+            line_no = body.count("\n", 0, m.start()) + 1
+            findings.append(Finding(
+                check_id="i18n.literal_in_markup",
+                severity=Severity.WARNING,
+                message=f"SwiftUI-Literal ohne Katalogschlüssel: \"{snippet(text, 60)}\"",
+                file=sf.rel, line=line_no, evidence=snippet(text),
+                fix="Schlüssel im Stringskatalog anlegen und über die "
+                    "Katalogschicht beziehen; bewusst unübersetzte Werte als "
+                    "Text(verbatim:) kennzeichnen.",
                 guideline="CLAUDE.md § Grundsatz C",
             ))
     return result_for("i18n.literal_in_markup", title, findings, units)
@@ -226,3 +304,77 @@ def check_string_concat(ctx: Context) -> CheckResult:
                 guideline="CLAUDE.md § Grundsatz C",
             ))
     return result_for("i18n.string_concatenation", title, findings, units)
+
+
+@register(
+    "i18n.catalog_key_parity",
+    "Sprachkataloge haben nicht dieselben Schlüssel",
+    severity=Severity.WARNING,
+    guideline="CLAUDE.md § Grundsatz C — 'Fehlender Schlüssel ist sichtbar, nicht still leer'",
+    self_tests=[
+        SelfTestCase(
+            name="Schluessel fehlt in einer Sprache",
+            files={
+                "App/en.lproj/Localizable.strings": '"tab.home" = "Home";\n"tab.search" = "Search";\n',
+                "App/de.lproj/Localizable.strings": '"tab.home" = "Start";\n',
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="tab.search",
+        ),
+        SelfTestCase(
+            name="alle Sprachen deckungsgleich",
+            files={
+                "App/en.lproj/Localizable.strings": '"tab.home" = "Home";\n',
+                "App/de.lproj/Localizable.strings": '/* Start */\n"tab.home" = "Start";\n',
+                "App/de.lproj/InfoPlist.strings": '"CFBundleDisplayName" = "Acme";\n',
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_catalog_key_parity(ctx: Context) -> CheckResult:
+    """Apple fällt bei einem fehlenden Schlüssel still auf den Schlüssel selbst
+    zurück — der Nutzer liest dann `tab.search` statt eines Worts. Gemessen
+    wird je Katalogdatei (gleicher Dateiname in mehreren `<lang>.lproj/`),
+    dass jede Sprache die Vereinigung aller Schlüssel trägt.
+
+    Eine Katalogdatei, die nur in EINER Sprache existiert (z. B.
+    InfoPlist.strings), hat nichts zum Vergleichen und zählt nicht als
+    geprüft — null verglichene Kataloge sind nicht gemessen, nicht bestanden.
+    """
+    title = "Sprachkataloge haben nicht dieselben Schlüssel"
+    groups: dict[str, dict[str, dict[str, int]]] = {}
+    for sf in ctx.all_files():
+        if not _is_apple_catalog(sf):
+            continue
+        m = re.search(r"(?:^|/)([^/]+)\.lproj/(.+)$", sf.rel)
+        if not m:
+            continue
+        name = m.group(2)
+        groups.setdefault(name, {})[sf.rel] = dict(reversed(_apple_keys(sf)))
+    compared = {name: langs for name, langs in groups.items() if len(langs) >= 2}
+    if not compared:
+        return unmeasured(
+            "i18n.catalog_key_parity", title,
+            "Keine Apple-Stringskataloge in mindestens zwei Sprachen gefunden "
+            "(<lang>.lproj/<Name>.strings). JSON-Kataloge misst dieser Check "
+            "noch nicht.")
+    findings: list[Finding] = []
+    units = 0
+    for name, langs in sorted(compared.items()):
+        union = set().union(*(set(k) for k in langs.values()))
+        for rel, keys in sorted(langs.items()):
+            units += 1
+            for key in sorted(union - set(keys)):
+                findings.append(Finding(
+                    check_id="i18n.catalog_key_parity",
+                    severity=Severity.WARNING,
+                    message=f"Schlüssel '{key}' fehlt in {rel} (andere Sprachen "
+                            f"von {name} haben ihn).",
+                    file=rel,
+                    fix="Übersetzung ergänzen. Apple zeigt sonst den rohen "
+                        "Schlüssel an.",
+                    guideline="CLAUDE.md § Grundsatz C",
+                ))
+    return result_for("i18n.catalog_key_parity", title, findings, units,
+                      "Katalogdateien")

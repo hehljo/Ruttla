@@ -94,3 +94,8 @@ Ein Task ist erst fertig, wenn relevante Akzeptanzkriterien, Tests, Build/Packag
 - No secrets and no private project names in commits (tests/test_provenance.py).
 - Gates: `python -m unittest discover -s tests`, `python master_gate.py --self-test`,
   `python scripts/gen_rule_docs.py --check`, `python master_gate.py . --strict`.
+
+## Agent-Modus & Orchestrierung
+- Empfohlener Modus: Subagent-Orchester
+- Kriterien: 85 Quelldateien, Test-Suite vorhanden (85 Quelldateien)
+- Workflow: Vor größeren Aufgaben kurz beim User rückversichern, ob Single Agent oder Subagents (Scout/Planner/Worker/Reviewer) eingesetzt werden.

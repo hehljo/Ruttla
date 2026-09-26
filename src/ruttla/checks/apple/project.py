@@ -470,3 +470,244 @@ def check_module_import(ctx: Context) -> CheckResult:
             ))
     return result_for("apple.unguarded_module_import", title, findings,
                       len(swift), "Swift-Dateien", PLATFORM)
+
+
+@register(
+    "apple.empty_usage_description",
+    "Leerer Privacy-String (NS*UsageDescription) in Info.plist (bricht Xcode-Build ab)",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="IOS_DEBUGGING_GUIDELINES.md § Privacy Keys",
+    self_tests=[
+        SelfTestCase(
+            name="Leere Kamera-Beschreibung",
+            files={
+                "App/Info.plist": (
+                    '<?xml version="1.0" encoding="UTF-8"?>\n'
+                    '<plist version="1.0"><dict>\n'
+                    '<key>NSCameraUsageDescription</key>\n'
+                    '<string></string>\n'
+                    '</dict></plist>\n'
+                )
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="NSCameraUsageDescription",
+        ),
+        SelfTestCase(
+            name="Gültige Kamera-Beschreibung",
+            files={
+                "App/Info.plist": (
+                    '<?xml version="1.0" encoding="UTF-8"?>\n'
+                    '<plist version="1.0"><dict>\n'
+                    '<key>NSCameraUsageDescription</key>\n'
+                    '<string>Wird für Belege benötigt.</string>\n'
+                    '</dict></plist>\n'
+                )
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_empty_usage_description(ctx: Context) -> CheckResult:
+    """Xcode und App Store Connect verlangen, dass jede deklarierte Usage-Description
+    einen nicht-leeren Begründungstext enthält. Leere Strings brechen den Build sofort ab."""
+    title = "Leerer Privacy-String (NS*UsageDescription) in Info.plist"
+    plists = [sf for sf in ctx.all_files() if sf.rel.endswith(".plist") or sf.rel.endswith("-Info.plist")]
+    if not plists:
+        return unmeasured("apple.empty_usage_description", title,
+                          "Keine Info.plist-Dateien gefunden.", PLATFORM)
+
+    key_pat = re.compile(r"<key>(NS[A-Za-z0-9]+UsageDescription)</key>")
+    val_pat = re.compile(r"<string>([^<]*)</string>")
+
+    findings: list[Finding] = []
+    measured = 0
+
+    for pf in plists:
+        for idx, line in enumerate(pf.lines):
+            km = key_pat.search(line)
+            if not km:
+                continue
+            key_name = km.group(1)
+            measured += 1
+
+            # Nächste Zeile nach <string> absuchen
+            for off in range(idx + 1, min(len(pf.lines), idx + 4)):
+                nxt = pf.lines[off]
+                vm = val_pat.search(nxt)
+                if vm:
+                    val_str = vm.group(1).strip()
+                    if not val_str:
+                        findings.append(Finding(
+                            check_id="apple.empty_usage_description",
+                            severity=Severity.ERROR,
+                            message=f"'{key_name}' ist leer — Xcode bricht mit 'must be a non-empty string' ab.",
+                            file=pf.rel,
+                            line=off + 1,
+                            evidence=snippet(nxt),
+                            fix=f"Einen aussagekräftigen Text in <string> eintragen oder den Key '{key_name}' ganz entfernen, wenn die Berechtigung nicht benötigt wird.",
+                            guideline="IOS_DEBUGGING_GUIDELINES.md § Privacy Keys",
+                        ))
+                    break
+
+    if measured == 0:
+        return unmeasured("apple.empty_usage_description", title,
+                          "Keine Usage-Descriptions in Plist-Dateien gefunden.", PLATFORM)
+    return result_for("apple.empty_usage_description", title, findings, measured,
+                      "Usage-Descriptions", PLATFORM)
+
+
+@register(
+    "apple.automatic_signing_distribution_conflict",
+    "Automatisches Signing mit festem 'Apple Distribution' (bricht lokalen Xcode-Build ab)",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="IOS_DEBUGGING_GUIDELINES.md § Signing",
+    self_tests=[
+        SelfTestCase(
+            name="Konflikt Automatic Signing mit Apple Distribution",
+            files={
+                "App.xcodeproj/project.pbxproj": (
+                    "buildSettings = {\n"
+                    '    CODE_SIGN_IDENTITY = "Apple Distribution";\n'
+                    '    CODE_SIGN_STYLE = Automatic;\n'
+                    "};\n"
+                )
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="Apple Distribution",
+        ),
+        SelfTestCase(
+            name="Sauberes Automatic Signing",
+            files={
+                "App.xcodeproj/project.pbxproj": (
+                    "buildSettings = {\n"
+                    '    CODE_SIGN_IDENTITY = "Apple Development";\n'
+                    '    CODE_SIGN_STYLE = Automatic;\n'
+                    "};\n"
+                )
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_automatic_signing_distribution(ctx: Context) -> CheckResult:
+    """Wenn CODE_SIGN_STYLE auf Automatic steht, bricht Xcode bei hartem CODE_SIGN_IDENTITY = 'Apple Distribution'
+    mit 'conflicting provisioning settings' ab. Für automatisches Signing gehört 'Apple Development' (oder kein manueller Override) hinein."""
+    title = "Automatisches Signing mit festem 'Apple Distribution'"
+    pbx_files = ctx.files_named("project.pbxproj")
+    if not pbx_files:
+        return unmeasured("apple.automatic_signing_distribution_conflict", title,
+                          "Keine project.pbxproj-Dateien gefunden.", PLATFORM)
+
+    findings: list[Finding] = []
+    measured = 0
+
+    for pf in pbx_files:
+        text = pf.text
+        # Abschnitte suchen mit buildSettings
+        blocks = re.findall(r"buildSettings\s*=\s*\{([^}]+)\};", text)
+        for b_idx, block in enumerate(blocks):
+            if "CODE_SIGN_STYLE" in block and "CODE_SIGN_IDENTITY" in block:
+                measured += 1
+                is_auto = bool(re.search(r'CODE_SIGN_STYLE\s*=\s*"?Automatic"?', block))
+                is_dist = bool(re.search(r'CODE_SIGN_IDENTITY\s*=\s*"Apple Distribution"', block))
+                if is_auto and is_dist:
+                    # Zeilennummer im Original suchen
+                    line_num = 1
+                    for l_idx, l_raw in enumerate(pf.lines, start=1):
+                        if 'CODE_SIGN_IDENTITY = "Apple Distribution"' in l_raw:
+                            line_num = l_idx
+                            break
+                    findings.append(Finding(
+                        check_id="apple.automatic_signing_distribution_conflict",
+                        severity=Severity.ERROR,
+                        message="CODE_SIGN_STYLE ist 'Automatic', aber CODE_SIGN_IDENTITY steht manuell auf 'Apple Distribution' — erzeugt Signatur-Konflikt in Xcode.",
+                        file=pf.rel,
+                        line=line_num,
+                        evidence='CODE_SIGN_STYLE = Automatic; CODE_SIGN_IDENTITY = "Apple Distribution";',
+                        fix="CODE_SIGN_IDENTITY auf 'Apple Development' setzen. Xcode wechselt bei automatischem Signing beim Archivieren selbstständig auf Distribution.",
+                        guideline="IOS_DEBUGGING_GUIDELINES.md § Signing",
+                    ))
+
+    if measured == 0:
+        return unmeasured("apple.automatic_signing_distribution_conflict", title,
+                          "Keine Build-Konfigurationen mit Code-Signing-Einstellungen gefunden.", PLATFORM)
+    return result_for("apple.automatic_signing_distribution_conflict", title, findings, measured,
+                      "Build-Konfigurationen", PLATFORM)
+
+
+@register(
+    "apple.gitignore_xcode_user_data",
+    "Xcode-Benutzerdaten (xcuserdata / *.xcuserstate) nicht in .gitignore ignoriert",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="IOS_DEBUGGING_GUIDELINES.md § Version Control",
+    self_tests=[
+        SelfTestCase(
+            name="Xcode-Projekt ohne xcuserdata in gitignore",
+            files={
+                "App.xcodeproj/project.pbxproj": "// Xcode project\n",
+                ".gitignore": "build/\n.DS_Store\n",
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="xcuserdata",
+        ),
+        SelfTestCase(
+            name="Xcode-Projekt mit xcuserdata in gitignore",
+            files={
+                "App.xcodeproj/project.pbxproj": "// Xcode project\n",
+                ".gitignore": "build/\nxcuserdata/\n*.xcuserstate\n",
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_gitignore_xcode_user_data(ctx: Context) -> CheckResult:
+    """In jedem Apple-/Xcode-Projekt müssen xcuserdata und *.xcuserstate zwingend
+    in .gitignore ignoriert werden, um Merge-Konflikte, lokale IDE-Zustände und
+    Pfad-Leaks im Git-Repository zu verhindern."""
+    title = "Xcode-Benutzerdaten nicht in .gitignore ignoriert"
+    pbx_files = ctx.files_named("project.pbxproj")
+    if not pbx_files:
+        return unmeasured("apple.gitignore_xcode_user_data", title,
+                          "Keine Xcode-Projekte im Arbeitsbereich gefunden.", PLATFORM)
+
+    gitignore_files = ctx.files_named(".gitignore")
+    gi_text = ""
+    gi_path = ".gitignore"
+    if gitignore_files:
+        gi_text = gitignore_files[0].text
+        gi_path = gitignore_files[0].rel
+    else:
+        full_gi = os.path.join(ctx.root, ".gitignore")
+        if os.path.isfile(full_gi):
+            try:
+                with open(full_gi, "r", encoding="utf-8", errors="replace") as fh:
+                    gi_text = fh.read()
+            except Exception:
+                pass
+
+    findings: list[Finding] = []
+    has_xcuserdata = "xcuserdata" in gi_text
+    has_xcuserstate = "xcuserstate" in gi_text
+
+    if not has_xcuserdata or not has_xcuserstate:
+        missing = []
+        if not has_xcuserdata:
+            missing.append("xcuserdata/")
+        if not has_xcuserstate:
+            missing.append("*.xcuserstate")
+        findings.append(Finding(
+            check_id="apple.gitignore_xcode_user_data",
+            severity=Severity.ERROR,
+            message=f"In .gitignore fehlen Pflicht-Einträge für Xcode: {', '.join(missing)}.",
+            file=gi_path,
+            line=1,
+            evidence=snippet(gi_text.splitlines()[0] if gi_text else "(keine oder leere .gitignore)"),
+            fix="Füge 'xcuserdata/' und '*.xcuserstate' zu .gitignore hinzu.",
+            guideline="IOS_DEBUGGING_GUIDELINES.md § Version Control",
+        ))
+
+    return result_for("apple.gitignore_xcode_user_data", title, findings,
+                      len(pbx_files), "Xcode-Projekte", PLATFORM)

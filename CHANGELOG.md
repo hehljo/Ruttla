@@ -6,6 +6,7 @@ when added, changed or deprecated.
 ## [Unreleased] — 0.1.0 (public preview)
 
 ### Added
+- `i18n.catalog_key_parity`: Apple-`<lang>.lproj/*.strings`-Kataloge müssen je Datei dieselben Schlüssel tragen; Apple zeigt sonst still den rohen Schlüssel. Nur eine Sprache ist `unmeasured`, nicht bestanden.
 - `web.search_selection_resets_category`: detects search result item selections that clear the search query without synchronizing the active category or tab state, causing the item to disappear immediately after selection.
 - `godot.mobile_renderer_forward_plus`, `godot.mobile_orientation_mismatch`, `godot.ios_export_preset_missing_signing`: mobile renderer and export configuration checks for Godot.
 - `python.compare_digest_unicode_password`: advisory check for password-like Python strings passed directly to `hmac`/`secrets.compare_digest`, which raises on non-ASCII input; includes healthy and broken Unicode probes.
@@ -24,6 +25,8 @@ when added, changed or deprecated.
 - Baseline catalog: all 90 rules `introduced_in = 0.1.0` (see `tests/golden/check_ids.txt`).
 
 ### Changed
+- `brand.*` ermittelt den Markennamen jetzt auch aus Xcode-Projekten (`INFOPLIST_KEY_CFBundleDisplayName`, wörtliches `PRODUCT_NAME`, `CFBundleDisplayName` in Info.plist); auf Apple-Projekten waren beide Checks bisher immer `unmeasured`. Entwicklerausgaben (`print`, `NSLog`, `logger.*`, …) und `@testable import` gelten nicht als Anzeigepfad.
+- `i18n.orphan_catalog_keys` und `i18n.literal_in_markup` erkennen Apple-Stringskataloge (`*.lproj/*.strings`); `literal_in_markup` meldet SwiftUI-Literale (`Text`, `Button`, `Label`, `.navigationTitle`, …), die kein Katalogschlüssel sind. `Text(verbatim:)`, Interpolation, Kürzel und `#Preview` bleiben ausgenommen.
 - `README.md` / `CHANGELOG.md` of the scanned project are measured (docs rules).
 - `project.platform` now forces a pack on (additive); `dotnet` rejected there (no pack).
 - Reported paths are always `/`-separated; output is UTF-8 on every OS.
