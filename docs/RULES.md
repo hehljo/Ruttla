@@ -3,11 +3,11 @@
 
 # Rule catalog
 
-101 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+103 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 31 | 6 |
+| apple | 33 | 6 |
 | godot | 16 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
@@ -475,6 +475,182 @@ struct Sub: View { var body: some View { List {}.navigationDestination(for: Int.
 ```text
 import SwiftUI
 struct Root: View { var body: some View { NavigationStack { List {}.navigationDestination(for: Int.self) { _ in Text("d") } } } }
+```
+
+</details>
+
+### `apple.package_resolved_not_committed`
+
+**Package.resolved eines App-Projekts fehlt oder wird von .gitignore ausgeschlossen**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: IOS_DEBUGGING_GUIDELINES.md § Version Control
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Gemessen wird je Xcode-Projekt mit Remote-Paket, ob die Auflösung dort
+liegt, wo Xcode sie sucht, und ob Git sie überhaupt aufnehmen würde.
+Reine Swift-Pakete (Package.swift ohne .xcodeproj) sind ausgenommen: für
+Bibliotheken ist ein nicht eingechecktes Package.resolved üblich.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Remote-Paket, *.resolved in .gitignore</summary>
+
+`App.xcodeproj/project.pbxproj`
+
+```text
+/* Begin XCRemoteSwiftPackageReference section */
+		A1 /* XCRemoteSwiftPackageReference "Kit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://example.com/kit";
+		};
+```
+
+`App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`
+
+```text
+{
+  "pins" : [ ],
+  "version" : 2
+}
+```
+
+`.gitignore`
+
+```text
+.build/
+*.resolved
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Remote-Paket, Datei da und per Negation freigegeben</summary>
+
+`App.xcodeproj/project.pbxproj`
+
+```text
+/* Begin XCRemoteSwiftPackageReference section */
+		A1 /* XCRemoteSwiftPackageReference "Kit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://example.com/kit";
+		};
+```
+
+`App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`
+
+```text
+{
+  "pins" : [ ],
+  "version" : 2
+}
+```
+
+`.gitignore`
+
+```text
+.build/
+*.resolved
+!App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+```
+
+</details>
+
+### `apple.platform_conditional_type_used_unguarded`
+
+**Typ existiert nur unter #if os(...), wird aber auf einer anderen Plattform benutzt**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: swiftui_multiplatform_guideline.md
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein Typ, dessen sämtliche Deklarationen auf Plattform P sicher
+wegfallen, darf auf P nicht benutzt werden. Gemeldet wird nur, wenn die
+Benutzung auf P SICHER kompiliert wird — unbekannte Bedingungen (DEBUG,
+canImport, ...) zählen für die Deklaration als vorhanden und für die
+Benutzung als nicht sicher. Dadurch bleibt der Check im Zweifel still.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Layout nur unter tvOS deklariert, iOS-Ansicht benutzt es</summary>
+
+`P.xcodeproj/project.pbxproj`
+
+```text
+isa = XCBuildConfiguration;
+			buildSettings = {
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator";
+			};
+```
+
+`App/Panel.swift`
+
+```text
+import SwiftUI
+#if os(tvOS)
+struct Panel: View { var body: some View { EmptyView() } }
+struct FlowLayout: Layout {}
+#endif
+```
+
+`App/Sheet.swift`
+
+```text
+import SwiftUI
+#if os(iOS)
+struct Sheet: View {
+  var body: some View { FlowLayout { Text("a") } }
+}
+#endif
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Layout plattformneutral deklariert</summary>
+
+`P.xcodeproj/project.pbxproj`
+
+```text
+isa = XCBuildConfiguration;
+			buildSettings = {
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator";
+			};
+```
+
+`App/FlowLayout.swift`
+
+```text
+import SwiftUI
+struct FlowLayout: Layout {}
+```
+
+`App/Panel.swift`
+
+```text
+import SwiftUI
+#if os(tvOS)
+struct Panel: View { var body: some View { FlowLayout { } } }
+#endif
+```
+
+`App/Sheet.swift`
+
+```text
+import SwiftUI
+#if os(iOS)
+struct Sheet: View {
+  var body: some View { FlowLayout { Text("a") } }
+}
+#endif
 ```
 
 </details>

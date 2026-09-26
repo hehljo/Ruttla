@@ -5,7 +5,12 @@ when added, changed or deprecated.
 
 ## [Unreleased] — 0.1.0 (public preview)
 
+### Changed
+- `apple.project_settings`: `LastUpgradeCheck`-Schwelle auf Xcode 27.0 (2700) angehoben.
+
 ### Added
+- `apple.platform_conditional_type_used_unguarded`: ein Typ, der nur innerhalb von `#if os(...)` deklariert ist, wird in einem Mehrplattform-Target auf einer anderen Plattform sicher kompiliert benutzt (`Cannot find '…' in scope`). Unbekannte Bedingungen (DEBUG, canImport) bleiben still; Einzelplattform-Projekte sind `unmeasured`.
+- `apple.package_resolved_not_committed`: Xcode-Projekt mit Remote-Swift-Paket ohne `Package.resolved` am Xcode-Pfad oder mit `.gitignore`-Ausschluss (`*.resolved`); Xcode Cloud bricht sonst ab.
 - `i18n.catalog_key_parity`: Apple-`<lang>.lproj/*.strings`-Kataloge müssen je Datei dieselben Schlüssel tragen; Apple zeigt sonst still den rohen Schlüssel. Nur eine Sprache ist `unmeasured`, nicht bestanden.
 - `web.search_selection_resets_category`: detects search result item selections that clear the search query without synchronizing the active category or tab state, causing the item to disappear immediately after selection.
 - `godot.mobile_renderer_forward_plus`, `godot.mobile_orientation_mismatch`, `godot.ios_export_preset_missing_signing`: mobile renderer and export configuration checks for Godot.

@@ -29,10 +29,10 @@ from ruttla.core import Context, to_posix
 PLATFORM = "apple"
 
 # Xcode meldet "Update to recommended settings", sobald LastUpgradeCheck aelter
-# ist als die installierte Toolchain. Gemessen an Xcode 26.4 (Toolchain-Stand
-# Juli 2026) = 2640; die alte feste 1600 (Xcode 16.0) liess jedes aktuelle
+# ist als die installierte Toolchain. Gemessen an Xcode 27.0 (Toolchain-Stand
+# September 2026, zuvor 26.4 = 2640) = 2700; die alte feste 1600 (Xcode 16.0) liess jedes aktuelle
 # Projekt die Meldung zeigen, ohne dass das Gate etwas sagte.
-_MIN_LAST_UPGRADE_CHECK = 2640
+_MIN_LAST_UPGRADE_CHECK = 2700
 
 
 def _xcodeproj(ctx: Context) -> str | None:
