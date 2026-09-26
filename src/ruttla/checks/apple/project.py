@@ -648,7 +648,7 @@ def check_automatic_signing_distribution(ctx: Context) -> CheckResult:
             name="Xcode-Projekt ohne xcuserdata in gitignore",
             files={
                 "App.xcodeproj/project.pbxproj": "// Xcode project\n",
-                ".gitignore": "build/\n.DS_Store\n",
+                ".gitignore": "*.log\n.DS_Store\n",
             },
             expect=Status.FAIL,
             expect_finding_contains="xcuserdata",
@@ -657,7 +657,7 @@ def check_automatic_signing_distribution(ctx: Context) -> CheckResult:
             name="Xcode-Projekt mit xcuserdata in gitignore",
             files={
                 "App.xcodeproj/project.pbxproj": "// Xcode project\n",
-                ".gitignore": "build/\nxcuserdata/\n*.xcuserstate\n",
+                ".gitignore": "*.log\nxcuserdata/\n*.xcuserstate\n",
             },
             expect=Status.PASS,
         ),

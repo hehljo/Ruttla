@@ -330,7 +330,7 @@ Pfad-Leaks im Git-Repository zu verhindern.
 `.gitignore`
 
 ```text
-build/
+*.log
 .DS_Store
 ```
 
@@ -347,7 +347,7 @@ build/
 `.gitignore`
 
 ```text
-build/
+*.log
 xcuserdata/
 *.xcuserstate
 ```
