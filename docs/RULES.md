@@ -3,11 +3,11 @@
 
 # Rule catalog
 
-104 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+107 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 34 | 6 |
+| apple | 37 | 7 |
 | godot | 16 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
@@ -479,6 +479,66 @@ struct Root: View { var body: some View { NavigationStack { List {}.navigationDe
 
 </details>
 
+### `apple.observable_state_mutated_off_main`
+
+**Beobachteter Zustand wird nach await außerhalb des Main Threads gesetzt**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: guides/swift-concurrency.md
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Eine async-Methode einer nicht isolierten Klasse läuft nach jedem await
+auf dem globalen Executor. Setzt sie dort beobachteten Zustand, invalidiert
+SwiftUI Views außerhalb des Main Threads — AppKit bricht dann sporadisch mit
+'Update Constraints in Window' ab (Beleg 2026-09-28). Der Compiler meldet
+das bei '@unchecked Sendable' nicht, auch nicht im Swift-6-Modus.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): negativ: @Observable ohne MainActor setzt nach await</summary>
+
+`App/Store.swift`
+
+```text
+import Observation
+@Observable
+public final class Store {
+  public var items: [Int] = []
+  public func refresh() async {
+    let list = await load()
+    self.items = list
+  }
+  func load() async -> [Int] { [] }
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Klasse ist @MainActor</summary>
+
+`App/Store.swift`
+
+```text
+import Observation
+@MainActor
+@Observable
+public final class Store {
+  public var items: [Int] = []
+  public func refresh() async {
+    let list = await load()
+    self.items = list
+  }
+  func load() async -> [Int] { [] }
+}
+```
+
+</details>
+
 ### `apple.package_resolved_not_committed`
 
 **Package.resolved eines App-Projekts fehlt oder wird von .gitignore ausgeschlossen**
@@ -719,21 +779,62 @@ let d = AVCaptureDevice.default(for: .video)
 
 </details>
 
-<details><summary>Healthy probe (must PASS): Kamera mit Text</summary>
+<details><summary>Healthy probe (must PASS): gesund: Eigenschaft camera ist kein Kamerazugriff</summary>
 
-`App/Cam.swift`
+`App/Item.swift`
 
 ```text
-import AVFoundation
-let d = AVCaptureDevice.default(for: .video)
+struct Exif {
+  let camera: String?
+  init(camera: String?) { self.camera = camera }
+}
+let c = exif?.camera
+enum K: String, CodingKey { case camera }
+let k = K.camera
+func f(_ c: KeyedDecodingContainer<K>) { _ = try? c.decode(String.self, forKey: .camera) }
 ```
 
-`App/Info.plist`
+</details>
+
+### `apple.project_generator_outdated`
+
+**Projektgenerator schreibt veralteten Xcode-Stand**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: IOS_DEBUGGING_GUIDELINES.md
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+
+<details><summary>Why it exists</summary>
 
 ```text
-<?xml version="1.0"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict><key>NSCameraUsageDescription</key><string>Fuer Belege</string></dict></plist>
+Wer die project.pbxproj generiert, kann 'Update to recommended settings'
+in Xcode nicht dauerhaft bestätigen: das nächste Generieren schreibt den
+alten Stand zurück. apple.project_settings sieht nur die Projektdatei; die
+Ursache steht im Generator (Beleg 2026-09-28: fest 1500, Meldung kam nach
+jedem Generieren wieder).
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): negativ: Generator schreibt LastUpgradeCheck 1500</summary>
+
+`scripts/gen.py`
+
+```text
+lines.append("\t\tLastUpgradeCheck = 1500;")
+scheme = 'LastUpgradeVersion = "1500"'
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Generator auf aktuellem Stand</summary>
+
+`scripts/gen.py`
+
+```text
+lines.append("LastUpgradeCheck = 2700;")
+scheme = 'LastUpgradeVersion = "2700"'
 ```
 
 </details>
@@ -1955,6 +2056,46 @@ objects = {
 
 ```text
 {"sourceLanguage":"en","strings":{},"version":"1.0"}
+```
+
+</details>
+
+### `apple.release.xcstrings_untranslated`
+
+**String Catalog: Texte ohne Übersetzung in einer Katalogsprache**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: Apple: Localizing and varying text with a string catalog
+- Public rationale: [GUIDELINES.md › apple-platform-documentation](GUIDELINES.md#apple-platform-documentation)
+
+<details><summary>Why it exists</summary>
+
+```text
+Xcode trägt beim Bauen jeden Text aus dem Code in den Katalog ein —
+ohne Übersetzung. Nutzer der anderen Sprache sehen dann die Quellsprache.
+Belegt 2026-09-28 an einer Foto-App: 122 von 252 Schlüsseln ohne 'en', weil der
+Katalog andere Schlüssel führte als der Code verwendet.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): negativ: Schlüssel ohne en, obwohl der Katalog en führt</summary>
+
+`App/Localizable.xcstrings`
+
+```text
+{"sourceLanguage": "de", "version": "1.0", "strings": {"Hallo": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Hello"}}}}, "Port": {}}}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: vollständig übersetzt, nicht zu übersetzen und veraltet</summary>
+
+`App/Localizable.xcstrings`
+
+```text
+{"sourceLanguage": "de", "version": "1.0", "strings": {"Hallo": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Hello"}}}}, "%lld": {"shouldTranslate": false}, "%@ (%@@%@)": {}, "Alt": {"extractionState": "stale"}}}
 ```
 
 </details>

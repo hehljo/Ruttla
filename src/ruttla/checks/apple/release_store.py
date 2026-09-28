@@ -39,6 +39,7 @@ from ._release_common import (
     _SANDBOX_MISSING,
     _SANDBOX_ON,
     _SANDBOX_PROJECT,
+    _SANDBOX_SETTING_PROJECT,
     _setting,
     _walk_files,
     PLATFORM,
@@ -331,6 +332,12 @@ def check_signing_team(ctx: Context) -> CheckResult:
             expect_finding_contains="app-sandbox",
         ),
         SelfTestCase(
+            name="gesund: Sandbox per Build-Setting ENABLE_APP_SANDBOX",
+            files={"P.xcodeproj/project.pbxproj": _SANDBOX_SETTING_PROJECT,
+                   "App/App.entitlements": _SANDBOX_MISSING},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
             name="gesund: iOS-Target ohne Sandbox-Schlüssel",
             files={"P.xcodeproj/project.pbxproj": _IOS_SANDBOX_PROJECT,
                    "App/App.entitlements": _SANDBOX_MISSING},
@@ -368,6 +375,12 @@ def check_app_sandbox(ctx: Context) -> CheckResult:
             # Die Regel gilt für macOS. Ein iOS-Target sandboxt implizit und
             # trägt den Schlüssel nicht — dort wäre der Befund falsch positiv.
             if not config.get("macos"):
+                continue
+            # Seit Xcode 15 fügt ENABLE_APP_SANDBOX = YES das Entitlement beim
+            # Signieren selbst ein; die Datei trägt es dann nicht (eine App, live
+            # im Mac App Store, meldete hier sonst einen harten Fehlbefund).
+            if _setting(config["block"], "ENABLE_APP_SANDBOX") == "YES":
+                examined += 1
                 continue
             raw = _setting(config["block"], "CODE_SIGN_ENTITLEMENTS")
             if not raw or "$(" in raw:

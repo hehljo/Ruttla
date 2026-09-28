@@ -199,6 +199,16 @@ def check_project_settings(ctx: Context) -> CheckResult:
             expect=Status.FAIL,
         ),
         SelfTestCase(
+            name="gesund: Eigenschaft camera ist kein Kamerazugriff",
+            files={"App/Item.swift": "struct Exif {\n  let camera: String?\n  init(camera: String?) { self.camera = camera }\n}\nlet c = exif?.camera\nenum K: String, CodingKey { case camera }\nlet k = K.camera\nfunc f(_ c: KeyedDecodingContainer<K>) { _ = try? c.decode(String.self, forKey: .camera) }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="negativ: Bildquelle .camera ohne Text",
+            files={"App/Pick.swift": "import UIKit\nlet t: UIImagePickerController.SourceType = .camera\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
             name="Kamera mit Text",
             files={"App/Cam.swift": "import AVFoundation\nlet d = AVCaptureDevice.default(for: .video)\n",
                    "App/Info.plist": "<?xml version=\"1.0\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict><key>NSCameraUsageDescription</key><string>Fuer Belege</string></dict></plist>\n"},
@@ -215,8 +225,11 @@ def check_privacy_strings(ctx: Context) -> CheckResult:
         return unmeasured("apple.privacy_usage_description_missing", title,
                           "Keine Swift-Dateien gefunden.", PLATFORM)
     needs = {
-        "NSCameraUsageDescription": (r"\bAVCaptureDevice\b|\.camera\b|UIImagePickerController", "Kamera"),
-        "NSPhotoLibraryUsageDescription": (r"\bPHPhotoLibrary\b|PhotosPicker|\.photoLibrary\b", "Fotobibliothek"),
+        # `.camera`/`.photoLibrary` nur als Bildquelle (`sourceType = .camera`):
+        # `self.camera` und `forKey: .camera` sind EXIF-/Codable-Felder
+        # (Fehlalarm in einer Foto-App, 2026-09-28).
+        "NSCameraUsageDescription": (r"\bAVCaptureDevice\b|sourceType\s*[:=]\s*\.camera\b|UIImagePickerController", "Kamera"),
+        "NSPhotoLibraryUsageDescription": (r"\bPHPhotoLibrary\b|PhotosPicker|sourceType\s*[:=]\s*\.photoLibrary\b", "Fotobibliothek"),
         "NSMicrophoneUsageDescription": (r"\bAVAudioRecorder\b|AVAudioSession.*record", "Mikrofon"),
         "NSLocationWhenInUseUsageDescription": (r"\bCLLocationManager\b", "Standort"),
         "NSContactsUsageDescription": (r"\bCNContactStore\b", "Kontakte"),
@@ -728,3 +741,60 @@ def check_gitignore_xcode_user_data(ctx: Context) -> CheckResult:
 
     return result_for("apple.gitignore_xcode_user_data", title, findings,
                       len(pbx_files), "Xcode-Projekte", PLATFORM)
+
+
+@register(
+    "apple.project_generator_outdated",
+    "Projektgenerator schreibt veralteten Xcode-Stand",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="IOS_DEBUGGING_GUIDELINES.md",
+    self_tests=[
+        SelfTestCase(
+            name="negativ: Generator schreibt LastUpgradeCheck 1500",
+            files={"scripts/gen.py": 'lines.append("\\t\\tLastUpgradeCheck = 1500;")\n'
+                                     'scheme = \'LastUpgradeVersion = "1500"\'\n'},
+            expect=Status.FAIL,
+            expect_finding_contains="LastUpgradeCheck",
+        ),
+        SelfTestCase(
+            name="gesund: Generator auf aktuellem Stand",
+            files={"scripts/gen.py": f'lines.append("LastUpgradeCheck = {_MIN_LAST_UPGRADE_CHECK};")\n'
+                                     f'scheme = \'LastUpgradeVersion = "{_MIN_LAST_UPGRADE_CHECK}"\'\n'},
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_project_generator(ctx: Context) -> CheckResult:
+    """Wer die project.pbxproj generiert, kann 'Update to recommended settings'
+    in Xcode nicht dauerhaft bestätigen: das nächste Generieren schreibt den
+    alten Stand zurück. apple.project_settings sieht nur die Projektdatei; die
+    Ursache steht im Generator (Beleg 2026-09-28: fest 1500, Meldung kam nach
+    jedem Generieren wieder)."""
+    title = "Projektgenerator schreibt veralteten Xcode-Stand"
+    pattern = re.compile(r'(LastUpgradeCheck|LastUpgradeVersion)\s*=\s*\\?"?(\d{3,4})\b')
+    candidates = [sf for sf in ctx.files(".py", ".rb", ".sh", ".js", ".mjs", ".ts",
+                                         ".swift", ".yml", ".yaml")
+                  if "LastUpgrade" in sf.text]
+    if not candidates:
+        return unmeasured("apple.project_generator_outdated", title,
+                          "Kein Projektgenerator mit LastUpgradeCheck gefunden.", PLATFORM)
+    findings: list[Finding] = []
+    for sf in candidates:
+        for i, line in enumerate(sf.lines, 1):
+            for m in pattern.finditer(line):
+                if int(m.group(2)) >= _MIN_LAST_UPGRADE_CHECK:
+                    continue
+                findings.append(Finding(
+                    check_id="apple.project_generator_outdated",
+                    severity=Severity.WARNING,
+                    message=f"{m.group(1)} ist im Generator fest {m.group(2)} "
+                            f"(aktuell {_MIN_LAST_UPGRADE_CHECK}) — Xcode fragt nach "
+                            "jedem Generieren wieder nach 'Update to recommended settings'.",
+                    file=sf.rel, line=i, evidence=snippet(line.strip()),
+                    fix="In Xcode einmal aktualisieren, die geänderten Build-Settings "
+                        "und LastUpgradeCheck/LastUpgradeVersion in den Generator "
+                        "übernehmen, dann mit einer Drift-Prüfung absichern.",
+                ))
+    return result_for("apple.project_generator_outdated", title, findings,
+                      len(candidates), "Projektgeneratoren", PLATFORM)

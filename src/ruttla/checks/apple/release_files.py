@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import plistlib
+import re
 
 from ruttla.core import (
     CheckResult,
@@ -124,6 +125,87 @@ def check_xcstrings_json(ctx: Context) -> CheckResult:
             ))
     return result_for("apple.release.xcstrings_json", title, findings,
                       len(candidates), "String-Kataloge", PLATFORM)
+
+
+@register(
+    "apple.release.xcstrings_untranslated",
+    "String Catalog: Texte ohne Übersetzung in einer Katalogsprache",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="Apple: Localizing and varying text with a string catalog",
+    self_tests=[
+        SelfTestCase(
+            name="negativ: Schlüssel ohne en, obwohl der Katalog en führt",
+            files={"App/Localizable.xcstrings": json.dumps({"sourceLanguage": "de", "version": "1.0", "strings": {
+                "Hallo": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Hello"}}}},
+                "Port": {}}})},
+            expect=Status.FAIL,
+            expect_finding_contains="Port",
+        ),
+        SelfTestCase(
+            name="gesund: vollständig übersetzt, nicht zu übersetzen und veraltet",
+            files={"App/Localizable.xcstrings": json.dumps({"sourceLanguage": "de", "version": "1.0", "strings": {
+                "Hallo": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Hello"}}}},
+                "%lld": {"shouldTranslate": False},
+                "%@ (%@@%@)": {},
+                "Alt": {"extractionState": "stale"}}})},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: einsprachiger Katalog",
+            files={"App/Localizable.xcstrings": json.dumps({"sourceLanguage": "de", "version": "1.0",
+                                                            "strings": {"Hallo": {}, "Port": {}}})},
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_xcstrings_untranslated(ctx: Context) -> CheckResult:
+    """Xcode trägt beim Bauen jeden Text aus dem Code in den Katalog ein —
+    ohne Übersetzung. Nutzer der anderen Sprache sehen dann die Quellsprache.
+    Belegt 2026-09-28 an einer Foto-App: 122 von 252 Schlüsseln ohne 'en', weil der
+    Katalog andere Schlüssel führte als der Code verwendet."""
+    title = "String Catalog: Texte ohne Übersetzung in einer Katalogsprache"
+    candidates = [(path, rel) for path, rel in _walk_files(ctx)
+                  if rel.endswith(".xcstrings")]
+    if not candidates:
+        return unmeasured("apple.release.xcstrings_untranslated", title,
+                          "Kein .xcstrings-Katalog gefunden.", PLATFORM)
+    findings: list[Finding] = []
+    measured = 0
+    for path, rel in candidates:
+        try:
+            with open(path, "rb") as handle:
+                catalog = json.load(handle)
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            continue  # apple.release.xcstrings_json meldet das
+        strings = catalog.get("strings") or {}
+        source = catalog.get("sourceLanguage")
+        measured += 1
+        languages = {lang for entry in strings.values()
+                     for lang in (entry.get("localizations") or {})} - {source}
+        for lang in sorted(languages):
+            missing = [key for key, entry in strings.items()
+                       if re.search(r"[^\W\d_]", re.sub(r"%(?:\d+\$)?[@a-zA-Z]+", "", key))
+                       and entry.get("shouldTranslate") is not False
+                       and entry.get("extractionState") != "stale"
+                       and lang not in (entry.get("localizations") or {})]
+            if not missing:
+                continue
+            sample = ", ".join(f"'{k}'" for k in missing[:3])
+            findings.append(Finding(
+                check_id="apple.release.xcstrings_untranslated",
+                severity=Severity.WARNING,
+                message=f"{len(missing)} von {len(strings)} Texten ohne '{lang}' "
+                        f"(z. B. {sample}).",
+                file=rel,
+                fix=f"Übersetzungen für '{lang}' ergänzen; Schlüssel ohne Aufrufer "
+                    "(alte Schlüsselform) entfernen.",
+            ))
+    if measured == 0:
+        return unmeasured("apple.release.xcstrings_untranslated", title,
+                          "Kein String Catalog lesbar.", PLATFORM)
+    return result_for("apple.release.xcstrings_untranslated", title, findings,
+                      measured, "String-Kataloge", PLATFORM)
 
 
 @register(
