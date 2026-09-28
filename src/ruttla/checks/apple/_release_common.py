@@ -603,6 +603,12 @@ _SANDBOX_PROJECT = _project_fixture(
     SDKROOT="macosx",
     PRODUCT_BUNDLE_IDENTIFIER="com.example.App",
 )
+_SANDBOX_SETTING_PROJECT = _project_fixture(
+    CODE_SIGN_ENTITLEMENTS="App/App.entitlements",
+    SDKROOT="macosx",
+    ENABLE_APP_SANDBOX="YES",
+    PRODUCT_BUNDLE_IDENTIFIER="com.example.App",
+)
 # iOS-Gegenprobe: dieselbe fehlende Angabe darf hier NICHT rot werden, sonst
 # ist aus der macOS-Regel ein falsch-positiver Befund für jede iOS-App
 # geworden.
