@@ -39,6 +39,8 @@ when added, changed or deprecated.
 - Broken stdout pipe exits 3 instead of a traceback with exit 1.
 
 ### Fixed
+- `apple.unguarded_module_import`: recognize QuartzCore and MetalKit as Apple system frameworks; healthy framework imports and an isolated unknown-module mutation are covered.
+- `protocol.version_bump_without_fallback`: Swift enums now require their own explicit Codable/Decodable conformance (including same-file extensions). An unrelated decoder no longer flags UI enums or namespace enums; CodingKey enums are excluded. The fix advice now requires a decoding fallback and an unknown-value test instead of promising that an Unknown case alone changes synthesized decoding.
 - Frozen golden projections now compare only historical rule IDs; additive checks no longer require rewriting the legacy baseline.
 - Profile `exclude` globs were ignored by directory lookups (platform detection, apple packs).
 - Oversize files were skipped silently (now `coverage.files_skipped`).

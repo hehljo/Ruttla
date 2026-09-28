@@ -418,6 +418,19 @@ def check_bundle_module(ctx: Context) -> CheckResult:
                    "App/V.swift": "import SwiftUI\n#if canImport(AppCore)\nimport AppCore\n#endif\nstruct V: View { var body: some View { Text(\"x\") } }\n"},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="Apple Grafikframeworks sind Systemmodule",
+            files={"P.xcodeproj/project.pbxproj": "isa = PBXNativeTarget;\n",
+                   "App/Renderer.swift": "import QuartzCore\nimport MetalKit\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Unbekanntes Modul neben Grafikframeworks",
+            files={"P.xcodeproj/project.pbxproj": "isa = PBXNativeTarget;\n",
+                   "App/Renderer.swift": "import QuartzCore\nimport MetalKit\nimport AppCore\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="AppCore",
+        ),
     ],
 )
 def check_module_import(ctx: Context) -> CheckResult:
@@ -450,6 +463,10 @@ def check_module_import(ctx: Context) -> CheckResult:
         "MapKit", "PhotosUI", "PDFKit", "SpriteKit", "SceneKit", "ARKit",
         "HealthKit", "HomeKit", "CloudKit", "PassKit", "MessageUI", "EventKit",
         "AVKit", "GameKit", "WatchKit", "CarPlay", "TipKit", "Charts",
+        # Apple SDK modules, not missing app-owned targets:
+        # https://developer.apple.com/documentation/quartzcore
+        # https://developer.apple.com/documentation/metalkit
+        "QuartzCore", "MetalKit",
     }
     findings: list[Finding] = []
     for sf in swift:

@@ -1,5 +1,11 @@
 # STATUS
 
+## Validierte Korrekturen (2026-09-28)
+
+- `protocol.version_bump_without_fallback`: Swift-Konformität dem konkreten Enum zuordnen; fremde JSONDecoder/Codable-Structs und CodingKeys lösen keinen falschen Befund mehr aus. Decoder-Fallback statt bloßem Unknown-Case empfehlen; Cross-file-/Laufzeitgrenzen ausdrücklich benennen.
+- `apple.unguarded_module_import`: QuartzCore und MetalKit als Apple-Systemframeworks erkannt; gesunde Imports und isolierte Fremdmodulmutation ergänzt.
+- Prüfung: 110 Unit-/Contracttests, 109 bestanden und 1 bestehender optionaler Skip; 259/259 Selbsttestproben für 104 Checks; generierte Regeldokumentation aktuell. Kein Commit/Push.
+
 ## Current Phase
 P05 abgeschlossen (P00–P05 umgesetzt). P06 aktiv; Repository ist seit 2026-09-24 öffentlich.
 

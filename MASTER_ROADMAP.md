@@ -15,6 +15,12 @@ Public-safe repository baseline ready for architectural migration.
 ## Next Action
 P06-T001 — stable finding fingerprint; P03-T007 performance budget follow-up.
 
+## Gate-Korrekturen — 2026-09-28
+
+- [x] Swift-Enum-Serialisierung am konkreten Typ belegen, CodingKeys/lokale Namespace-Enums ausschließen, Fixtext für tatsächliche Decodiergrenze korrigieren. Drei gezielte Regressionstests und sechs zusätzliche Selftest-Fälle.
+- [x] QuartzCore/MetalKit als Apple-Systemframeworks erkennen; intakte Imports und isolierte unbekannte Modulmutation testen.
+- [x] 110 Tests ausgeführt (109 bestanden, ein optionaler Skip), 259/259 Selbsttestproben; Regelkatalog aktualisiert. Keine Änderung an öffentlichen Check-IDs oder Default-Blocking.
+
 ## Blocking Issues
 - none for internal work. Public release: sanitized history (P08), trademark check, code-scanning fixture repo (P04-T003).
 

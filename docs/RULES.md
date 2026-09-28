@@ -3,11 +3,11 @@
 
 # Rule catalog
 
-103 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+104 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 33 | 6 |
+| apple | 34 | 6 |
 | godot | 16 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
@@ -1264,6 +1264,121 @@ objects = {
 <plist version="1.0"><dict>
   <key>CFBundleDisplayName</key><string>SampleMac</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+</dict></plist>
+```
+
+</details>
+
+### `apple.release.export_compliance_missing`
+
+**App-Target ohne ITSAppUsesNonExemptEncryption**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: Apple: ITSAppUsesNonExemptEncryption (Information Property List)
+- Public rationale: [GUIDELINES.md › apple-platform-documentation](GUIDELINES.md#apple-platform-documentation)
+
+<details><summary>Why it exists</summary>
+
+```text
+Ohne Exportangabe hängt jeder Build in App Store Connect fest.
+
+Belegt am 2026-09-23 (reale macOS-App, Store-Release): Der Build stand
+nach dem Upload auf 'Missing Compliance' und musste je Build per API
+oder Klick freigegeben werden, bevor er einer Version zugeordnet werden
+konnte. Der Schlüssel im Bundle erledigt das einmal für alle Builds.
+Gemessen wird das Vorhandensein, nicht der Wert: NO ist gültig.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): negativ: Info.plist ohne Exportangabe</summary>
+
+`P.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+{
+objects = {
+        AAA111 /* SampleMac */ = {
+                isa = PBXNativeTarget;
+                buildConfigurationList = LLL111 /* Build configuration list */;
+                name = SampleMac;
+                productType = "com.apple.product-type.application";
+        };
+        LLL111 /* Build configuration list */ = {
+                isa = XCConfigurationList;
+                buildConfigurations = (
+                        CCC111 /* Release */,
+                );
+        };
+        CCC111 /* Release */ = {
+                isa = XCBuildConfiguration;
+                buildSettings = {
+					INFOPLIST_FILE = App/Info.plist;
+					PRODUCT_BUNDLE_IDENTIFIER = com.example.App;
+                };
+                name = Release;
+        };
+};
+}
+```
+
+`App/Info.plist`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleDisplayName</key><string>SampleMac</string>
+  <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+</dict></plist>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Schlüssel mit false in der Info.plist</summary>
+
+`P.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+{
+objects = {
+        AAA111 /* SampleMac */ = {
+                isa = PBXNativeTarget;
+                buildConfigurationList = LLL111 /* Build configuration list */;
+                name = SampleMac;
+                productType = "com.apple.product-type.application";
+        };
+        LLL111 /* Build configuration list */ = {
+                isa = XCConfigurationList;
+                buildConfigurations = (
+                        CCC111 /* Release */,
+                );
+        };
+        CCC111 /* Release */ = {
+                isa = XCBuildConfiguration;
+                buildSettings = {
+					INFOPLIST_FILE = App/Info.plist;
+					PRODUCT_BUNDLE_IDENTIFIER = com.example.App;
+                };
+                name = Release;
+        };
+};
+}
+```
+
+`App/Info.plist`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleDisplayName</key><string>SampleMac</string>
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
 </dict></plist>
 ```
 
@@ -4179,7 +4294,13 @@ export interface Msg {
 ```text
 Ein alter Client muss einen neuen Enum-Wert ignorieren können, statt
 daran zu sterben. Gemessen wird an Enums, die von Serialisierung erreicht
-werden — nicht an jedem Enum im Projekt.
+werden — nicht an jedem Enum im Projekt. Swift benötigt eine explizite
+Codable-/Decodable-Konformität am Enum oder in einer gleichnamigen
+Extension derselben Datei. Ein fremder JSONDecoder oder Codable-Struct
+ist kein Beleg; CodingKey-Enums sind keine offenen Protokollwerte.
+Cross-file Extensions und die tatsächliche Ausführung eines Decoders
+werden nicht bewiesen. Ein benannter Unknown-Fall allein garantiert
+keine tolerante Decodierung; dafür ist ein Laufzeittest erforderlich.
 ```
 
 </details>
