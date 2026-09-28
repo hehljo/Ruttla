@@ -347,3 +347,110 @@ def check_splitview_detail_title(ctx: Context) -> CheckResult:
                           "Keine NavigationSplitView mit detail:-Block gefunden.", PLATFORM)
     return result_for("apple.splitview_detail_without_navigation_title", title, findings,
                       callers, "NavigationSplitView-Detail-Blöcke", PLATFORM)
+
+
+# ===========================================================================
+# macOS: Kollidierende Breiten-Modifier in SplitView- / Inspector-Inhalten
+# ===========================================================================
+
+# In macOS SwiftUI führt das Setzen von idealWidth zusammen mit minWidth
+# oder maxWidth: .infinity an ScrollViews oder Container-Views innerhalb
+# von NavigationSplitView oder .inspector zu einem fatalen AppKit-Loop:
+# NSHostingView versucht SizeConstraints per NSLayoutConstraint.setConstant
+# während des updateConstraints-Passes anzupassen. Das triggert constraintsDidChangeInEngine,
+# was einen erneuten Constraint-Pass verlangt. Bei schmalen Fenstern oder
+# nachträglich erscheinenden Scrollbalken führt dies unweigerlich zum Crash:
+# 'NSGenericException: The window has been marked as needing another Update Constraints in Window pass'.
+# Richtlinie: Spaltenbreiten gehören ausschließlich an den Container (.inspectorColumnWidth),
+# innere Views dürfen keine kollidierenden idealWidth-/minWidth-Frames setzen.
+
+@register(
+    "apple.splitview_inner_width_conflict",
+    "Kollidierende Breiten-Modifier (idealWidth mit minWidth/maxWidth) an Inspector- oder Scroll-Inhalten",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="IOS_DEBUGGING_GUIDELINES.md § macOS SplitView / AutoLayout Constraint-Loops",
+    safe_by_default=True,
+    self_tests=[
+        SelfTestCase(
+            name="ScrollView mit idealWidth und minWidth/maxWidth",
+            files={"Sources/App/InspectorView.swift":
+                   "import SwiftUI\n"
+                   "struct InspectorView: View {\n"
+                   "  var body: some View {\n"
+                   "    ScrollView {\n"
+                   "      Text(\"Details\")\n"
+                   "    }\n"
+                   "    .frame(minWidth: 260, idealWidth: 280, maxWidth: .infinity)\n"
+                   "  }\n"
+                   "}\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="idealWidth",
+        ),
+        SelfTestCase(
+            name="Inspector View ohne kollidierende Idealbreite",
+            files={"Sources/App/InspectorView.swift":
+                   "import SwiftUI\n"
+                   "struct InspectorView: View {\n"
+                   "  var body: some View {\n"
+                   "    ScrollView {\n"
+                   "      Text(\"Details\")\n"
+                   "    }\n"
+                   "    .frame(maxWidth: .infinity, maxHeight: .infinity)\n"
+                   "  }\n"
+                   "}\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Fester Frame ist erlaubt",
+            files={"Sources/App/IconView.swift":
+                   "import SwiftUI\n"
+                   "struct IconView: View {\n"
+                   "  var body: some View {\n"
+                   "    Image(\"icon\")\n"
+                   "      .frame(width: 44, height: 44)\n"
+                   "  }\n"
+                   "}\n"},
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_splitview_inner_width_conflict(ctx: Context) -> CheckResult:
+    title = "Kollidierende Breiten-Modifier (idealWidth mit minWidth/maxWidth) an Inspector- oder Scroll-Inhalten"
+    swift = ctx.files(".swift")
+    if not swift:
+        return unmeasured("apple.splitview_inner_width_conflict", title,
+                          "Keine Swift-Dateien gefunden.", PLATFORM)
+
+    findings: list[Finding] = []
+    # Match .frame(...) containing idealWidth: and (minWidth: or maxWidth:)
+    pat = re.compile(r"\.frame\s*\(([^)]*)\)", re.DOTALL)
+    for sf in swift:
+        body = strip_comments(sf.text, sf.ext)
+        if ".frame" not in body or "idealWidth" not in body:
+            continue
+        for m in pat.finditer(body):
+            args = m.group(1)
+            if "idealWidth" in args and ("minWidth" in args or "maxWidth" in args):
+                start_pos = max(0, m.start() - 300)
+                context_prefix = body[start_pos:m.start()]
+                is_scroll = "ScrollView" in context_prefix
+                is_inspector_or_split = any(k in sf.rel or k in body for k in ("Inspector", "SplitView", "inspector", "Sidebar"))
+                if is_scroll or is_inspector_or_split:
+                    line_no = body.count("\n", 0, m.start()) + 1
+                    raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""
+                    findings.append(Finding(
+                        check_id="apple.splitview_inner_width_conflict",
+                        severity=Severity.ERROR,
+                        message="Kollidierender Breiten-Modifier (.frame mit idealWidth und min/maxWidth): "
+                                "Führt in macOS SplitView- und Inspector-Hosting zu endlosen "
+                                "AppKit-Constraint-Passes (Absturz 'Update Constraints in Window pass').",
+                        file=sf.rel, line=line_no, evidence=snippet(raw),
+                        fix="idealWidth/minWidth an inneren Views entfernen und die Spaltenbreite "
+                            "nur am Container (.inspectorColumnWidth) steuern. "
+                            "Innere ScrollViews mit .frame(maxWidth: .infinity, maxHeight: .infinity) fließen lassen.",
+                        guideline="IOS_DEBUGGING_GUIDELINES.md § macOS SplitView / AutoLayout Constraint-Loops",
+                    ))
+    return result_for("apple.splitview_inner_width_conflict", title, findings,
+                      len(swift), "Swift-Dateien", PLATFORM)
+
