@@ -544,3 +544,112 @@ def check_xcstrings_complete(ctx: Context) -> CheckResult:
             f"({unreadable} nicht lesbar).", PLATFORM)
     return result_for(check_id, title, findings, examined,
                       "Katalogschlüssel", PLATFORM)
+
+
+_ENCRYPTION_DECLARED_PLIST = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleDisplayName</key><string>SampleMac</string>
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
+</dict></plist>
+"""
+
+
+@register(
+    "apple.release.export_compliance_missing",
+    "App-Target ohne ITSAppUsesNonExemptEncryption",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="Apple: ITSAppUsesNonExemptEncryption (Information Property List)",
+    self_tests=[
+        SelfTestCase(
+            # Der Wert NO ist die häufigste gültige Angabe. Ein Check, der
+            # auf Wahrheitswert statt auf Vorhandensein prüft, meldet genau
+            # sie als fehlend.
+            name="gesund: Schlüssel mit false in der Info.plist",
+            files={"P.xcodeproj/project.pbxproj": _IDENTITY_PROJECT,
+                   "App/Info.plist": _ENCRYPTION_DECLARED_PLIST},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: Schlüssel als INFOPLIST_KEY im Target",
+            files={"P.xcodeproj/project.pbxproj": _project_fixture(
+                INFOPLIST_KEY_ITSAppUsesNonExemptEncryption="NO",
+                GENERATE_INFOPLIST_FILE="YES",
+                PRODUCT_BUNDLE_IDENTIFIER="com.example.App")},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="negativ: Info.plist ohne Exportangabe",
+            files={"P.xcodeproj/project.pbxproj": _IDENTITY_PROJECT,
+                   "App/Info.plist": _HEALTHY_IDENTITY_PLIST},
+            expect=Status.FAIL,
+            expect_finding_contains="ITSAppUsesNonExemptEncryption",
+        ),
+        SelfTestCase(
+            name="nicht gemessen: Info.plist wird generiert",
+            files={"P.xcodeproj/project.pbxproj": _project_fixture(
+                GENERATE_INFOPLIST_FILE="YES",
+                INFOPLIST_FILE="App/Info.plist",
+                PRODUCT_BUNDLE_IDENTIFIER="com.example.App")},
+            expect=Status.UNMEASURED,
+        ),
+    ],
+)
+def check_export_compliance(ctx: Context) -> CheckResult:
+    """Ohne Exportangabe hängt jeder Build in App Store Connect fest.
+
+    Belegt am 2026-09-23 (reale macOS-App, Store-Release): Der Build stand
+    nach dem Upload auf 'Missing Compliance' und musste je Build per API
+    oder Klick freigegeben werden, bevor er einer Version zugeordnet werden
+    konnte. Der Schlüssel im Bundle erledigt das einmal für alle Builds.
+    Gemessen wird das Vorhandensein, nicht der Wert: NO ist gültig.
+    """
+    check_id = "apple.release.export_compliance_missing"
+    title = "App-Target ohne ITSAppUsesNonExemptEncryption"
+    projects = _app_target_projects(ctx)
+    if not projects:
+        return unmeasured(check_id, title, "Kein .xcodeproj gefunden.", PLATFORM)
+
+    findings: list[Finding] = []
+    examined = 0
+    unresolved = 0
+    for project, rel, configs in projects:
+        for config in configs:
+            if not config["resolved"]:
+                unresolved += 1
+                continue
+            if _setting(config["block"],
+                        "INFOPLIST_KEY_ITSAppUsesNonExemptEncryption"):
+                examined += 1
+                continue
+            plist_entry = _plist_for_configuration(ctx, project, config)
+            if plist_entry is None:
+                unresolved += 1
+                continue
+            data = _read_plist(plist_entry[0])
+            if data is None:
+                unresolved += 1
+                continue
+            examined += 1
+            if "ITSAppUsesNonExemptEncryption" in data:
+                continue
+            findings.append(Finding(
+                check_id=check_id, severity=Severity.WARNING,
+                message=f"ITSAppUsesNonExemptEncryption fehlt für Target "
+                        f"'{config['target']}' ({config['config']}).",
+                file=plist_entry[1],
+                fix="ITSAppUsesNonExemptEncryption in die Info.plist schreiben "
+                    "(NO, wenn nur Apple-Standardverschlüsselung wie HTTPS "
+                    "genutzt wird). Sonst steht jeder Build in App Store "
+                    "Connect auf 'Missing Compliance'.",
+                guideline="Apple: ITSAppUsesNonExemptEncryption",
+            ))
+    if examined == 0:
+        return unmeasured(
+            check_id, title,
+            f"Keine App-Target-Konfiguration mit auflösbarer Info.plist "
+            f"({unresolved} nicht auflösbar).", PLATFORM)
+    return result_for(check_id, title, findings, examined,
+                      "App-Target-Konfigurationen", PLATFORM)

@@ -281,6 +281,14 @@ def check_literal_text(ctx: Context) -> CheckResult:
             files={"src/a.ts": 'const msg = t("items.saved", { count });\n'},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            # Belegt 2026-09-28: der Code ZWISCHEN zwei Literalen
+            # (", phone: ") las sich als Literal, das '+' gehörte zur
+            # Telefonnummer im nächsten String.
+            name="gesund: '+' am Anfang eines Folge-Literals",
+            files={"src/a.ts": 'const c = { email: "a@example.com", phone: "+49 1" };\n'},
+            expect=Status.PASS,
+        ),
     ],
 )
 def check_string_concat(ctx: Context) -> CheckResult:
@@ -291,9 +299,17 @@ def check_string_concat(ctx: Context) -> CheckResult:
     units = 0
     for sf in ctx.files(*SOURCE_EXTS):
         units += 1
+        haystack = strip_comments(sf.text, sf.ext)
         for line_no, m, raw in iter_matches(sf, pat):
             if re.search(r"(console\.|print\(|log\w*\(|logger|throw |Error\(|assert)", raw, re.I):
                 continue  # Entwicklertext, gehört nicht in den Katalog
+            # Das öffnende Zeichen muss ein öffnendes Anführungszeichen sein.
+            # Ist es das schließende eines vorherigen Literals, ist der
+            # "Text" Code zwischen zwei Strings und das '+' steht im nächsten.
+            line_start = haystack.rfind("\n", 0, m.start()) + 1
+            quote = haystack[m.start()]
+            if haystack[line_start:m.start()].count(quote) % 2 == 1:
+                continue
             findings.append(Finding(
                 check_id="i18n.string_concatenation",
                 severity=Severity.WARNING,
