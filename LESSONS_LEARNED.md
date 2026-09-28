@@ -38,6 +38,7 @@ tokenfrei erledigt.
 | 1.10 | Ein Lauf meldete 5825 Befunde, 99,8 % aus einem entpackten Fremdarchiv — die 13 echten gingen unter | `exclude`-Globs im Profil; `.gitignore` wird bewusst nicht gelesen | `.ruttla.toml` `[gate] exclude` |
 | 1.11 | Raspberry-Erkennung kannte `import serial` nicht; der Check schon — ein echter Verstoß meldete grün, weil das Pack nie lief | Erkennungsliste und Check-Liste müssen übereinstimmen | Kommentar-Vertrag in `platforms.py`, Golden-Fixtures je Pack |
 | 1.12 | Godot-Balance-Regex ohne `MULTILINE` traf nie (`^` nur am Dateianfang) — die Gegenprobe fand es | Jede Regel braucht eine FAIL-Probe | Self-Test (beide Richtungen Pflicht) |
+| 1.13 | GitHub-Actions-Lauf nach 8–11 s „failure“ — beide Jobs **nie gestartet** (Actions-Kontingent/Billing aufgebraucht, Annotation „job was not started because recent account payments have failed…“). Sah aus wie ein Buildfehler | Laufzeit und Annotation lesen, bevor Code gesucht wird: nicht gestartet = *nicht gemessen*, weder rot noch grün | keiner — Zustand liegt bei GitHub, nicht im Repo; Handgriff: `gh run view <id>` Annotationen prüfen |
 
 ## 2 · Apple / App Store
 
@@ -54,6 +55,7 @@ tokenfrei erledigt.
 | 2.9 | Grauer Balken verdeckte Formularfelder (NavigationSplitView ohne `.navigationTitle`) | Detail-Ansicht braucht einen Titel | `apple.splitview_detail_without_navigation_title` |
 | 2.10 | SMB-Mounts erschienen im Finder, obwohl der Mountpunkt unter `~/Library` lag | Sichtbarkeit hängt an `-o nobrowse`, nicht am Pfad (`mount_smbfs(8)`) | `apple.smb_mount_without_nobrowse` (hart) |
 | 2.11 | Wahrscheinlich echte Apple Team-ID stand in einem Selbsttest-Fixture | Fixtures nur mit Platzhaltern (`ABCDE12345`) | `tests/test_provenance.py` (gehashte Deny-List) |
+| 2.12 | Xcode Cloud „Erfolgreich“ für einen Commit mit neuen XCTests — der Workflow „Default“ hatte nur Build- und Archive-Aktionen, **keine Test-Aktion**. Grün hieß „kompiliert“, nicht „getestet“ | Aktionsliste des Workflows lesen; Build/Archive/Test getrennt ausweisen, Tests ohne Test-Aktion = *nicht gemessen* | keiner statisch möglich — der Workflow liegt in App Store Connect, nicht im Repo. Kandidat: ASC-API `ciWorkflows` → `actions[].actionType == TEST` prüfen |
 
 ## 3 · Game-Engines
 
