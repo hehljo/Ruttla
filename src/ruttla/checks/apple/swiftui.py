@@ -528,3 +528,80 @@ def check_splitview_inner_width_conflict(ctx: Context) -> CheckResult:
                     ))
     return result_for("apple.splitview_inner_width_conflict", title, findings,
                       len(swift), "Swift-Dateien", PLATFORM)
+
+
+# ====================================================
+# String(localized:) in SwiftUI View
+# ====================================================
+
+
+@register(
+    "apple.string_localized_in_swiftui",
+    "String(localized:) in SwiftUI-View umgeht SwiftUI-Locale-Environment",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="CLAUDE.md § Lokalisierung",
+    safe_by_default=True,
+    self_tests=[
+        SelfTestCase(
+            name="String(localized:) in SwiftUI View",
+            files={"Sources/App/SettingsView.swift":
+                   "import SwiftUI\n"
+                   "struct SettingsView: View {\n"
+                   "  var body: some View {\n"
+                   "    Button(String(localized: \"Abmelden\")) { }\n"
+                   "  }\n"
+                   "}\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="String(localized",
+        ),
+        SelfTestCase(
+            name="Native SwiftUI LocalizedStringKey",
+            files={"Sources/App/SettingsView.swift":
+                   "import SwiftUI\n"
+                   "struct SettingsView: View {\n"
+                   "  var body: some View {\n"
+                   "    Button(\"Abmelden\") { }\n"
+                   "  }\n"
+                   "}\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Keine Swift-Dateien",
+            files={},
+            expect=Status.UNMEASURED,
+        ),
+    ],
+)
+def check_string_localized_in_swiftui(ctx: Context) -> CheckResult:
+    title = "String(localized:) in SwiftUI-View umgeht SwiftUI-Locale-Environment"
+    swift = ctx.files(".swift")
+    if not swift:
+        return unmeasured("apple.string_localized_in_swiftui", title,
+                          "Keine Swift-Dateien gefunden.", PLATFORM)
+
+    findings: list[Finding] = []
+    pat = re.compile(r"String\s*\(\s*localized\s*:\s*(\"[^\"]*\")\s*\)")
+    for sf in swift:
+        body = strip_comments(sf.text, sf.ext)
+        if "String(localized:" not in body and "String(localized :" not in body:
+            continue
+        if "View" not in body or ("body:" not in body and "some View" not in body):
+            continue
+        for m in pat.finditer(body):
+            line_no = body.count("\n", 0, m.start()) + 1
+            raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""
+            findings.append(Finding(
+                check_id="apple.string_localized_in_swiftui",
+                severity=Severity.ERROR,
+                message=f"String(localized: {m.group(1)}) in SwiftUI-View umgeht das "
+                        "SwiftUI-Locale-Environment (\\.locale). Bei In-App-Sprachwechseln oder "
+                        "Sheets/Modals wird die gewählte Sprache ignoriert und stattdessen die "
+                        "System-Locale von Foundation verwendet.",
+                file=sf.rel, line=line_no, evidence=snippet(raw),
+                fix=f"Native SwiftUI-Literale wie Text({m.group(1)}) oder Button({m.group(1)}) "
+                    "verwenden, die automatisch LocalizedStringKey nutzen und \\.locale respektieren.",
+                guideline="CLAUDE.md § Lokalisierung",
+            ))
+    return result_for("apple.string_localized_in_swiftui", title, findings,
+                      len(swift), "Swift-Dateien", PLATFORM)
