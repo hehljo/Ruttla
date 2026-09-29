@@ -15,6 +15,12 @@ Public-safe repository baseline ready for architectural migration.
 ## Next Action
 P06-T001 — stable finding fingerprint; P03-T007 performance budget follow-up.
 
+## Gate-Korrekturen — 2026-09-29
+
+- [x] Unsichtbare fokussierbare 1-Pixel-SwiftUI-Ziele als nicht blockierenden, engen Check ergänzt und an drei realen Fundstellen gegengeprüft.
+- [x] Shared-Scheme-Testaktion gegen vorhandenes XCTest-Target geprüft; fehlende und leere Testaktion separat sabotiert. Der Check misst keine Xcode-Cloud-Workflow-Destination.
+- [x] 110 Tests (109 bestanden, ein optionaler Skip), 283/283 Selbsttestproben, Katalog, strikter Selbstscan und Changed-only grün. Main-Push am 29.09. vom Nutzer freigegeben.
+
 ## Gate-Korrekturen — 2026-09-28
 
 - [x] Swift-Enum-Serialisierung am konkreten Typ belegen, CodingKeys/lokale Namespace-Enums ausschließen, Fixtext für tatsächliche Decodiergrenze korrigieren. Drei gezielte Regressionstests und sechs zusätzliche Selftest-Fälle.

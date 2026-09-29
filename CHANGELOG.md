@@ -9,6 +9,8 @@ when added, changed or deprecated.
 - `apple.project_settings`: `LastUpgradeCheck`-Schwelle auf Xcode 27.0 (2700) angehoben.
 
 ### Added
+- `apple.swiftui_invisible_focus_target`: advisory for directly focusable, transparent 1-pixel SwiftUI targets; visible buttons, non-focusable geometry and disabled focus stay green.
+- `apple.release.scheme_test_action_empty`: advisory when a shared scheme builds a project with XCTest targets for testing but has no active reference to one in its TestAction. This checks the local scheme, not remote Xcode Cloud workflow actions or destinations.
 - `apple.platform_conditional_type_used_unguarded`: ein Typ, der nur innerhalb von `#if os(...)` deklariert ist, wird in einem Mehrplattform-Target auf einer anderen Plattform sicher kompiliert benutzt (`Cannot find '…' in scope`). Unbekannte Bedingungen (DEBUG, canImport) bleiben still; Einzelplattform-Projekte sind `unmeasured`.
 - `apple.package_resolved_not_committed`: Xcode-Projekt mit Remote-Swift-Paket ohne `Package.resolved` am Xcode-Pfad oder mit `.gitignore`-Ausschluss (`*.resolved`); Xcode Cloud bricht sonst ab.
 - `i18n.catalog_key_parity`: Apple-`<lang>.lproj/*.strings`-Kataloge müssen je Datei dieselben Schlüssel tragen; Apple zeigt sonst still den rohen Schlüssel. Nur eine Sprache ist `unmeasured`, nicht bestanden.

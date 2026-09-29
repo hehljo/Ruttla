@@ -3,11 +3,11 @@
 
 # Rule catalog
 
-107 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+110 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 37 | 7 |
+| apple | 40 | 8 |
 | godot | 16 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
@@ -1641,6 +1641,128 @@ BBB222 /* Release */ = {
 
 </details>
 
+### `apple.release.scheme_test_action_empty`
+
+**Shared Scheme hat ein Test-Target, aber keine ausführbaren Tests**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: Apple: Customizing the build schemes for a project
+- Public rationale: [GUIDELINES.md › apple-platform-documentation](GUIDELINES.md#apple-platform-documentation)
+
+<details><summary>Broken probe (must FAIL): defekt: Testaktion fehlt trotz Test-Target</summary>
+
+`P.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+objects = {
+/* Begin PBXNativeTarget section */
+AAA111 /* App */ = {
+    isa = PBXNativeTarget;
+    name = App;
+};
+TTT111 = { isa = PBXNativeTarget; productType = "com.apple.product-type.bundle.unit-test"; };
+/* End PBXNativeTarget section */
+/* Begin XCBuildConfiguration section */
+BBB111 /* Debug */ = {
+    isa = XCBuildConfiguration;
+    buildSettings = {};
+    name = Debug;
+};
+BBB222 /* Release */ = {
+    isa = XCBuildConfiguration;
+    buildSettings = {};
+    name = Release;
+};
+/* End XCBuildConfiguration section */
+};
+```
+
+`P.xcodeproj/xcshareddata/xcschemes/App.xcscheme`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme version="1.7">
+  <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
+    <BuildActionEntries>
+      <BuildActionEntry buildForTesting="YES" buildForRunning="YES"
+        buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+        <BuildableReference BuildableIdentifier="primary"
+          BlueprintIdentifier="AAA111" BuildableName="App.app"
+          BlueprintName="App" ReferencedContainer="container:P.xcodeproj"/>
+      </BuildActionEntry>
+    </BuildActionEntries>
+  </BuildAction>
+  <LaunchAction buildConfiguration="Debug">
+    <BuildableProductRunnable>
+      <BuildableReference BuildableIdentifier="primary"
+        BlueprintIdentifier="AAA111" BuildableName="App.app"
+        BlueprintName="App" ReferencedContainer="container:P.xcodeproj"/>
+    </BuildableProductRunnable>
+  </LaunchAction>
+  <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
+</Scheme>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: kein Test-Target, keine Testaktion nötig</summary>
+
+`P.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+objects = {
+/* Begin PBXNativeTarget section */
+AAA111 /* App */ = {
+    isa = PBXNativeTarget;
+    name = App;
+};
+/* End PBXNativeTarget section */
+/* Begin XCBuildConfiguration section */
+BBB111 /* Debug */ = {
+    isa = XCBuildConfiguration;
+    buildSettings = {};
+    name = Debug;
+};
+BBB222 /* Release */ = {
+    isa = XCBuildConfiguration;
+    buildSettings = {};
+    name = Release;
+};
+/* End XCBuildConfiguration section */
+};
+```
+
+`P.xcodeproj/xcshareddata/xcschemes/App.xcscheme`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme version="1.7">
+  <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
+    <BuildActionEntries>
+      <BuildActionEntry buildForTesting="YES" buildForRunning="YES"
+        buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+        <BuildableReference BuildableIdentifier="primary"
+          BlueprintIdentifier="AAA111" BuildableName="App.app"
+          BlueprintName="App" ReferencedContainer="container:P.xcodeproj"/>
+      </BuildActionEntry>
+    </BuildActionEntries>
+  </BuildAction>
+  <LaunchAction buildConfiguration="Debug">
+    <BuildableProductRunnable>
+      <BuildableReference BuildableIdentifier="primary"
+        BlueprintIdentifier="AAA111" BuildableName="App.app"
+        BlueprintName="App" ReferencedContainer="container:P.xcodeproj"/>
+    </BuildableProductRunnable>
+  </LaunchAction>
+  <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
+</Scheme>
+```
+
+</details>
+
 ### `apple.release.shared_scheme_present`
 
 **Kein eingechecktes Shared Scheme**
@@ -2199,6 +2321,51 @@ struct SettingsView: View {
 
 </details>
 
+### `apple.splitview_inner_width_conflict`
+
+**Kollidierende Breiten-Modifier (idealWidth mit minWidth/maxWidth) an Inspector- oder Scroll-Inhalten**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: IOS_DEBUGGING_GUIDELINES.md § macOS SplitView / AutoLayout Constraint-Loops
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+
+<details><summary>Broken probe (must FAIL): ScrollView mit idealWidth und minWidth/maxWidth</summary>
+
+`Sources/App/InspectorView.swift`
+
+```text
+import SwiftUI
+struct InspectorView: View {
+  var body: some View {
+    ScrollView {
+      Text("Details")
+    }
+    .frame(minWidth: 260, idealWidth: 280, maxWidth: .infinity)
+  }
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Inspector View ohne kollidierende Idealbreite</summary>
+
+`Sources/App/InspectorView.swift`
+
+```text
+import SwiftUI
+struct InspectorView: View {
+  var body: some View {
+    ScrollView {
+      Text("Details")
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+}
+```
+
+</details>
+
 ### `apple.swiftdata_predicate_capture`
 
 **SwiftData-#Predicate greift auf eine nicht gebundene Variable zu**
@@ -2236,6 +2403,50 @@ let p = #Predicate<Item> { $0.owner == self.userId }
 import SwiftData
 let uid = userId
 let p = #Predicate<Item> { $0.owner == uid }
+```
+
+</details>
+
+### `apple.swiftui_invisible_focus_target`
+
+**Unsichtbares fokussierbares SwiftUI-Ziel**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: Apple: Focus (SwiftUI)
+- Public rationale: [GUIDELINES.md › apple-platform-documentation](GUIDELINES.md#apple-platform-documentation)
+
+<details><summary>Why it exists</summary>
+
+```text
+Nur den eindeutig unsichtbaren, direkt verketteten 1-Pixel-Fall melden.
+
+Andere Fokus-Proxies können absichtlich und zugänglich sein; aus einem
+allgemeinen .focusable() folgt kein Fehler. Der Check bleibt advisory.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: ein Pixel breiter Fokus-Proxy</summary>
+
+`App/View.swift`
+
+```text
+import SwiftUI
+Color.clear
+    .frame(width: 1)
+    .focusable(!panelOpen)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: sichtbarer Fokus-Button</summary>
+
+`App/View.swift`
+
+```text
+import SwiftUI
+struct Screen: View { var body: some View { Button("Filter") {}.focusable() } }
 ```
 
 </details>

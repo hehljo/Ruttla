@@ -7,6 +7,7 @@ shared helpers in _release_common.py.
 from __future__ import annotations
 
 import os
+import re
 import xml.etree.ElementTree as ET
 
 from ruttla.core import (
@@ -30,6 +31,7 @@ from ._release_common import (
     _HEALTHY_PROJECT,
     _HEALTHY_SCHEME,
     _local_tag,
+    _pbx_objects,
     _project_dirs,
     _read_project,
     _referenced_project,
@@ -38,6 +40,117 @@ from ._release_common import (
     _xml_root,
     PLATFORM,
 )
+
+
+_TEST_PRODUCT_TYPE = re.compile(
+    r'\bproductType\s*=\s*"?com\.apple\.product-type\.bundle\.(?:unit-test|ui-testing)"?\s*;'
+)
+
+
+@register(
+    "apple.release.scheme_test_action_empty",
+    "Shared Scheme hat ein Test-Target, aber keine ausführbaren Tests",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="Apple: Customizing the build schemes for a project",
+    self_tests=[
+        SelfTestCase(
+            name="gesund: kein Test-Target, keine Testaktion nötig",
+            files={"P.xcodeproj/project.pbxproj": _HEALTHY_PROJECT,
+                   "P.xcodeproj/xcshareddata/xcschemes/App.xcscheme": _HEALTHY_SCHEME},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: Test-Target in Testaktion",
+            files={
+                "P.xcodeproj/project.pbxproj": _HEALTHY_PROJECT.replace(
+                    "/* End PBXNativeTarget section */",
+                    'TTT111 = { isa = PBXNativeTarget; productType = "com.apple.product-type.bundle.unit-test"; };\n/* End PBXNativeTarget section */'),
+                "P.xcodeproj/xcshareddata/xcschemes/App.xcscheme": _HEALTHY_SCHEME.replace(
+                    "  <LaunchAction",
+                    '  <TestAction><Testables><TestableReference skipped="NO"><BuildableReference BlueprintIdentifier="TTT111" ReferencedContainer="container:P.xcodeproj"/></TestableReference></Testables></TestAction>\n  <LaunchAction'),
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="defekt: Testaktion fehlt trotz Test-Target",
+            files={"P.xcodeproj/project.pbxproj": _HEALTHY_PROJECT.replace(
+                "/* End PBXNativeTarget section */",
+                'TTT111 = { isa = PBXNativeTarget; productType = "com.apple.product-type.bundle.unit-test"; };\n/* End PBXNativeTarget section */'),
+                   "P.xcodeproj/xcshareddata/xcschemes/App.xcscheme": _HEALTHY_SCHEME},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="defekt: Testables leer",
+            files={"P.xcodeproj/project.pbxproj": _HEALTHY_PROJECT.replace(
+                "/* End PBXNativeTarget section */",
+                'TTT111 = { isa = PBXNativeTarget; productType = "com.apple.product-type.bundle.unit-test"; };\n/* End PBXNativeTarget section */'),
+                   "P.xcodeproj/xcshareddata/xcschemes/App.xcscheme": _HEALTHY_SCHEME.replace(
+                       "  <LaunchAction", "  <TestAction><Testables/></TestAction>\n  <LaunchAction")},
+            expect=Status.FAIL,
+        ),
+    ],
+)
+def check_scheme_test_action_empty(ctx: Context) -> CheckResult:
+    check_id = "apple.release.scheme_test_action_empty"
+    title = "Shared Scheme hat ein Test-Target, aber keine ausführbaren Tests"
+    schemes = _shared_schemes(ctx)
+    if not schemes:
+        return unmeasured(check_id, title, "Kein Shared Scheme gefunden.", PLATFORM)
+    findings: list[Finding] = []
+    examined = 0
+    unknown = 0
+    for path, rel in schemes:
+        root = _xml_root(path)
+        if root is None or _local_tag(root) != "Scheme":
+            unknown += 1
+            continue
+        project_paths = {
+            project for reference in _elements(root, "BuildActionEntry")
+            for buildable in _elements(reference, "BuildableReference")
+            if reference.get("buildForTesting") == "YES"
+            for project in [_referenced_project(path, buildable.get("ReferencedContainer", ""))]
+            if project is not None
+        }
+        if not project_paths:
+            unknown += 1
+            continue
+        test_ids: set[str] = set()
+        for project in project_paths:
+            project_text = _read_project(project)
+            if project_text is None:
+                unknown += 1
+                continue
+            test_ids.update(
+                target_id for target_id, body in _pbx_objects(project_text, "PBXNativeTarget")
+                if _TEST_PRODUCT_TYPE.search(body)
+            )
+        if not test_ids:
+            examined += 1
+            continue
+        test_actions = _elements(root, "TestAction")
+        active_test_ids = {
+            buildable.get("BlueprintIdentifier")
+            for action in test_actions
+            for testable in _elements(action, "TestableReference")
+            if testable.get("skipped") != "YES"
+            for buildable in _elements(testable, "BuildableReference")
+        }
+        examined += 1
+        if test_ids.isdisjoint(active_test_ids):
+            findings.append(Finding(
+                check_id=check_id,
+                severity=Severity.WARNING,
+                message="Test-Target vorhanden, aber TestAction enthält kein aktives TestableReference darauf.",
+                file=rel,
+                fix="Test-Target im Shared Scheme unter Test hinzufügen und eine passende CI-Testaktion konfigurieren.",
+            ))
+    if findings:
+        return result_for(check_id, title, findings, examined, "Shared Schemes", PLATFORM)
+    if unknown:
+        return unmeasured(check_id, title,
+                          f"{unknown} Scheme-/Projektteil(e) nicht sicher auflösbar.", PLATFORM)
+    return result_for(check_id, title, findings, examined, "Shared Schemes", PLATFORM)
 
 
 @register(

@@ -122,6 +122,14 @@ documentation for the named Info.plist key, entitlement, scheme or file
 format (String Catalogs, asset catalogs, App Sandbox,
 `LSApplicationCategoryType`, distribution). Several of these requirements
 only surface in App Store Connect after upload — the local build stays green.
+SwiftUI focus should land on a visible interactive element; a transparent
+1-pixel focus target is an advisory usability finding, not a compile error.
+The local scheme test check reads `TestAction` and XCTest target references;
+Xcode Cloud workflow actions and destinations are configured separately and
+cannot be inferred from the scheme XML.
+References: [SwiftUI Focus](https://developer.apple.com/documentation/swiftui/focus),
+[Xcode test plans and schemes](https://developer.apple.com/documentation/xcode/organizing-tests-to-improve-feedback),
+[Xcode Cloud workflow actions](https://developer.apple.com/documentation/xcode/configuring-your-xcode-cloud-workflow-s-actions).
 
 <a id="apple-build-and-debugging-guidelines"></a>
 ### Apple build and debugging guidelines

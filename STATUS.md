@@ -1,5 +1,11 @@
 # STATUS
 
+## Validierte Korrekturen (2026-09-29)
+
+- Zwei additive Apple-Advisories: `apple.swiftui_invisible_focus_target` erkennt direkt fokussierbare transparente 1-Pixel-Ziele; `apple.release.scheme_test_action_empty` erkennt fehlende/leer gelassene Testaktionen im Shared Scheme bei vorhandenem Test-Target.
+- Reale Gegenprobe: erster Check meldet drei Fokusflächen in einer tvOS-App; das Shared Scheme mit aktivem XCTest-Target bleibt grün. Xcode-Cloud-Aktionen und Zielplattformen sind remote und durch diese Offline-Regel nicht messbar.
+- Prüfung: 110 Unit-/Contracttests (109 bestanden, 1 optionaler Skip), 283/283 Selbsttestproben, Regeldokumentation aktuell, strikter Selbstscan und `ruttla --changed-only --format agent` ohne Blocker. Main-Push am 29.09. vom Nutzer freigegeben.
+
 ## Validierte Korrekturen (2026-09-28)
 
 - `protocol.version_bump_without_fallback`: Swift-Konformität dem konkreten Enum zuordnen; fremde JSONDecoder/Codable-Structs und CodingKeys lösen keinen falschen Befund mehr aus. Decoder-Fallback statt bloßem Unknown-Case empfehlen; Cross-file-/Laufzeitgrenzen ausdrücklich benennen.

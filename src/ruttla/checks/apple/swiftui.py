@@ -26,6 +26,81 @@ from ruttla.core import (
 from ._common import PLATFORM
 
 
+@register(
+    "apple.swiftui_invisible_focus_target",
+    "Unsichtbares fokussierbares SwiftUI-Ziel",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="Apple: Focus (SwiftUI)",
+    self_tests=[
+        SelfTestCase(
+            name="gesund: sichtbarer Fokus-Button",
+            files={"App/View.swift": "import SwiftUI\nstruct Screen: View { var body: some View { Button(\"Filter\") {}.focusable() } }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: transparente Geometrie ohne Fokus",
+            files={"App/View.swift": "import SwiftUI\nstruct Screen: View { var body: some View { Color.clear.frame(height: 1).background(GeometryReader { _ in Color.clear }) } }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: auskommentierter Fokus-Prototyp",
+            files={"App/View.swift": "import SwiftUI\n// Color.clear.frame(width: 1).focusable()\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: deaktiviertes Fokusziel",
+            files={"App/View.swift": "import SwiftUI\nColor.clear.frame(width: 1).focusable( false )\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="defekt: ein Pixel breiter Fokus-Proxy",
+            files={"App/View.swift": "import SwiftUI\nColor.clear\n    .frame(width: 1)\n    .focusable(!panelOpen)\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="1 Pixel",
+        ),
+        SelfTestCase(
+            name="defekt: ein Pixel hoher Fokus-Proxy",
+            files={"App/View.swift": "import SwiftUI\nColor.clear.frame(height: 1).focusable()\n"},
+            expect=Status.FAIL,
+        ),
+    ],
+)
+def check_swiftui_invisible_focus_target(ctx: Context) -> CheckResult:
+    """Nur den eindeutig unsichtbaren, direkt verketteten 1-Pixel-Fall melden.
+
+    Andere Fokus-Proxies können absichtlich und zugänglich sein; aus einem
+    allgemeinen .focusable() folgt kein Fehler. Der Check bleibt advisory.
+    """
+    check_id = "apple.swiftui_invisible_focus_target"
+    title = "Unsichtbares fokussierbares SwiftUI-Ziel"
+    swift = ctx.files(".swift")
+    if not swift:
+        return unmeasured(check_id, title, "Keine Swift-Dateien gefunden.", PLATFORM)
+    pattern = re.compile(
+        r"\bColor\s*\.\s*clear\s*"
+        r"\.frame\s*\(\s*(?:width|height)\s*:\s*1(?:\.0)?\s*\)\s*"
+        r"\.focusable\s*\((?!\s*false\b)", re.MULTILINE
+    )
+    findings: list[Finding] = []
+    for sf in swift:
+        if "focusable" not in sf.text or "Color.clear" not in sf.text:
+            continue
+        body = strip_comments(sf.text, sf.ext)
+        for match in pattern.finditer(body):
+            line_no = body.count("\n", 0, match.start()) + 1
+            findings.append(Finding(
+                check_id=check_id,
+                severity=Severity.WARNING,
+                message="Color.clear mit 1 Pixel Größe ist fokussierbar, aber für Nutzende nicht sichtbar.",
+                file=sf.rel,
+                line=line_no,
+                evidence=snippet(sf.lines[line_no - 1]),
+                fix="Einen sichtbaren, beschrifteten Fokus-Button für diese Aktion anbieten und die Remote-Navigation auf tvOS prüfen.",
+            ))
+    return result_for(check_id, title, findings, len(swift), "Swift-Dateien", PLATFORM)
+
+
 # ===========================================================================
 # SwiftUI Multiplattform
 # ===========================================================================
@@ -453,4 +528,3 @@ def check_splitview_inner_width_conflict(ctx: Context) -> CheckResult:
                     ))
     return result_for("apple.splitview_inner_width_conflict", title, findings,
                       len(swift), "Swift-Dateien", PLATFORM)
-
