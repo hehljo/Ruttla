@@ -3,12 +3,12 @@
 
 # Rule catalog
 
-110 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+112 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 40 | 8 |
-| godot | 16 | 0 |
+| godot | 18 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 23 | 2 |
@@ -3202,6 +3202,51 @@ func submit(data: Dictionary) -> void:
 
 </details>
 
+### `godot.theme_override_slash_syntax`
+
+**Zuweisung an theme_override_*/property mit Schrägstrich statt add_theme_*_override()**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Im Godot-Inspector heißen Theme-Pfade 'theme_override_font_sizes/font_size'.
+Im GDScript-Code wird der Schrägstrich jedoch als Divisionsoperator geparst,
+was zum Parse-Fehler 'Only identifier, attribute access, and subscription access
+can be used as assignment target' führt.
+Richtig: node.add_theme_font_size_override('font_size', 28) oder add_theme_color_override().
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Schraegstrich-Zuweisung an theme_override_font_sizes</summary>
+
+`scripts/ui.gd`
+
+```text
+extends Control
+func _ready():
+	$Label.theme_override_font_sizes/font_size = 28
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): add_theme_font_size_override Aufruf</summary>
+
+`scripts/ui.gd`
+
+```text
+extends Control
+func _ready():
+	$Label.add_theme_font_size_override("font_size", 28)
+```
+
+</details>
+
 ### `godot.untyped_declaration`
 
 **Variable oder Rückgabewert ohne Typangabe**
@@ -3285,6 +3330,47 @@ var _warned := false
 func _process(delta):
 	if not target and not _warned:
 		_warned = true
+```
+
+</details>
+
+### `godot.water_shader_shadows_disabled`
+
+**Wasser-Shader ohne shadows_disabled (verursacht flackernde Shadow-Acne auf Mobile/Web)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Rendering
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Auf Mobile und WebGL führen Richtungs- und Kaskadenschatten auf gewellten
+Wasseroberflächen zu extremem Tiefenflackern und Shadow-Acne (dunkle Artefakte).
+Wasser-Shader sollten 'shadows_disabled' im render_mode setzen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Wasser-Shader ohne shadows_disabled</summary>
+
+`shaders/water.gdshader`
+
+```text
+shader_type spatial;
+render_mode blend_mix, depth_draw_opaque;
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Wasser-Shader mit shadows_disabled</summary>
+
+`shaders/water.gdshader`
+
+```text
+shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, shadows_disabled;
 ```
 
 </details>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 
 from ruttla.core import (
@@ -351,7 +352,9 @@ def check_app_config_support_email(ctx: Context) -> CheckResult:
     measured = 0
 
     for sf in files:
-        if not class_pat.search(sf.text):
+        base_name = os.path.basename(sf.rel).lower()
+        is_config = bool(class_pat.search(sf.text)) or base_name in ("app_config.gd", "branding.gd")
+        if not is_config:
             continue
         measured += 1
         if not email_pat.search(sf.text):
@@ -371,3 +374,63 @@ def check_app_config_support_email(ctx: Context) -> CheckResult:
                           "Keine AppConfig- oder Branding-Klasse gefunden.", PLATFORM)
     return result_for("godot.app_config_missing_support_email", title, findings, measured,
                       "Konfigurationsklassen", PLATFORM)
+
+
+@register(
+    "godot.water_shader_shadows_disabled",
+    "Wasser-Shader ohne shadows_disabled (verursacht flackernde Shadow-Acne auf Mobile/Web)",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Rendering",
+    self_tests=[
+        SelfTestCase(
+            name="Wasser-Shader ohne shadows_disabled",
+            files={
+                "shaders/water.gdshader": (
+                    "shader_type spatial;\n"
+                    "render_mode blend_mix, depth_draw_opaque;\n"
+                ),
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="shadows_disabled",
+        ),
+        SelfTestCase(
+            name="Wasser-Shader mit shadows_disabled",
+            files={
+                "shaders/water.gdshader": (
+                    "shader_type spatial;\n"
+                    "render_mode blend_mix, depth_draw_opaque, shadows_disabled;\n"
+                ),
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_water_shader_shadows_disabled(ctx: Context) -> CheckResult:
+    """Auf Mobile und WebGL führen Richtungs- und Kaskadenschatten auf gewellten
+    Wasseroberflächen zu extremem Tiefenflackern und Shadow-Acne (dunkle Artefakte).
+    Wasser-Shader sollten 'shadows_disabled' im render_mode setzen."""
+    title = "Wasser-Shader ohne shadows_disabled"
+    files = [f for f in ctx.files(".gdshader") if "water" in f.rel.lower() or "river" in f.rel.lower()]
+    if not files:
+        return unmeasured("godot.water_shader_shadows_disabled", title,
+                          "Keine Wasser- oder Fluss-Shader gefunden.", PLATFORM)
+
+    findings: list[Finding] = []
+    measured = len(files)
+    for sf in files:
+        if "shadows_disabled" not in sf.text:
+            findings.append(Finding(
+                check_id="godot.water_shader_shadows_disabled",
+                severity=Severity.WARNING,
+                message=f"Wasser-Shader '{sf.rel}' deklariert kein 'shadows_disabled' im render_mode.",
+                file=sf.rel,
+                line=1,
+                evidence=snippet(sf.lines[0]),
+                fix="Ergänze 'shadows_disabled' in der 'render_mode'-Zeile, um Shadow-Acne auf Mobile/WebGL zu verhindern.",
+                guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Rendering",
+            ))
+
+    return result_for("godot.water_shader_shadows_disabled", title, findings, measured,
+                      "Wasser-Shader", PLATFORM)
+

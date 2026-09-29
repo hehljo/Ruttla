@@ -570,9 +570,12 @@ def check_missing_main_scene(ctx: Context) -> CheckResult:
                 continue
             measured += 1
             rel_scene = m.group(1)
-            # Im Dateisystem oder ctx.all_files suchen
-            target_full = os.path.join(ctx.root, rel_scene)
-            if not os.path.isfile(target_full) and rel_scene not in all_rel_paths:
+            # Im Dateisystem (relativ zum Verzeichnis von project.godot) oder ctx.all_files suchen
+            project_dir = os.path.dirname(pf.path)
+            target_full = os.path.join(project_dir, rel_scene)
+            project_rel_dir = os.path.dirname(pf.rel)
+            scene_rel_to_ctx = os.path.normpath(os.path.join(project_rel_dir, rel_scene)) if project_rel_dir else rel_scene
+            if not os.path.isfile(target_full) and rel_scene not in all_rel_paths and scene_rel_to_ctx not in all_rel_paths:
                 findings.append(Finding(
                     check_id="godot.missing_main_scene",
                     severity=Severity.ERROR,
@@ -829,6 +832,74 @@ def check_hardcoded_ui_text(ctx: Context) -> CheckResult:
                           "Keine Zuweisungen an UI-Text-Eigenschaften gefunden.", PLATFORM)
     return result_for("godot.hardcoded_ui_text", title, findings, measured,
                       "UI-Text-Zuweisungen", PLATFORM)
+
+
+@register(
+    "godot.theme_override_slash_syntax",
+    "Zuweisung an theme_override_*/property mit Schrägstrich statt add_theme_*_override()",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes",
+    self_tests=[
+        SelfTestCase(
+            name="Schraegstrich-Zuweisung an theme_override_font_sizes",
+            files={
+                "scripts/ui.gd": "extends Control\nfunc _ready():\n\t$Label.theme_override_font_sizes/font_size = 28\n"
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="theme_override",
+        ),
+        SelfTestCase(
+            name="add_theme_font_size_override Aufruf",
+            files={
+                "scripts/ui.gd": "extends Control\nfunc _ready():\n\t$Label.add_theme_font_size_override(\"font_size\", 28)\n"
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_theme_override_slash_syntax(ctx: Context) -> CheckResult:
+    """Im Godot-Inspector heißen Theme-Pfade 'theme_override_font_sizes/font_size'.
+    Im GDScript-Code wird der Schrägstrich jedoch als Divisionsoperator geparst,
+    was zum Parse-Fehler 'Only identifier, attribute access, and subscription access
+    can be used as assignment target' führt.
+    Richtig: node.add_theme_font_size_override('font_size', 28) oder add_theme_color_override()."""
+    title = "Zuweisung an theme_override_*/property mit Schrägstrich"
+    files = _gd(ctx)
+    if not files:
+        return unmeasured("godot.theme_override_slash_syntax", title,
+                          "Keine GDScript-Dateien gefunden.", PLATFORM)
+
+    pat = re.compile(r"\btheme_override_\w+/\w+\s*=")
+    findings: list[Finding] = []
+    measured = 0
+
+    for sf in files:
+        body = strip_comments(sf.text, sf.ext)
+        lines = body.splitlines()
+        for idx, line in enumerate(lines, start=1):
+            if "theme_" not in line and "theme_override_" not in line:
+                continue
+            measured += 1
+            if pat.search(line):
+                orig = sf.lines[idx - 1] if idx <= len(sf.lines) else line
+                findings.append(Finding(
+                    check_id="godot.theme_override_slash_syntax",
+                    severity=Severity.ERROR,
+                    message="Zuweisung mit '/' an Theme-Override ist in GDScript ungültig (wird als Division geparst).",
+                    file=sf.rel,
+                    line=idx,
+                    evidence=snippet(orig),
+                    fix="Nutze node.add_theme_font_size_override(\"font_size\", ...) bzw. add_theme_*_override().",
+                    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes",
+                ))
+
+    if measured == 0:
+        return unmeasured("godot.theme_override_slash_syntax", title,
+                          "Keine Theme-Override-Zugriffe gefunden.", PLATFORM)
+    return result_for("godot.theme_override_slash_syntax", title, findings, measured,
+                      "Theme-Override-Zugriffe", PLATFORM)
+
 
 
 
