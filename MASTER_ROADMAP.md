@@ -15,6 +15,18 @@ Public-safe repository baseline ready for architectural migration.
 ## Next Action
 P06-T001 — stable finding fingerprint; P03-T007 performance budget follow-up.
 
+## Gate-Kandidaten — 2026-09-29 (aus Lugga-Release, noch nicht gebaut)
+
+- [ ] **Zähler aus anderer Sammlung als die Anzeige** (SwiftUI): `Text("\(a.count) …")` neben `ForEach(b)`, wobei `b`
+      aus `a` **plus** weiteren Quellen zusammengesetzt wird. Beleg: Lugga `PhotoMapView` zeigte „0 Fotos mit
+      Standort" bei sichtbaren Pins (Pins = GPS-Fotos + geocodierte Orte, Zähler = nur GPS-Fotos). Vor dem Bau:
+      Erkennung an der Eigenschaft (Zählquelle ⊊ gezeichnete Quelle) statt am Namen; Gesund-Probe mit
+      `Text("\(b.count)")` und mit Zähler auf einer bewusst gefilterten Teilmenge (legitim, darf nicht rot werden).
+      Deshalb vorerst nur Hinweis-Stufe denkbar.
+- Nicht Ruttla-förmig (kein Quelltextmuster), stattdessen in ReleaseGenie Phase 5 geführt: ASC-Teil-Fehlschlag
+  beim Lokalisierungs-Apply, fremd reservierter App-Name je Locale, App-Datenschutz nur per Weboberfläche,
+  Render ohne `--locale` nur erste Sprache.
+
 ## Gate-Korrekturen — 2026-09-29
 
 - [x] Unsichtbare fokussierbare 1-Pixel-SwiftUI-Ziele als nicht blockierenden, engen Check ergänzt und an drei realen Fundstellen gegengeprüft.
