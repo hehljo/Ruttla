@@ -13,6 +13,8 @@ when added, changed or deprecated.
 - `apple.project_settings`: `LastUpgradeCheck`-Schwelle auf Xcode 27.0 (2700) angehoben.
 
 ### Added
+- `web.local_asset_missing`: Verweise in HTML, CSS `url()` und Web-Manifest auf Bilder, Symbole, Schriften, die es nicht gibt. Wurzel wird je Ebene gesucht (public/, static/, Vite-Teilprojekte); Skripte und Stylesheets bleiben außen vor, weil sie oft erst im Build entstehen. `safe_by_default`. Gegen alle Web-Projekte unter /root geprüft: ein echter Befund, kein Fehlalarm.
+- `web.i18n_target_has_children`: Element mit `data-i18n`/`data-brand-name`, das Kind-Elemente enthält — das Setzen des Textes löscht sie. Hinweis, weil ein Rückfalltext mit Auszeichnung absichtlich ersetzt werden darf.
 - `web.legal_placeholder`: Pflichtseiten (erkannt an `<title>`/`<h1>`: Impressum, Datenschutz, AGB, Terms …) mit unausgefülltem `[Platzhalter]`, „Lorem ipsum" oder Entwurfsvermerk („Entwurf.", „Noch auszufüllen:"). Code, Script und Fußnoten bleiben still. `safe_by_default`.
 - `sql.plpgsql_outside_block`: `exception when` außerhalb eines `$$`-Rumpfs in PostgreSQL-Projekten — Syntaxfehler, der in Testskripten wie ein erwarteter Fehler aussieht. Oracle-PL/SQL ohne PostgreSQL-Merkmal bleibt `unmeasured`. `safe_by_default`.
 - `web.server_only_reaches_browser`: follows explicit server-only modules from HTML runtime entries; local imports, barrels, literal dynamic imports and worker URLs, with healthy/broken probes and an explicit partial-graph limitation.
