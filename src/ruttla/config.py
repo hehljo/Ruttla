@@ -45,6 +45,9 @@ class Config:
     max_file_bytes: int = 2_000_000
     # Ohne Profil laufen nur die universell sicheren Checks hart.
     strict: bool = False
+    # Nur per CLI (--allow-network): die Offline-Policy bleibt der Default,
+    # ein Profil kann das Netz nicht still einschalten.
+    allow_network: bool = False
     profile_path: str | None = None
     # project.platform: forces a rule pack on in ADDITION to detection
     # (ADR-0010). Additive, so a profile can never shrink coverage silently.

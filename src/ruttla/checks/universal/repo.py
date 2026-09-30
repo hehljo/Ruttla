@@ -10,13 +10,17 @@ nach dem Push stehen sie in der Historie, auch wenn sie später gelöscht werden
 from __future__ import annotations
 
 import fnmatch
+import json
 import os
+import re
 import subprocess
+import urllib.error
+import urllib.request
 
 from ruttla.discovery import DEFAULT_EXCLUDE_DIRS, to_posix
 from ruttla.core import (
     Context, CheckResult, Finding, Severity, Status, SelfTestCase,
-    register, result_for,
+    register, result_for, unmeasured,
 )
 
 CHECK_ID = "repo.internal_notes_published"
@@ -46,6 +50,45 @@ def _published_candidates(root: str) -> list[str] | None:
     if proc.returncode != 0:
         return None
     return [os.fsdecode(p) for p in proc.stdout.split(b"\0") if p]
+
+
+_GITHUB_REMOTE = re.compile(
+    r"github\.com[:/](?P<owner>[A-Za-z0-9_.-]+)/(?P<name>[A-Za-z0-9_.-]+?)(?:\.git)?/?$"
+)
+
+
+def _origin_url(root: str) -> str | None:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", root, "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return proc.stdout.strip() if proc.returncode == 0 and proc.stdout.strip() else None
+
+
+def github_visibility(owner: str, name: str) -> str | None:
+    """"public", "private" oder None (nicht messbar).
+
+    Anonymer Lesezugriff: ein öffentliches Repo liefert 200 mit
+    ``private: false``, ein privates ist für Anonyme 404. Rate-Limit,
+    Netzfehler und alles andere sind ausdrücklich *nicht gemessen*.
+    """
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{owner}/{name}",
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "ruttla"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.load(resp)
+    except urllib.error.HTTPError as exc:
+        return "private" if exc.code == 404 else None
+    except (OSError, ValueError):
+        return None
+    if data.get("private") is False:
+        return "public"
+    return None
 
 
 def _tree_files(ctx: Context) -> list[str]:
@@ -104,10 +147,27 @@ def check_internal_notes_published(ctx: Context) -> CheckResult:
     title = "Interne Arbeitsnotizen (Handover/Master-Roadmap) im veröffentlichten Repo"
     candidates = _published_candidates(ctx.root)
     if candidates is None:
+        # Ohne Git ist der Baum selbst die Auslieferung (Export, Archiv).
         candidates = _tree_files(ctx)
         scope = "Dateien im Baum (kein Git)"
     else:
-        scope = "veröffentlichbare Dateien (Git)"
+        # Im Git-Repo gilt die Regel nur für öffentliche Repos: in einem
+        # privaten sind die Notizen gewollt (Übergabe zwischen Rechnern).
+        url = _origin_url(ctx.root)
+        match = _GITHUB_REMOTE.search(url or "")
+        if not match:
+            return unmeasured(CHECK_ID, title,
+                              "Kein GitHub-Remote 'origin' — Sichtbarkeit unbekannt.")
+        if not ctx.config.allow_network:
+            return unmeasured(CHECK_ID, title,
+                              "Repo-Sichtbarkeit nur mit --allow-network messbar.")
+        visibility = github_visibility(match["owner"], match["name"])
+        if visibility is None:
+            return unmeasured(CHECK_ID, title,
+                              "GitHub-Sichtbarkeit nicht abrufbar (Netz/Rate-Limit).")
+        if visibility == "private":
+            return result_for(CHECK_ID, title, [], 1, "privates Repo (Regel gilt nur öffentlich)")
+        scope = "veröffentlichbare Dateien (öffentliches Git-Repo)"
 
     findings: list[Finding] = []
     for rel in sorted(candidates):

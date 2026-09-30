@@ -125,6 +125,8 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
     ap.add_argument("--config", help="Pfad zu einem Profil (.ruttla.toml)")
     ap.add_argument("--strict", action="store_true",
                     help="jeder FAIL blockiert, auch ohne Profil")
+    ap.add_argument("--allow-network", action="store_true",
+                    help="Checks dürfen lesend ins Netz (z. B. Repo-Sichtbarkeit auf GitHub)")
     ap.add_argument("--changed-only", nargs="?", const="HEAD", default=None, metavar="REF",
                     help="nur Dateien, die sich gegen REF geändert haben (Vorgabe: HEAD)")
     ap.add_argument("--max-findings", type=int, default=20,
@@ -224,6 +226,8 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         return EXIT_CRASH
     if args.strict:
         config.strict = True
+    if args.allow_network:
+        config.allow_network = True
     ctx = Context(root=root, config=config)
 
     changed = None
