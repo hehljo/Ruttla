@@ -15,17 +15,32 @@ Public-safe repository baseline ready for architectural migration.
 ## Next Action
 P06-T001 — stable finding fingerprint; P03-T007 performance budget follow-up.
 
-## Gate-Kandidaten — 2026-09-29 (aus Lugga-Release, noch nicht gebaut)
+## Gate-Kandidaten — 2026-09-29 (aus App-Release, noch nicht gebaut)
 
 - [ ] **Zähler aus anderer Sammlung als die Anzeige** (SwiftUI): `Text("\(a.count) …")` neben `ForEach(b)`, wobei `b`
-      aus `a` **plus** weiteren Quellen zusammengesetzt wird. Beleg: Lugga `PhotoMapView` zeigte „0 Fotos mit
+      aus `a` **plus** weiteren Quellen zusammengesetzt wird. Beleg: eine `PhotoMapView` zeigte „0 Fotos mit
       Standort" bei sichtbaren Pins (Pins = GPS-Fotos + geocodierte Orte, Zähler = nur GPS-Fotos). Vor dem Bau:
       Erkennung an der Eigenschaft (Zählquelle ⊊ gezeichnete Quelle) statt am Namen; Gesund-Probe mit
       `Text("\(b.count)")` und mit Zähler auf einer bewusst gefilterten Teilmenge (legitim, darf nicht rot werden).
       Deshalb vorerst nur Hinweis-Stufe denkbar.
-- Nicht Ruttla-förmig (kein Quelltextmuster), stattdessen in ReleaseGenie Phase 5 geführt: ASC-Teil-Fehlschlag
+- Nicht Ruttla-förmig (kein Quelltextmuster), stattdessen in private-app Phase 5 geführt: ASC-Teil-Fehlschlag
   beim Lokalisierungs-Apply, fremd reservierter App-Name je Locale, App-Datenschutz nur per Weboberfläche,
   Render ohne `--locale` nur erste Sprache.
+
+## Gate-Korrekturen — 2026-09-30
+
+- [x] `web.textarea_draft_memory_only` ergänzt: direkte flüchtige Textarea-Zustände erkennen, echten Ausgangscode geprüft. Referenz mit Save/Restore gesund; fehlender Write, Read, falscher Schlüssel, fremder Zustand und Kommentar einzeln sabotiert. Indirekte Speicherpfade bleiben ungemessen.
+- [x] Öffentliche Entwurfs-/Lifecycle-Guideline mit echten Browser-Gates ergänzt; Regeldokumentation generiert. App-Wiederherstellung separat über tatsächliche Reloads, Browser-Neustart und Quota-Fehler geprüft; keine statische Vollständigkeitsbehauptung.
+
+- [x] Web-Touchprüfung gegen dekorative Pseudoelemente/Zeilenhöhen gehärtet; kleine echte Controls und gemischte Selektoren weiter rot.
+- [x] Legal-Präsenzprüfung gegen Dokumentations-/Kommentar-Scheinnachweise gehärtet; fehlende Pflichtseiten bleiben Befunde.
+- [x] Frisch geschriebene Browserartefakte von tatsächlichen Reads unterschieden; gleichzeitiger Read bleibt erkannt.
+- [x] TS/JS-Locale-Katalogparität ergänzt, tatsächliche intakte Datei und isolierte Schlüsselmutation geprüft. Dynamische Kataloge bleiben ungemessen.
+- [x] Katalog-Rationale, gezielter historischer Healthy-Abgleich und private Bezeichnungsbereinigung validiert; 317/317 Gegenproben im aktuellen Gesamtbestand, 109 Tests bestanden/1 optionaler Skip, Regeldoku aktuell. Kein Commit/Push dieses Web-Arbeitsblocks.
+
+- [x] `brand.hardcoded_in_display`: technische PackageDescription-Namen gezielt ausnehmen, echten Anzeigetext im selben Manifest weiterhin erkennen; zwei separate Gegenproben.
+- [x] `apple.swiftui_async_data_focus_write`: direkte FocusState-Zuweisungen nach `await` in load/fetch/refresh-Methoden erkennen, inklusive `self.` und Typzuordnung. Gesunde Datenladung, synchrone Rückkehr, gewöhnlicher State und Textbeispiele separat geprüft; direkte und bedingte Fokuszuweisung jeweils sabotiert. Advisory wegen legitimer expliziter Koordination und begrenzter lokaler Syntaxanalyse.
+- [x] Reale Gegenprobe meldet zwei bestehende Bibliotheks-Ladeabschlüsse; keine Behauptung einer vollständigen Laufzeit-/Modalitätsprüfung.
 
 ## Gate-Korrekturen — 2026-09-29
 
@@ -774,3 +789,9 @@ Before calling the public transformation complete:
 - Can a legacy repo adopt it without disabling everything?
 - Does a scan remain local, offline and non-executing?
 - Can an agent resume development from repo docs alone?
+
+
+## Browser-/Servergrenze — 2026-09-30
+
+- [x] Explizite private JS/TS-Module aus HTML-Browserimporten erkennen; gesunde Trennung und 14 isolierte Gegenproben einschließlich Typen, Worker, Kommentar-/Stringtext und Aliases.
+- [x] Reale Ausgangsimporte rot, nach serverseitiger Verlagerung grün; Guideline und Katalog verknüpft.

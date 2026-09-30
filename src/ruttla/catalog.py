@@ -18,6 +18,8 @@ GUIDELINES_DOC = "docs/GUIDELINES.md"
 # (prefix of the guideline string, anchor in docs/GUIDELINES.md, one-line
 # public summary). First match wins, so more specific prefixes come first.
 GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
+    ("GUIDELINES.md § Server-only boundary", "server-only-boundary",
+     "Private server modules must not enter browser runtime import graphs."),
     ("Apple:", "apple-platform-documentation",
      "Apple developer documentation for the named key, entitlement or file format."),
     ("Apple Asset Catalog", "apple-platform-documentation",
@@ -30,6 +32,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Experimental code is switched by statically evaluable flags."),
     ("CLAUDE.md § Grundsatz C", "principle-c-visible-text-lives-in-a-catalog",
      "Visible text lives in a catalog; no concatenation, no orphan keys."),
+    ("CLAUDE.md § Lokalisierung", "principle-c-visible-text-lives-in-a-catalog",
+     "Visible text lives in a catalog; localization is resolved by the UI environment."),
     ("CLAUDE.md § Grundsatz D", "principle-d-hardware-behind-an-interface",
      "Hardware access is isolated so logic is testable without the device."),
     ("CLAUDE.md § Grundsatz E", "principle-e-protocols-evolve-safely",

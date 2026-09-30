@@ -3,17 +3,17 @@
 
 # Rule catalog
 
-112 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+118 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 40 | 8 |
+| apple | 42 | 9 |
 | godot | 18 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
-| universal | 23 | 2 |
+| universal | 24 | 3 |
 | unreal | 6 | 0 |
-| web | 13 | 1 |
+| web | 16 | 2 |
 
 ## Pack `apple`
 
@@ -2366,6 +2366,45 @@ struct InspectorView: View {
 
 </details>
 
+### `apple.string_localized_in_swiftui`
+
+**String(localized:) in SwiftUI-View umgeht SwiftUI-Locale-Environment**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Lokalisierung
+- Public rationale: [GUIDELINES.md › principle-c-visible-text-lives-in-a-catalog](GUIDELINES.md#principle-c-visible-text-lives-in-a-catalog)
+
+<details><summary>Broken probe (must FAIL): String(localized:) in SwiftUI View</summary>
+
+`Sources/App/SettingsView.swift`
+
+```text
+import SwiftUI
+struct SettingsView: View {
+  var body: some View {
+    Button(String(localized: "Abmelden")) { }
+  }
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Native SwiftUI LocalizedStringKey</summary>
+
+`Sources/App/SettingsView.swift`
+
+```text
+import SwiftUI
+struct SettingsView: View {
+  var body: some View {
+    Button("Abmelden") { }
+  }
+}
+```
+
+</details>
+
 ### `apple.swiftdata_predicate_capture`
 
 **SwiftData-#Predicate greift auf eine nicht gebundene Variable zu**
@@ -2403,6 +2442,46 @@ let p = #Predicate<Item> { $0.owner == self.userId }
 import SwiftData
 let uid = userId
 let p = #Predicate<Item> { $0.owner == uid }
+```
+
+</details>
+
+### `apple.swiftui_async_data_focus_write`
+
+**SwiftUI-Datenladung schreibt nach await direkt in FocusState**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: Apple: FocusState (SwiftUI)
+- Public rationale: [GUIDELINES.md › apple-platform-documentation](GUIDELINES.md#apple-platform-documentation)
+- Reference: <https://developer.apple.com/documentation/swiftui/focusstate/>
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein FocusState-Wert wird bei Fokusverlust von SwiftUI geleert. Schreibt eine asynchrone load/fetch/refresh-Methode nach await direkt zurück, kann ein später Datenabschluss den Fokus einer inzwischen verdeckten Ansicht entfernen oder übernehmen. Der Check erkennt nur direkte Zuweisungen in solchen Methoden; Datenfluss über Helper, Bindings und Laufzeitreihenfolge bleiben ungemessen. Advisory, weil ein explizit koordinierter Fokuswechsel legitim sein kann.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: explizite self-Zuweisung im Typ</summary>
+
+`App/Library.swift`
+
+```text
+struct Grid { @FocusState private var focusedId: String?; private func loadContent() async { await fetch(); self.focusedId = nil } }
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Laden aktualisiert nur Daten</summary>
+
+`App/Library.swift`
+
+```text
+@FocusState private var focusedId: String?
+@State private var items: [String] = []
+private func loadContent() async { let fresh = await fetchItems(); items = fresh }
 ```
 
 </details>
@@ -4178,34 +4257,34 @@ Auf einem frischen Checkout existiert das Artefakt gar nicht — dann ist
 
 </details>
 
-<details><summary>Broken probe (must FAIL): Gate liest ignoriertes Artefakt</summary>
+<details><summary>Broken probe (must FAIL): defekt: Adresse verdeckt keinen lokalen Read</summary>
 
 `.gitignore`
 
 ```text
-.build/
+build/
 ```
 
-`gates/check_x.mjs`
+`gates/check_web.py`
 
 ```text
-import { render } from '../.build/renderer.js';
+reference = 'https://docs.netlify.com/build/edge-functions/api/'; read('build/old.json')
 ```
 
 </details>
 
-<details><summary>Healthy probe (must PASS): Gate liest die Quelle</summary>
+<details><summary>Healthy probe (must PASS): gesund: Dokumentationsadresse ist kein Artefaktread</summary>
 
 `.gitignore`
 
 ```text
-.build/
+build/
 ```
 
-`gates/check_x.mjs`
+`gates/check_web.py`
 
 ```text
-import { render } from '../src/renderer.ts';
+reference = 'https://docs.netlify.com/build/edge-functions/api/'
 ```
 
 </details>
@@ -4265,14 +4344,15 @@ fi
 <details><summary>Why it exists</summary>
 
 ```text
-Apple fällt bei einem fehlenden Schlüssel still auf den Schlüssel selbst
-zurück — der Nutzer liest dann `tab.search` statt eines Worts. Gemessen
-wird je Katalogdatei (gleicher Dateiname in mehreren `<lang>.lproj/`),
-dass jede Sprache die Vereinigung aller Schlüssel trägt.
+Vergleicht Apple-Stringskataloge mit gleichem Dateinamen sowie flache
+TS/JS-Literalkataloge mit Locale-Konstanten (z. B. `const de`, `const en`)
+in Katalogpfaden. Jede Sprache muss die Vereinigung der Schlüssel tragen.
 
 Eine Katalogdatei, die nur in EINER Sprache existiert (z. B.
 InfoPlist.strings), hat nichts zum Vergleichen und zählt nicht als
 geprüft — null verglichene Kataloge sind nicht gemessen, nicht bestanden.
+JSON, verschachtelte oder dynamische TS/JS-Kataloge sind nicht unterstützt;
+erkannte dynamische Locale-Objekte verhindern ein vollständiges PASS.
 ```
 
 </details>
@@ -4937,6 +5017,62 @@ const t = process.env.GITHUB_TOKEN;
 
 </details>
 
+### `sql.plpgsql_outside_block`
+
+**PL/pgSQL-Fehlerbehandlung als nacktes SQL**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Gates — 'Ein Prüfstand, dessen Testfall den Fall gar nicht herstellt'
+- Public rationale: [GUIDELINES.md › gates-must-not-lie](GUIDELINES.md#gates-must-not-lie)
+
+<details><summary>Why it exists</summary>
+
+```text
+begin … exception when … end gibt es nur innerhalb von PL/pgSQL (DO-Block oder Funktionsrumpf). Als nacktes SQL ist es ein Syntaxfehler: psql meldet ERROR und läuft weiter. In einem Testskript sieht das aus wie ein erwarteter Fehler — der Umgehungsversuch darin wurde aber nie ausgeführt. Belegt am 30.09.2026: ein Test, der ein Ergebnisfoto zum Produktfoto umschreiben wollte, lief nie; repariert wurde er sofort rot und deckte eine echte Lücke auf. Gemessen wird nur in PostgreSQL-Projekten: in Oracle-PL/SQL ist derselbe Text außerhalb von $$ gültig.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: exception-Block als nacktes SQL</summary>
+
+`supabase/tests/umgehung.sql`
+
+```text
+begin;
+  begin
+    update t set a = 1;
+  exception when others then
+    null;
+  end;
+rollback;
+```
+
+`supabase/migrations/001.sql`
+
+```text
+create function f() returns void language plpgsql as $$ begin end $$;
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: derselbe Versuch im DO-Block</summary>
+
+`tests/umgehung.sql`
+
+```text
+begin;
+  do $$
+  begin
+    update t set a = 1;
+  exception when others then
+    null;
+  end $$;
+rollback;
+```
+
+</details>
+
 ## Pack `unreal`
 
 ### `unreal.config_value_without_reader`
@@ -5559,6 +5695,45 @@ export const A = () => <main><a href="/impressum">Impressum</a><a href="/datensc
 
 </details>
 
+### `web.legal_placeholder`
+
+**Pflichtseite mit unausgefülltem Platzhalter**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Rechtliche Blocker und Pflichtangaben
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+`web.legal_pages_missing` misst, ob Impressum und Datenschutz existieren — nicht, ob sie ausgefüllt sind. Ein Gerüst mit [Name], [Region bestätigen] oder [Datum] besteht diese Prüfung und geht bei jedem Push live. Belegt am 30.09.2026: die Datenschutzerklärung trug sieben Platzhalter, darunter den Verantwortlichen und die Aufsichtsbehörde, während die Seite bereits ausgeliefert wurde.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Verantwortlicher als Platzhalter</summary>
+
+`public/datenschutz/index.html`
+
+```text
+<title>Datenschutz</title><h1>Datenschutzerklärung</h1>
+<p>[Name]<br>[PLZ, Ort]</p>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Entwürfe als Funktion der App</summary>
+
+`public/datenschutz/index.html`
+
+```text
+<h1>Datenschutz</h1>
+<p>Entwürfe werden nur auf deinem Gerät gespeichert; ein Entwurf verlässt es nie.</p>
+```
+
+</details>
+
 ### `web.loading_without_null_state`
 
 **Ladezustand kennt kein 'noch nicht geprüft' (null als dritter Zustand)**
@@ -5703,6 +5878,71 @@ const r = await fetch('/api/generate', { method: 'POST' });
 
 </details>
 
+### `web.server_only_reaches_browser`
+
+**Server-only-Modul im Browser-Importpfad**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § Server-only boundary
+- Public rationale: [GUIDELINES.md › server-only-boundary](GUIDELINES.md#server-only-boundary)
+- Reference: <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules>
+- Reference: <https://docs.netlify.com/build/edge-functions/api/>
+
+<details><summary>Why it exists</summary>
+
+```text
+Browsermodule werden an Nutzer ausgeliefert. Explizit mit // @server-only markierte Module und *.server.ts/js-Dateien dürfen von HTML-Moduleinstiegen nicht über Laufzeitimports erreichbar sein. Relative Imports, Re-Exports und literale dynamische Imports werden verfolgt; Typimporte sind ausgenommen. Aliases, Framework-Einstiege und berechnete Imports bleiben ungemessen. Keine automatische Klassifikation von Geschäftslogik und kein vollständiger Copycat-Schutz.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: direkter privater Import</summary>
+
+`index.html`
+
+```text
+<script type="module" src="/src/main.ts"></script>
+```
+
+`src/main.ts`
+
+```text
+import { core } from "../server/core";
+```
+
+`server/core.ts`
+
+```text
+// @server-only
+export const core = 1;
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Servercode getrennt</summary>
+
+`index.html`
+
+```text
+<script type="module" src="/src/main.ts"></script>
+```
+
+`src/main.ts`
+
+```text
+export const ok = true;
+```
+
+`server/core.ts`
+
+```text
+// @server-only
+export const secret = 1;
+```
+
+</details>
+
 ### `web.strictmode_resource_leak`
 
 **Canvas/WebGL/Audio-Ressource ohne Cleanup (StrictMode-Doppelmount)**
@@ -5786,6 +6026,47 @@ if (res.ok) {
 
 </details>
 
+### `web.textarea_draft_memory_only`
+
+**React-Textentwurf ohne erkennbaren Speicher- und Wiederherstellungspfad**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md — Entwurfswiederherstellung
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+- Reference: <https://developer.chrome.com/docs/web-platform/page-lifecycle-api>
+- Reference: <https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage>
+
+<details><summary>Why it exists</summary>
+
+```text
+React useState überlebt kein Reload oder Verwerfen eines Hintergrund-Tabs. Der Check erkennt direkt mit useState verwaltete, editierbare Textareas und prüft für genau ihren Zustand sichtbare Web-Storage-Lese- und Schreibpfade. Indirekte Hooks, IndexedDB, Serverentwürfe und deren Laufzeitqualität bleiben ungemessen. Advisory: kurzfristige Textfelder können bewusst flüchtig sein. Nicht automatisch sensible Daten speichern; Umfang und Löschung abstimmen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Texteingabe nur im RAM</summary>
+
+`src/Form.tsx`
+
+```text
+const [draft, setDraft] = useState(''); return <textarea value={draft} onChange={e => setDraft(e.target.value)} />;
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: derselbe Entwurf wird gelesen und geschrieben</summary>
+
+`src/Form.tsx`
+
+```text
+const [draft, setDraft] = useState(() => sessionStorage.getItem('draft') || '');
+useEffect(() => sessionStorage.setItem('draft', draft), [draft]);
+return <textarea value={draft} onChange={e => setDraft(e.target.value)} />;
+```
+
+</details>
+
 ### `web.touch_target_too_small`
 
 **Trefferfläche unter 44px**
@@ -5801,6 +6082,8 @@ if (res.ok) {
 Statische Annäherung: explizit gesetzte Höhen/Breiten unter 44px an
 Interaktions-Selektoren. Die echte Messung gehört in einen Browser-Lauf
 (z. B. Playwright) — das hier fängt die offensichtlichen Fälle früher ab.
+Dekorative ::before/::after-Symbole sind keine eigenen Klickflächen;
+echte Selektoren einer gemischten Liste bleiben messbar.
 ```
 
 </details>

@@ -101,6 +101,143 @@ def check_swiftui_invisible_focus_target(ctx: Context) -> CheckResult:
     return result_for(check_id, title, findings, len(swift), "Swift-Dateien", PLATFORM)
 
 
+@register(
+    "apple.swiftui_async_data_focus_write",
+    "SwiftUI-Datenladung schreibt nach await direkt in FocusState",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="Apple: FocusState (SwiftUI)",
+    references=["https://developer.apple.com/documentation/swiftui/focusstate/"],
+    rationale=(
+        "Ein FocusState-Wert wird bei Fokusverlust von SwiftUI geleert. Schreibt eine "
+        "asynchrone load/fetch/refresh-Methode nach await direkt zurück, kann ein "
+        "später Datenabschluss den Fokus einer inzwischen verdeckten Ansicht entfernen "
+        "oder übernehmen. Der Check erkennt nur direkte Zuweisungen in solchen Methoden; "
+        "Datenfluss über Helper, Bindings und Laufzeitreihenfolge bleiben ungemessen. "
+        "Advisory, weil ein explizit koordinierter Fokuswechsel legitim sein kann."
+    ),
+    self_tests=[
+        SelfTestCase(
+            name="gesund: Laden aktualisiert nur Daten",
+            files={"App/Library.swift": "@FocusState private var focusedId: String?\n@State private var items: [String] = []\nprivate func loadContent() async { let fresh = await fetchItems(); items = fresh }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: explizite synchrone Rückkehr setzt Fokus",
+            files={"App/Library.swift": "@FocusState private var focusedId: String?\nprivate func restoreAfterReturn() { focusedId = \"42\" }\nprivate func loadContent() async { let fresh = await fetch(); items = fresh }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: gleichnamiger State ist kein FocusState",
+            files={"App/Library.swift": "@State private var focusedId: String?\n@FocusState private var filterFocused: Bool\nprivate func loadContent() async { let value = await fetch(); focusedId = value }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: Textbeispiel ist keine Zuweisung",
+            files={"App/Library.swift": "@FocusState private var focusedId: String?\nprivate func loadContent() async { await fetch(); print(\"focusedId = nil\") }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="gesund: gleichnamiger State in separatem Typ",
+            files={"App/Library.swift": "struct Menu { @FocusState private var focusedId: String? }\nstruct Grid { @State private var focusedId: String?; private func loadContent() async { let value = await fetch(); focusedId = value } }\n"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="defekt: explizite self-Zuweisung im Typ",
+            files={"App/Library.swift": "struct Grid { @FocusState private var focusedId: String?; private func loadContent() async { await fetch(); self.focusedId = nil } }\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="defekt: Reload löscht Fokus nach await",
+            files={"App/Library.swift": "@FocusState private var focusedId: String?\nprivate func reloadGrid() async { let items = await fetch(); focusedId = nil }\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="FocusState",
+        ),
+        SelfTestCase(
+            name="defekt: bedingter Restore im Ladeabschluss",
+            files={"App/Library.swift": "@FocusState private var focusedId: String?\nprivate func loadContent() async { let items = await fetch(); focusedId = restore ? items.first : nil }\n"},
+            expect=Status.FAIL,
+        ),
+    ],
+)
+def check_swiftui_async_data_focus_write(ctx: Context) -> CheckResult:
+    """Meldet eng begrenzte Daten-Methoden, die nach await FocusState schreiben."""
+    check_id = "apple.swiftui_async_data_focus_write"
+    title = "SwiftUI-Datenladung schreibt nach await direkt in FocusState"
+    swift = ctx.files(".swift")
+    if not swift:
+        return unmeasured(check_id, title, "Keine Swift-Dateien gefunden.", PLATFORM)
+
+    declaration = re.compile(r"@FocusState(?:\s*\([^)]*\))?\s+(?:(?:private|fileprivate|internal|public)\s+)*var\s+(\w+)")
+    method = re.compile(r"\bfunc\s+((?:load|reload|refresh|fetch)\w*)\s*\([^)]*\)\s*async(?:\s+throws)?\s*(?:->\s*[^{}]+)?\{", re.I)
+    string_literal = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"')
+    findings: list[Finding] = []
+    measured = 0
+
+    for sf in swift:
+        if "@FocusState" not in sf.text or "await" not in sf.text:
+            continue
+        code = strip_comments(sf.text, sf.ext)
+        code = string_literal.sub(lambda match: re.sub(r"[^\n]", " ", match.group()), code)
+        brace_ends: dict[int, int] = {}
+        stack: list[int] = []
+        for offset, char in enumerate(code):
+            if char == "{":
+                stack.append(offset)
+            elif char == "}" and stack:
+                brace_ends[stack.pop()] = offset
+        types = [
+            (match.end() - 1, brace_ends[match.end() - 1])
+            for match in re.finditer(r"\b(?:struct|class(?!\s+func)|actor|extension)\s+\w+[^{}]*\{", code)
+            if match.end() - 1 in brace_ends
+        ]
+
+        def owner(position: int) -> tuple[int, int] | None:
+            enclosing = [scope for scope in types if scope[0] < position < scope[1]]
+            return min(enclosing, key=lambda scope: scope[1] - scope[0]) if enclosing else None
+
+        declared = [(match.group(1), owner(match.start())) for match in declaration.finditer(code)]
+        for function in method.finditer(code):
+            names = {name for name, scope in declared if scope == owner(function.start())}
+            if not names:
+                continue
+            depth = 1
+            end = function.end()
+            while end < len(code) and depth:
+                if code[end] == "{":
+                    depth += 1
+                elif code[end] == "}":
+                    depth -= 1
+                end += 1
+            if depth:
+                continue
+            body_start = function.end()
+            body = code[body_start:end - 1]
+            awaited = re.search(r"\bawait\b", body)
+            if awaited is None:
+                continue
+            measured += 1
+            for name in names:
+                assignment = re.search(rf"(?<![.\w])(?:self\s*\.\s*)?{re.escape(name)}\s*=(?!=)", body[awaited.end():])
+                if assignment is None:
+                    continue
+                offset = body_start + awaited.end() + assignment.start()
+                line_no = code.count("\n", 0, offset) + 1
+                findings.append(Finding(
+                    check_id=check_id,
+                    severity=Severity.WARNING,
+                    message=f"{function.group(1)} schreibt nach await direkt in FocusState '{name}'.",
+                    file=sf.rel,
+                    line=line_no,
+                    evidence=snippet(sf.lines[line_no - 1]),
+                    fix="Datenabschluss nur Daten aktualisieren lassen; Fokusziel als separaten, gültigen Rückkehrauftrag der sichtbaren View behandeln.",
+                ))
+
+    if measured == 0:
+        return unmeasured(check_id, title, "Keine asynchrone SwiftUI-Datenladung mit FocusState gefunden.", PLATFORM)
+    return result_for(check_id, title, findings, measured, "asynchrone Datenmethoden", PLATFORM)
+
+
 # ===========================================================================
 # SwiftUI Multiplattform
 # ===========================================================================

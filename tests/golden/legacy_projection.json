@@ -1196,15 +1196,8 @@
    },
    {
     "check_id": "godot.missing_main_scene",
-    "findings": [
-     [
-      "godot.missing_main_scene",
-      "error",
-      "godot.missing_main_scene/project.godot",
-      3
-     ]
-    ],
-    "status": "fail"
+    "findings": [],
+    "status": "pass"
    },
    {
     "check_id": "godot.physics_query_before_first_step",

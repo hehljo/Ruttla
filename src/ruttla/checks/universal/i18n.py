@@ -50,9 +50,108 @@ def _apple_keys(sf) -> list[tuple[str, int]]:
             for m in _APPLE_STRINGS_KEY.finditer(sf.text)]
 
 
+_LOCALE_DECLARATION = re.compile(
+    r"\b(?:export\s+)?const\s+([a-z]{2,3}(?:_[A-Za-z]{2,4})?)\s*"
+    r"(?::[^=;{}]+)?=\s*")
+_STATIC_KEY = re.compile(r"\s*([A-Za-z_$][\w$]*|'[^'\\]*'|\"[^\"\\]*\")\s*:")
+_STATIC_VALUE = re.compile(
+    r"(?:'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"|"
+    r"[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*|-?\d+(?:\.\d+)?)\s*", re.S)
+
+
+def _literal_locale_keys(sf):
+    """Read flat, static locale objects; never evaluate imported target code.
+
+    Only literal keys and string/scalar/member-reference values are supported.
+    Spreads, computed keys, nested objects and expressions remain unmeasured.
+    Strings/comments cannot introduce declarations, braces or separators.
+    """
+    source = strip_comments(sf.text, sf.ext)
+    masked = list(source)
+    quote = None
+    escaped = False
+    for i, ch in enumerate(source):
+        if quote:
+            masked[i] = '\n' if ch == '\n' else ' '
+            if escaped:
+                escaped = False
+            elif ch == '\\':
+                escaped = True
+            elif ch == quote:
+                quote = None
+        elif ch in "\"'`":
+            quote = ch
+            masked[i] = ' '
+    haystack = ''.join(masked)
+    locales = {}
+    unsupported = False
+    for declaration in _LOCALE_DECLARATION.finditer(haystack):
+        if haystack[declaration.end():declaration.end() + 1] != '{':
+            unsupported = True
+            continue
+        start = declaration.end() + 1
+        depth = 1
+        stop = start
+        while stop < len(haystack) and depth:
+            if haystack[stop] == '{':
+                depth += 1
+            elif haystack[stop] == '}':
+                depth -= 1
+            stop += 1
+        if depth:
+            unsupported = True
+            continue
+        end = stop - 1
+        keys = {}
+        field_start = start
+        valid = not re.search(r'[{}\[\]()]', haystack[start:end])
+        separators = [m.start() + start for m in re.finditer(',', haystack[start:end])]
+        for field_end in [*separators, end]:
+            field = source[field_start:field_end]
+            if field.strip():
+                key = _STATIC_KEY.match(field)
+                if not key or not _STATIC_VALUE.fullmatch(field[key.end():].strip()):
+                    valid = False
+                    break
+                name = key.group(1).strip("\"'")
+                if name in keys:
+                    valid = False
+                    break
+                keys[name] = sf.line_of(field_start + key.start(1))
+            field_start = field_end + 1
+        locale = declaration.group(1)
+        if valid and locale not in locales:
+            locales[locale] = keys
+        else:
+            unsupported = True
+    return locales, unsupported
+
+
 # ===========================================================================
 # C · Textkatalog
 # ===========================================================================
+
+def _template_key_patterns(text: str) -> list[re.Pattern]:
+    """Schlüssel, die zur Laufzeit zusammengesetzt werden: `app.sort${x}`.
+
+    Aus jedem Template-String wird ein Muster für das letzte Segment gebaut —
+    der Katalog kennt bei verschachteltem JSON nur das Blatt. Ein Muster
+    ohne mindestens drei feste Zeichen im Blatt (`overview.${key}`) passt
+    auf alles und wird verworfen; es würde jede Karteileiche freisprechen.
+    """
+    patterns: list[re.Pattern] = []
+    for m in re.finditer(r"`([\w.]*\$\{[^`]*)`", text):
+        body = m.group(1)
+        parts = re.split(r"\$\{[^}]*\}", body)
+        if any(not re.fullmatch(r"[\w.]*", part) for part in parts):
+            continue
+        leaf = "\x00".join(parts).rsplit(".", 1)[-1]
+        if len(leaf.replace("\x00", "")) < 3:
+            continue
+        rx = r"\w*".join(re.escape(piece) for piece in leaf.split("\x00"))
+        patterns.append(re.compile(rf"^{rx}$"))
+    return patterns
+
 
 @register(
     "i18n.orphan_catalog_keys",
@@ -71,6 +170,21 @@ def _apple_keys(sf) -> list[tuple[str, int]]:
             files={"src/locales/de.json": '{"studio.save": "Speichern"}',
                    "src/App.tsx": 'export const A = () => <button>{t("studio.save")}</button>;\n'},
             expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="zusammengesetzter Schluessel im Template-String",
+            files={"src/locales/de.json":
+                   '{"app": {"sortNewest": "Neueste", "sortName": "Name"},'
+                   ' "overview": {"expiringHint": "Bald ab"}}',
+                   "src/app.js": 'const a = t(`app.sort${v[0].toUpperCase()}${v.slice(1)}`);\n'
+                                 'const b = t(`overview.${key}Hint`);\n'},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Template deckt nur seinen eigenen Teil",
+            files={"src/locales/de.json": '{"app": {"sortNewest": "Neueste", "statusOld": "Alt"}}',
+                   "src/app.js": 'const a = t(`app.sort${v}`);\n'},
+            expect=Status.FAIL,
         ),
     ],
 )
@@ -116,10 +230,13 @@ def check_orphan_keys(ctx: Context) -> CheckResult:
         sf.text for sf in ctx.files(*SOURCE_EXTS, *MARKUP_EXTS)
         if sf.path not in catalog_paths
     )
+    templates = _template_key_patterns(consumers)
     findings: list[Finding] = []
     for key, (rel, line) in sorted(keys.items()):
         leaf = key.split(".")[-1]
         if key in consumers or (len(leaf) > 3 and leaf in consumers):
+            continue
+        if any(rx.match(leaf) for rx in templates):
             continue
         findings.append(Finding(
             check_id="i18n.orphan_catalog_keys",
@@ -346,21 +463,101 @@ def check_string_concat(ctx: Context) -> CheckResult:
             },
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="TS literal locale dictionaries with central brand",
+            files={"src/i18n.ts": "export const de = {brand: BRAND.name, start: 'Los'} as const;\n"
+                   "export const en: Record<keyof typeof de, string> = {brand: BRAND.name, start: 'Go'};"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="TS locale key removed",
+            files={"src/i18n.ts": "const de = {start: 'Los', finish: 'Fertig'};\n"
+                   "const en: Record<keyof typeof de, string> = {start: 'Go'};"},
+            expect=Status.FAIL,
+            expect_finding_contains="finish",
+        ),
+        SelfTestCase(
+            name="JS quoted keys comments and punctuation in values",
+            files={"src/locales.js": "const de = {/* note */ 'tab.home': 'Start: {a,b}', link: 'https://example.org'};\n"
+                   "const en = {'tab.home': 'Home: {a,b}', link: 'https://example.org'};"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="JS extra key in English",
+            files={"src/lang.js": "const de = {start: 'Los'}; const en = {start: 'Go', finish: 'Done'};"},
+            expect=Status.FAIL,
+            expect_finding_contains="finish",
+        ),
+        SelfTestCase(
+            name="single TS locale is unmeasured",
+            files={"src/i18n.ts": "const de = {start: 'Los'};"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="spread cannot claim parity",
+            files={"src/i18n.ts": "const de = {start: 'Los', ...extra}; const en = {start: 'Go'};"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="computed keys cannot claim parity",
+            files={"src/i18n.ts": "const de = {[key]: 'Los'}; const en = {start: 'Go'};"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="declaration inside text does not create a locale",
+            files={"src/i18n.ts": "const de = {start: 'const en = {finish: 1}'};"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="nested locale remains unmeasured",
+            files={"src/i18n.ts": "const de = {tab: {home: 'Start'}}; const en = {tab: {home: 'Home'}};"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="dynamic third locale prevents false pass",
+            files={"src/i18n.ts": "const de = {start: 'Los'}; const en = {start: 'Go'}; const fr = buildLocale();"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="escaped quote does not end the string",
+            files={"src/i18n.js": "const de = {start: 'Los', note: 'Don\\'t, {split}'}; "
+                   "const en = {start: 'Go', note: 'Don\\'t, {split}'};"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="independent catalogs do not share keys",
+            files={"src/i18n.ts": "const de = {start: 'Los'}; const en = {start: 'Go'};",
+                   "src/lang.js": "const de = {finish: 'Fertig'}; const en = {finish: 'Done'};"},
+            expect=Status.PASS,
+        ),
     ],
 )
 def check_catalog_key_parity(ctx: Context) -> CheckResult:
-    """Apple fällt bei einem fehlenden Schlüssel still auf den Schlüssel selbst
-    zurück — der Nutzer liest dann `tab.search` statt eines Worts. Gemessen
-    wird je Katalogdatei (gleicher Dateiname in mehreren `<lang>.lproj/`),
-    dass jede Sprache die Vereinigung aller Schlüssel trägt.
+    """Vergleicht Apple-Stringskataloge mit gleichem Dateinamen sowie flache
+    TS/JS-Literalkataloge mit Locale-Konstanten (z. B. `const de`, `const en`)
+    in Katalogpfaden. Jede Sprache muss die Vereinigung der Schlüssel tragen.
 
     Eine Katalogdatei, die nur in EINER Sprache existiert (z. B.
     InfoPlist.strings), hat nichts zum Vergleichen und zählt nicht als
     geprüft — null verglichene Kataloge sind nicht gemessen, nicht bestanden.
+    JSON, verschachtelte oder dynamische TS/JS-Kataloge sind nicht unterstützt;
+    erkannte dynamische Locale-Objekte verhindern ein vollständiges PASS.
     """
     title = "Sprachkataloge haben nicht dieselben Schlüssel"
     groups: dict[str, dict[str, dict[str, int]]] = {}
+    files = {}
+    unsupported = []
     for sf in ctx.all_files():
+        if sf.ext in (".ts", ".js") and _CATALOG_PATH.search(sf.rel):
+            locales, dynamic = _literal_locale_keys(sf)
+            if dynamic:
+                unsupported.append(sf.rel)
+                continue
+            for locale, keys in locales.items():
+                identity = f"{sf.rel}::{locale}"
+                groups.setdefault(sf.rel, {})[identity] = keys
+                files[identity] = sf.rel
+            continue
         if not _is_apple_catalog(sf):
             continue
         m = re.search(r"(?:^|/)([^/]+)\.lproj/(.+)$", sf.rel)
@@ -368,13 +565,14 @@ def check_catalog_key_parity(ctx: Context) -> CheckResult:
             continue
         name = m.group(2)
         groups.setdefault(name, {})[sf.rel] = dict(reversed(_apple_keys(sf)))
+        files[sf.rel] = sf.rel
     compared = {name: langs for name, langs in groups.items() if len(langs) >= 2}
     if not compared:
         return unmeasured(
             "i18n.catalog_key_parity", title,
-            "Keine Apple-Stringskataloge in mindestens zwei Sprachen gefunden "
-            "(<lang>.lproj/<Name>.strings). JSON-Kataloge misst dieser Check "
-            "noch nicht.")
+            "Keine unterstützten Kataloge in mindestens zwei Sprachen gefunden. "
+            "Gemessen werden Apple .lproj/*.strings und flache TS/JS-Locale-Konstanten. "
+            "JSON und dynamische Kataloge sind nicht gemessen.")
     findings: list[Finding] = []
     units = 0
     for name, langs in sorted(compared.items()):
@@ -387,10 +585,13 @@ def check_catalog_key_parity(ctx: Context) -> CheckResult:
                     severity=Severity.WARNING,
                     message=f"Schlüssel '{key}' fehlt in {rel} (andere Sprachen "
                             f"von {name} haben ihn).",
-                    file=rel,
-                    fix="Übersetzung ergänzen. Apple zeigt sonst den rohen "
-                        "Schlüssel an.",
+                    file=files[rel],
+                    fix="Fehlenden Übersetzungsschlüssel im Sprachkatalog ergänzen.",
                     guideline="CLAUDE.md § Grundsatz C",
                 ))
+    if unsupported and not findings:
+        return unmeasured("i18n.catalog_key_parity", title,
+                          "Dynamische oder nicht unterstützte Locale-Objekte: "
+                          + ", ".join(sorted(unsupported)))
     return result_for("i18n.catalog_key_parity", title, findings, units,
-                      "Katalogdateien")
+                      "Sprachkataloge")

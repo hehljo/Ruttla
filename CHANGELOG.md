@@ -6,9 +6,18 @@ when added, changed or deprecated.
 ## [Unreleased] — 0.1.0 (public preview)
 
 ### Changed
+- `i18n.orphan_catalog_keys`: zur Laufzeit zusammengesetzte Schlüssel in Template-Strings (`app.sort${x}`, `overview.${k}Hint`) zählen als benutzt, sofern das Blatt mindestens drei feste Zeichen trägt; reine Platzhalter sprechen nichts frei.
+- `web.a11y_missing_label`: `<label for=…>`, umschließendes `<label>` und `data-i18n` an Knopf/Link (auch im Kind-Element) zählen als Beschriftung — der Fix-Text empfahl `<label for>`, der Check erkannte es nicht. `data-i18n` an Eingabefeldern bleibt ein Befund.
+- `brand.hardcoded_in_display`: Swift PackageDescription module/product/dependency names are technical contracts; visible SwiftUI text in the same file remains checked. Includes separate healthy and broken probes.
+- `i18n.catalog_key_parity`: supports flat static TS/JS locale constants in catalog paths, including typed dictionaries and member references. Dynamic, nested and JSON catalogs remain unmeasured; target code is never executed.
 - `apple.project_settings`: `LastUpgradeCheck`-Schwelle auf Xcode 27.0 (2700) angehoben.
 
 ### Added
+- `web.legal_placeholder`: Pflichtseiten (erkannt an `<title>`/`<h1>`: Impressum, Datenschutz, AGB, Terms …) mit unausgefülltem `[Platzhalter]`, „Lorem ipsum" oder Entwurfsvermerk („Entwurf.", „Noch auszufüllen:"). Code, Script und Fußnoten bleiben still. `safe_by_default`.
+- `sql.plpgsql_outside_block`: `exception when` außerhalb eines `$$`-Rumpfs in PostgreSQL-Projekten — Syntaxfehler, der in Testskripten wie ein erwarteter Fehler aussieht. Oracle-PL/SQL ohne PostgreSQL-Merkmal bleibt `unmeasured`. `safe_by_default`.
+- `web.server_only_reaches_browser`: follows explicit server-only modules from HTML runtime entries; local imports, barrels, literal dynamic imports and worker URLs, with healthy/broken probes and an explicit partial-graph limitation.
+- `web.textarea_draft_memory_only`: bounded advisory for editable React textareas held directly in `useState` without a matching visible Web Storage save/restore path. Includes isolated write, read, storage-key and comment mutations; indirect hooks and IndexedDB remain unmeasured and require real reload/lifecycle tests.
+- `apple.swiftui_async_data_focus_write`: advisory for direct FocusState assignments after `await` in load/fetch/refresh methods. Flags data completions that can remove or steal focus after navigation; explicit synchronous return actions and data-only loading stay green. Cross-method flows and runtime focus are not measured.
 - `apple.swiftui_invisible_focus_target`: advisory for directly focusable, transparent 1-pixel SwiftUI targets; visible buttons, non-focusable geometry and disabled focus stay green.
 - `apple.release.scheme_test_action_empty`: advisory when a shared scheme builds a project with XCTest targets for testing but has no active reference to one in its TestAction. This checks the local scheme, not remote Xcode Cloud workflow actions or destinations.
 - `apple.platform_conditional_type_used_unguarded`: ein Typ, der nur innerhalb von `#if os(...)` deklariert ist, wird in einem Mehrplattform-Target auf einer anderen Plattform sicher kompiliert benutzt (`Cannot find '…' in scope`). Unbekannte Bedingungen (DEBUG, canImport) bleiben still; Einzelplattform-Projekte sind `unmeasured`.
@@ -41,6 +50,10 @@ when added, changed or deprecated.
 - Broken stdout pipe exits 3 instead of a traceback with exit 1.
 
 ### Fixed
+- `web.touch_target_too_small`: decorative pseudo-elements and line heights no longer count as control dimensions; mixed selectors still measure real controls.
+- `web.legal_pages_missing`: documentation mentions and code comments cannot satisfy legal-page presence. This remains a source-presence heuristic.
+- `gate.reads_from_gitignored_artifact`: direct browser-report and screenshot writes are outputs; actual reads on the same line remain findings.
+- Catalog metadata covers the localization guideline; the historical healthy Godot projection reflects the existing main scene without weakening broken cases.
 - `apple.unguarded_module_import`: recognize QuartzCore and MetalKit as Apple system frameworks; healthy framework imports and an isolated unknown-module mutation are covered.
 - `protocol.version_bump_without_fallback`: Swift enums now require their own explicit Codable/Decodable conformance (including same-file extensions). An unrelated decoder no longer flags UI enums or namespace enums; CodingKey enums are excluded. The fix advice now requires a decoding fallback and an unknown-value test instead of promising that an Unknown case alone changes synthesized decoding.
 - Frozen golden projections now compare only historical rule IDs; additive checks no longer require rewriting the legacy baseline.

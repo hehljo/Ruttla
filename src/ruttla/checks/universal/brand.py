@@ -51,6 +51,22 @@ from ._common import _brand_candidates, MARKUP_EXTS, SOURCE_EXTS
             expect=Status.PASS,
         ),
         SelfTestCase(
+            name="Swift-Package-Modulnamen sind technische Verträge",
+            files={
+                "App.xcodeproj/project.pbxproj": 'INFOPLIST_KEY_CFBundleDisplayName = Acme;\n',
+                "tools/Package.swift": 'import PackageDescription\nlet package = Package(\n name: "Acme",\n products: [.library(name: "Acme", targets: ["Acme"])],\n targets: [.target(name: "Acme"), .testTarget(name: "Tests", dependencies: ["Acme"])]\n)\n',
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Manifest-Ausnahme verschluckt keinen SwiftUI-Anzeigetext",
+            files={
+                "App.xcodeproj/project.pbxproj": 'INFOPLIST_KEY_CFBundleDisplayName = Acme;\n',
+                "tools/Package.swift": 'import PackageDescription\nlet package = Package(name: "Acme")\nText("Willkommen bei Acme")\n',
+            },
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
             name="SwiftUI-Text traegt Anzeigenamen aus dem Xcode-Projekt",
             files={
                 "App.xcodeproj/project.pbxproj":
@@ -135,6 +151,8 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
             continue
         units += 1
         body = strip_comments(sf.text, sf.ext)
+        is_package_manifest = os.path.basename(sf.rel) == "Package.swift" and re.search(r"\bimport\s+PackageDescription\b", body)
+        package_identifier = re.compile(r'\b(?:name|targets|dependencies|path)\s*:\s*(?:\[[^\]]*)?"[^"\n]*$')
         for brand in brands:
             # Case-insensitiv: package.json liefert oft klein, das JSX groß.
             # Gemeldet wird die TATSÄCHLICHE Schreibweise im Code, nicht die
@@ -151,6 +169,8 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
                 # den Treffer UMSCHLIESST, nicht die ganze Zeile.
                 line_start = body.rfind("\n", 0, m.start()) + 1
                 if dev_output.search(body[line_start:m.start()]):
+                    continue
+                if is_package_manifest and package_identifier.search(body[line_start:m.start()]):
                     continue
                 # Der Prüfbereich ist die FUNDSTELLE, nicht die Zeile: direkt
                 # vor dem Treffer ein Deklarations-Schlüsselwort heißt, dass

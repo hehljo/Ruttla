@@ -446,6 +446,21 @@ def check_null_state(ctx: Context) -> CheckResult:
             files={"src/a.tsx": "export const A = () => <button aria-label=\"Schliessen\"><Icon /></button>;\n"},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="Katalogtext per data-i18n und verbundenes label",
+            files={"public/index.html":
+                   '<button type="submit" data-i18n="auth.send"></button>\n'
+                   '<label for="f-brand" data-i18n="filter.brand"></label>\n'
+                   '<select id="f-brand"></select>\n'
+                   '<label><span>Name</span> <input name="n"></label>\n'
+                   '<button type="button" id="f"><span data-i18n="app.filter"></span></button>\n'},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="data-i18n beschriftet kein Eingabefeld",
+            files={"public/index.html": '<select id="x" data-i18n="filter.brand"></select>\n'},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_a11y_labels(ctx: Context) -> CheckResult:
@@ -461,11 +476,31 @@ def check_a11y_labels(ctx: Context) -> CheckResult:
     measured = 0
     for sf in files:
         body = strip_comments(sf.text, sf.ext)
+        # Ein <label for=…> ist eine Beschriftung — die Fix-Empfehlung nennt
+        # es selbst; ohne diese Zeile widersprach der Check seinem Rat.
+        labelled = set(re.findall(r"<label\b[^>]*\b(?:for|htmlFor)\s*=\s*[\"']([^\"']+)", body, re.I))
         for m in el.finditer(body):
             tag, attrs = m.group(1).lower(), m.group(2)
             measured += 1
             if re.search(r"(aria-label|aria-labelledby|title\s*=|alt\s*=)", attrs, re.I):
                 continue
+            ident = re.search(r"\bid\s*=\s*[\"']([^\"']+)", attrs)
+            if ident and ident.group(1) in labelled:
+                continue
+            # Umschließendes <label>: das letzte offene label vor dem Element.
+            before = body[:m.start()]
+            if before.rfind("<label") > before.rfind("</label"):
+                continue
+            # data-i18n setzt den Textinhalt — bei Knopf und Link ist das
+            # die Beschriftung, bei einem Eingabefeld nicht.
+            if tag in ("button", "a") and re.search(r"\bdata-i18n\s*=", attrs):
+                continue
+            # …auch wenn er in einem Kind-Element steht: <button><span data-i18n>.
+            if tag in ("button", "a"):
+                close = body.find(f"</{tag}", m.end())
+                inner = body[m.end(): close] if close != -1 else ""
+                if re.search(r"\bdata-i18n\s*=", inner):
+                    continue
             if tag == "input" and re.search(r'type\s*=\s*["\']?(hidden|submit|button)', attrs, re.I):
                 continue
             if tag == "a" and re.search(r"(aria-hidden)", attrs, re.I):
@@ -692,6 +727,16 @@ def check_endpoints(ctx: Context) -> CheckResult:
                    "src/App.tsx": "export const A = () => <main><a href=\"/impressum\">Impressum</a><a href=\"/datenschutz\">Datenschutz</a></main>;\n"},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="Roadmap-Nennung ist keine Pflichtseite",
+            files={"package.json": '{"name":"shop"}', "src/App.tsx": "export const A = () => <main>Shop</main>;\n", "README.md": "Impressum und Datenschutz fehlen noch.\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Quelltextkommentar ist keine Pflichtseite",
+            files={"package.json": '{"name":"shop"}', "src/App.tsx": "// TODO: Impressum und Datenschutz\nexport const A = () => <main>Shop</main>;\n"},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_legal(ctx: Context) -> CheckResult:
@@ -705,9 +750,12 @@ def check_legal(ctx: Context) -> CheckResult:
     if not is_site:
         return unmeasured("web.legal_pages_missing", title,
                           "Kein Web-Frontend erkannt.", PLATFORM)
+    # Documentation and comments can explicitly describe missing pages. Their
+    # keywords must never turn a release blocker green. This is still a source
+    # presence check, not a legal assessment or proof of reachable routes.
     corpus = "\n".join(
-        sf.rel + "\n" + sf.text
-        for sf in ctx.files(*WEB_CODE, ".html", ".md", ".json")
+        sf.rel + "\n" + strip_comments(sf.text, sf.ext)
+        for sf in ctx.files(*WEB_CODE, ".html")
     )
     findings: list[Finding] = []
     for label, pat in (
@@ -744,12 +792,39 @@ def check_legal(ctx: Context) -> CheckResult:
             files={"src/a.css": ".btn { height: 48px; width: 48px; }\n"},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="kleines Symbol in grosser echter Klickflaeche",
+            files={"src/a.css": "input[type=checkbox] { width: 44px; height: 44px; }\ninput[type=checkbox]::before { width: 22px; height: 22px; }\ninput[type=checkbox]:checked::before { line-height: 20px; }\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Symbol verdeckt keine zu kleine echte Klickflaeche",
+            files={"src/a.css": "input[type=checkbox] { width: 22px; height: 22px; }\ninput[type=checkbox]::before { width: 44px; height: 44px; }\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="gemischter Selektor behaelt echten Button",
+            files={"src/a.css": ".btn::before, button { width: 22px; height: 22px; }\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="reiner dekorativer Pseudoselektor nicht gemessen",
+            files={"src/a.css": "input::before { width: 22px; height: 22px; }\n"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="Zeilenhoehe ist nicht die Klickflaeche",
+            files={"src/a.css": "button { width: 44px; height: 44px; line-height: 20px; }\n"},
+            expect=Status.PASS,
+        ),
     ],
 )
 def check_touch_targets(ctx: Context) -> CheckResult:
     """Statische Annäherung: explizit gesetzte Höhen/Breiten unter 44px an
     Interaktions-Selektoren. Die echte Messung gehört in einen Browser-Lauf
-    (z. B. Playwright) — das hier fängt die offensichtlichen Fälle früher ab."""
+    (z. B. Playwright) — das hier fängt die offensichtlichen Fälle früher ab.
+    Dekorative ::before/::after-Symbole sind keine eigenen Klickflächen;
+    echte Selektoren einer gemischten Liste bleiben messbar."""
     title = "Trefferfläche unter 44px"
     styles = ctx.files(*WEB_STYLE)
     if not styles:
@@ -757,7 +832,7 @@ def check_touch_targets(ctx: Context) -> CheckResult:
                           "Keine Stylesheets gefunden. Die verlässliche Messung "
                           "läuft im Browser (gerenderte Messung).", PLATFORM)
     rule = re.compile(r"([^{}]+)\{([^}]*)\}", re.DOTALL)
-    size = re.compile(r"(?:min-)?(?:height|width)\s*:\s*(\d+(?:\.\d+)?)px")
+    size = re.compile(r"(?<![\w-])(?:min-)?(?:height|width)\s*:\s*(\d+(?:\.\d+)?)px")
     interactive = re.compile(r"(?i)(button|\.btn|\[role=\"?button|a[:\s.,{]|input|"
                              r"\.link|\.tab|\.chip|\.icon-button|select)")
     findings: list[Finding] = []
@@ -766,7 +841,9 @@ def check_touch_targets(ctx: Context) -> CheckResult:
         body = strip_comments(sf.text, sf.ext)
         for m in rule.finditer(body):
             selector, decls = m.group(1), m.group(2)
-            if not interactive.search(selector):
+            targets = [part for part in selector.split(',')
+                       if not re.search(r"(?i)::?(?:before|after|marker|placeholder)\b", part)]
+            if not any(interactive.search(part) for part in targets):
                 continue
             measured += 1
             for sm in size.finditer(decls):
@@ -919,4 +996,3 @@ def check_search_selection_resets_category(ctx: Context) -> CheckResult:
                           "Keine Auswahl-Handler mit Suchfeld-Bereinigung gefunden.", PLATFORM)
     return result_for("web.search_selection_resets_category", title, findings, measured,
                       "Suchauswahl-Handler", PLATFORM)
-

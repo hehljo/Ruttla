@@ -179,6 +179,10 @@ def check_zero_tests(ctx: Context) -> CheckResult:
     severity=Severity.WARNING,
     guideline="CLAUDE.md § 'Ein Gate, das aus einem Artefakt liest, prüft den Stand des Artefakts'",
     self_tests=[
+        SelfTestCase(name="gesund: Dokumentationsadresse ist kein Artefaktread", files={
+            ".gitignore": "build/\n", "gates/check_web.py": "reference = 'https://docs.netlify.com/build/edge-functions/api/'\n"}, expect=Status.PASS),
+        SelfTestCase(name="defekt: Adresse verdeckt keinen lokalen Read", files={
+            ".gitignore": "build/\n", "gates/check_web.py": "reference = 'https://docs.netlify.com/build/edge-functions/api/'; read('build/old.json')\n"}, expect=Status.FAIL),
         SelfTestCase(
             name="Gate liest ignoriertes Artefakt",
             files={".gitignore": ".build/\n", "gates/check_x.mjs": "import { render } from '../.build/renderer.js';\n"},
@@ -188,6 +192,16 @@ def check_zero_tests(ctx: Context) -> CheckResult:
             name="Gate liest die Quelle",
             files={".gitignore": ".build/\n", "gates/check_x.mjs": "import { render } from '../src/renderer.ts';\n"},
             expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Browser-Gate schreibt neuen Bericht statt ihn zu lesen",
+            files={".gitignore": "test-results/\n", "scripts/verify-browser.mjs": "await page.screenshot({ path: 'test-results/mobile.png' });\nawait writeFile('test-results/live.json', result);\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Berichtschreiben verdeckt kein Artefaktlesen",
+            files={".gitignore": "test-results/\n", "scripts/verify-browser.mjs": "await page.screenshot({ path: 'test-results/mobile.png' }); readFile('test-results/old.json');\n"},
+            expect=Status.FAIL,
         ),
     ],
 )
@@ -227,9 +241,17 @@ def check_gate_artifact(ctx: Context) -> CheckResult:
     findings: list[Finding] = []
     for sf in gate_files:
         body = strip_comments(sf.text, sf.ext)
+        # HTTP documentation addresses are not reads from local build artifacts.
+        body = re.sub(r'https?://[^\s\"\'`<>]+', lambda m: ' ' * len(m.group()), body)
         for entry in ignored:
             pat = re.compile(r"[\"'`(\s/]" + re.escape(entry) + r"/")
             for m in pat.finditer(body):
+                line_start = body.rfind("\n", 0, m.start()) + 1
+                prefix = body[line_start:m.start()]
+                # A freshly written screenshot/report is an output, not a
+                # stale dependency. Keep reads elsewhere on the line visible.
+                if re.search(r"\b(?:writeFile(?:Sync)?|mkdir(?:Sync)?)\s*\(\s*$", prefix) or re.search(r"\.screenshot\s*\(\s*\{[^{};]*\bpath\s*:\s*$", prefix):
+                    continue
                 line_no = body.count("\n", 0, m.start()) + 1
                 raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""
                 findings.append(Finding(

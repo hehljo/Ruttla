@@ -1,5 +1,35 @@
 # STATUS
 
+## Server-only-Grenze (2026-09-30)
+
+- Neue explizite Browser-Importgrenze: reale private Matching-/Zitatmodule vor Verlagerung erkannt. Laufzeitimporte, Barrel-Exports, dynamische Literalimporte und Worker-URLs werden verfolgt; Typimporte ausgenommen. Keine IP-Klassifikation aus Namen.
+- 14 gesunde/isoliert kaputte Proben; ungeklärte Framework-/Alias-/berechnete Einstiege bleiben ungemessen. Ergänzende echte Build-Grenze ist Aufgabe des Zielprojekts.
+- Öffentliche wiederverwendbare Guideline und Katalogzuordnung ergänzt. Kein Commit/Push.
+
+## Entwurfswiederherstellung (2026-09-30)
+
+- Neues Advisory `web.textarea_draft_memory_only`: echte flüchtige CV-/Profiltext- und Antwortfelder vor dem Fix erkannt; direkte useState-Textareas und passende Web-Storage-Lese-/Schreibpfade werden eng geprüft. Indirekte Hooks/IndexedDB bleiben bewusst ungemessen.
+- Gesunde Referenz zuerst; fehlendes Speichern, fehlendes Wiederherstellen, falscher Schlüssel, fremdes Feld und Kommentar-Nachweis jeweils isoliert rot. Read-only-Anzeigen und indirekte Hooks werden nicht als geprüfte Wiederherstellung ausgegeben.
+- Fehlerklasse durch echten Dev-WebSocket-Abbruch mit nachfolgendem automatischem Reload reproduziert. Die App-Reparatur wurde gesondert im realen Browser über Reload, Browser-Neustart, konkurrierende Tabs und tatsächlichen Quota-Fehler geprüft; keine künstlichen Bewerber-/Providerantworten.
+- Öffentliche Web-Guideline um Entwurfsumfang, Save/Restore, Fehler/Löschung und Lifecycle-Gates ergänzt. Aktueller Gesamtbestand beim Lauf: 333/333 Gegenproben; 110 Unit-/Contracttests (109 bestanden, 1 optionaler Skip). Andere gleichzeitig vorhandene Änderungen bleiben erhalten.
+
+## Web-/Katalogprüfung (2026-09-30)
+
+- `web.touch_target_too_small`: dekorative Pseudoelemente und `line-height` sind keine realen Trefferflächen; gemischte Selektoren und kleine echte Controls bleiben erkennbar.
+- `web.legal_pages_missing`: Markdown-Nennungen und Kommentare belegen keine Pflichtseiten. Quellenpräsenz bleibt eine Heuristik, keine rechtliche oder Browserprüfung.
+- `gate.reads_from_gitignored_artifact`: direkt geschriebene Browserberichte/Screenshots gelten als Ausgabe; echte Reads auf derselben Zeile bleiben Befunde.
+- `i18n.catalog_key_parity`: flache statische TS/JS-Locale-Konstanten ergänzt. Tatsächlicher DE/EN-Katalog bestanden; isoliert entfernter EN-Schlüssel erkannt. Keine Ausführung von Zielcode; dynamische/verschachtelte und JSON-Kataloge bleiben ungemessen.
+- Katalog-Rationale zu Lokalisierung ergänzt; ausschließlich den historischen Healthy-Befund einer vorhandenen Godot-Szene korrigiert; private Roadmap-Bezeichnungen anonymisiert.
+- Aktueller Gesamtbestand einschließlich separat vorhandener Apple-Erweiterung: 317/317 Gegenproben, 110 Unit-/Contracttests (109 bestanden, 1 optionaler Skip); Changed-only ohne Blocker, 11 bestanden/18 ungemessen. Kein Commit/Push dieses Arbeitsblocks.
+
+## Fokusprüfung (2026-09-30)
+
+- Additiver Check `apple.swiftui_async_data_focus_write`: direkte FocusState-Zuweisung nach `await` in Datenmethoden als Advisory. Erkennt zwei reale Bibliotheks-Refreshstellen; reine Datenladung, synchrone Rückkehr und gleichnamiger normaler State bleiben unbeanstandet.
+- `self.`-Zuweisungen und Zuordnung zum konkreten Swift-Typ ergänzt; acht isolierte Gegenproben verhindern den Fehlalarm bei gleichnamigem gewöhnlichem State in einer anderen View.
+- `brand.hardcoded_in_display`: technische Swift-Package-Modul-/Produktnamen bleiben unbeanstandet; sichtbarer SwiftUI-Markentext im selben Manifest wird weiterhin gemeldet (zwei neue Gegenproben).
+- Prüfung dieses Fokus-Arbeitsstands: zunächst 330/330, abschließend 345/345 Selbsttestproben einschließlich gleichzeitig ergänzter Regeln; 110 Unit-/Contracttests beim Fokuslauf (109 bestanden, 1 optionaler Skip). Changed-only abschließend ohne Blocker, mit einem Advisory in der fremden server-only-Regelerweiterung (Referenz-URL als Build-Artefakt fehlklassifiziert). Eigene Fokus-/Package-Regeln bestanden. Kein Commit/Push dieses Fokus-Arbeitsblocks wegen gleichzeitig bearbeiteter unabhängiger Änderungen; diese bleiben erhalten.
+- Keine Behauptung einer vollständigen Swift-Datenflussanalyse oder Geräteprüfung; indirekte Helper/Bindings und tatsächliche Modalität bleiben offen.
+
 ## Validierte Korrekturen (2026-09-29)
 
 - Zwei additive Apple-Advisories: `apple.swiftui_invisible_focus_target` erkennt direkt fokussierbare transparente 1-Pixel-Ziele; `apple.release.scheme_test_action_empty` erkennt fehlende/leer gelassene Testaktionen im Shared Scheme bei vorhandenem Test-Target.

@@ -162,6 +162,15 @@ that must only name APIs that actually exist.
   best-effort operations, so Ruttla reports them as advisory findings.
 - **Legal:** German sites need an imprint (§ 5 DDG) and a privacy policy
   (GDPR Art. 13) before deployment.
+- **Draft recovery:** React state does not survive reloads or discarded tabs.
+  Agree the scope before storing sensitive drafts; save edits, restore before
+  editing, show storage failures, and provide explicit deletion and a backup.
+  Test unsent input, background/freeze, reload, browser restart and concurrent
+  tabs in a real browser. Do not rely on `unload` to save mobile data. The
+  bounded `web.textarea_draft_memory_only` advisory covers direct React state
+  and visible Web Storage paths; indirect hooks/IndexedDB need browser proof.
+  References: [Page Lifecycle](https://developer.chrome.com/docs/web-platform/page-lifecycle-api),
+  [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API).
 
 <a id="game-development-guidelines-godot"></a>
 ### Game development guidelines (Godot)
@@ -227,3 +236,27 @@ timeout; exchange-rate lookups must not fall back silently to a hard-coded
 number. References:
 <https://apscheduler.readthedocs.io/en/3.x/userguide.html#missed-job-executions-and-coalescing>,
 <https://www.python-httpx.org/logging/>.
+
+
+<a id="server-only-boundary"></a>
+### Server-only boundary
+
+Keep proprietary prompts, ranking rules, provider orchestration and credentials
+behind a server endpoint. Browser code can be downloaded and inspected;
+minification and removing source maps are not a secrecy boundary. Declare
+private JS/TS modules with a standalone `// @server-only` comment or a
+`*.server.ts/js` filename. Public API shapes and rendering remain shareable.
+The offline gate follows local imports, re-exports, literal dynamic imports
+and `new URL(..., import.meta.url)` worker references from HTML module entries.
+Pure type imports are excluded. Framework entrypoints, custom aliases and
+computed imports require a real bundler gate; unmeasured is not success.
+
+Reject private modules during the actual frontend build too. Serving only
+built static assets prevents source directories from becoming public. Server
+responses must expose only necessary results and must not log or cache
+applicant bodies. Select Edge or regional Functions using their actual CPU,
+SDK, timeout and data-processing constraints. An endpoint can still be
+queried and its behaviour reproduced; this is not complete copycat protection.
+References: <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules>,
+<https://docs.netlify.com/build/edge-functions/api/>,
+<https://docs.netlify.com/build/edge-functions/limits/>.
