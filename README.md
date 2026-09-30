@@ -137,5 +137,4 @@ only from the installed package (ADR-0005).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) — a new rule needs a real failure, a
 broken and a healthy probe, a false-positive analysis and a fix hint that only
-names APIs that exist. Security: [SECURITY.md](SECURITY.md). Roadmap:
-[MASTER_ROADMAP.md](MASTER_ROADMAP.md). License: Apache-2.0.
+names APIs that exist. Security: [SECURITY.md](SECURITY.md). License: Apache-2.0.
