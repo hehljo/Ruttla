@@ -110,6 +110,14 @@ Shell snippets in docs are copied verbatim. An unquoted `<HOST_IP>`
 placeholder becomes an I/O redirection in a POSIX shell. Markdown with
 trailing whitespace fails `git diff --check`.
 
+<a id="internal-notes-stay-local"></a>
+### Internal notes stay local
+
+Session handovers and the private master roadmap describe work in progress,
+local paths and open problems. They belong in the working copy, not in what a
+push publishes: keep them in `.gitignore`. Once pushed, they remain in the
+history even after deletion.
+
 ---
 
 ## Platform guideline families

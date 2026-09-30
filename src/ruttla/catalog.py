@@ -84,6 +84,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Long-running Python services: scheduler misfires, token logging, data gaps, retries."),
     ("GUIDELINES.md § Python authentication", "python-authentication",
      "Password comparisons must handle non-ASCII Unicode without runtime errors."),
+    ("GUIDELINES.md § Internal notes", "internal-notes-stay-local",
+     "Session handovers and private roadmaps stay out of published repositories."),
     ("GUIDELINES.md § Documentation", "documentation-that-can-be-executed",
      "Docs snippets must be copy-paste safe and diff-clean."),
 ]

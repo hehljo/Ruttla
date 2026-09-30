@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-118 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+119 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -11,7 +11,7 @@
 | godot | 18 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
-| universal | 24 | 3 |
+| universal | 25 | 3 |
 | unreal | 6 | 0 |
 | web | 16 | 2 |
 
@@ -4975,6 +4975,72 @@ export const MODES = ["easy", "normal", "hard", "insane"];
 ```text
 import { MODES } from "./a";
 const LEVELS = MODES;
+```
+
+</details>
+
+### `repo.internal_notes_published`
+
+**Interne Arbeitsnotizen (Handover/Master-Roadmap) im veröffentlichten Repo**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § Internal notes stay local
+- Public rationale: [GUIDELINES.md › internal-notes-stay-local](GUIDELINES.md#internal-notes-stay-local)
+
+<details><summary>Why it exists</summary>
+
+```text
+Findet Übergabeprotokolle und die interne Master-Roadmap in Dateien,
+die ein Push veröffentlichen würde.
+
+Belegt am 30.09.2026: eine App war live im Mac App Store, ihr
+öffentliches Repo trug HANDOVER.md und MASTER_ROADMAP.md mit internen
+Zwischenständen. Lokal bleiben sie — nur eben per .gitignore.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Handover und Master-Roadmap liegen im Baum</summary>
+
+`README.md`
+
+```text
+# App
+```
+
+`HANDOVER.md`
+
+```text
+# Übergabe
+```
+
+`docs/MASTER_ROADMAP.md`
+
+```text
+# Roadmap
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Nur Produktdoku</summary>
+
+`README.md`
+
+```text
+# App
+```
+
+`CHANGELOG.md`
+
+```text
+# Changelog
+```
+
+`docs/ROADMAP-public.md`
+
+```text
+# Öffentliche Roadmap
 ```
 
 </details>
