@@ -54,15 +54,23 @@ _LOCALE_DECLARATION = re.compile(
     r"\b(?:export\s+)?const\s+([a-z]{2,3}(?:_[A-Za-z]{2,4})?)\s*"
     r"(?::[^=;{}]+)?=\s*")
 _STATIC_KEY = re.compile(r"\s*([A-Za-z_$][\w$]*|'[^'\\]*'|\"[^\"\\]*\")\s*:")
+# Values do not define catalogue keys. Accept plain templates and simple
+# member substitutions without evaluating them; arbitrary expressions stay
+# unsupported, as the string masker does not parse nested JS expressions.
+_STATIC_TEMPLATE = (
+    r"`(?:[^`\\$]|\\.|\$(?!\{)|"
+    r"\$\{\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*\})*`"
+)
 _STATIC_VALUE = re.compile(
-    r"(?:'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"|"
+    rf"(?:{_STATIC_TEMPLATE}|'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"|"
     r"[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*|-?\d+(?:\.\d+)?)\s*", re.S)
 
 
 def _literal_locale_keys(sf):
     """Read flat, static locale objects; never evaluate imported target code.
 
-    Only literal keys and string/scalar/member-reference values are supported.
+    Literal keys and string/scalar/member-reference values are supported,
+    including template text with simple member-reference substitutions.
     Spreads, computed keys, nested objects and expressions remain unmeasured.
     Strings/comments cannot introduce declarations, braces or separators.
     """
@@ -498,6 +506,56 @@ def check_string_concat(ctx: Context) -> CheckResult:
             expect_finding_contains="finish",
         ),
         SelfTestCase(
+            name="healthy template values with central brand and punctuation",
+            files={"src/i18n.ts": "const de = {welcome: `Hallo, ${BRAND.name}. {Text} // ok`, end: 'Ende'};\n"
+                   "const en = {welcome: `Hello, ${BRAND.name}. {Text} // ok`, end: 'End'};"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="healthy plain template with escaped backtick and dollar",
+            files={"src/i18n.ts": "const de = {note: `Preis $5, \\`Text\\`, \\${name}`};\n"
+                   "const en = {note: `Price $5, \\`text\\`, \\${name}`};"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="missing key after a brand template is detected",
+            files={"src/i18n.ts": "const de = {welcome: `Hallo, ${BRAND.name}`, end: 'Ende'};\n"
+                   "const en = {welcome: `Hello, ${BRAND.name}`};"},
+            expect=Status.FAIL,
+            expect_finding_contains="end",
+        ),
+        SelfTestCase(
+            name="extra key after a brand template is detected",
+            files={"src/i18n.ts": "const de = {welcome: `Hallo, ${BRAND.name}`};\n"
+                   "const en = {welcome: `Hello, ${BRAND.name}`, end: 'End'};"},
+            expect=Status.FAIL,
+            expect_finding_contains="end",
+        ),
+        SelfTestCase(
+            name="template interpolation call remains unmeasured",
+            files={"src/i18n.ts": "const de = {welcome: `Hallo, ${getName()}`};\n"
+                   "const en = {welcome: `Hello, ${BRAND.name}`};"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="template does not hide a spread",
+            files={"src/i18n.ts": "const de = {welcome: `Hallo, ${BRAND.name}`, ...extra};\n"
+                   "const en = {welcome: `Hello, ${BRAND.name}`};"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="template does not hide computed keys",
+            files={"src/i18n.ts": "const de = {[key]: `Hallo, ${BRAND.name}`};\n"
+                   "const en = {welcome: `Hello, ${BRAND.name}`};"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
+            name="nested template expression remains unmeasured",
+            files={"src/i18n.ts": "const de = {welcome: `Hallo, ${`nested`}`};\n"
+                   "const en = {welcome: `Hello, ${BRAND.name}`};"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
             name="JS quoted keys comments and punctuation in values",
             files={"src/locales.js": "const de = {/* note */ 'tab.home': 'Start: {a,b}', link: 'https://example.org'};\n"
                    "const en = {'tab.home': 'Home: {a,b}', link: 'https://example.org'};"},
@@ -557,6 +615,8 @@ def check_catalog_key_parity(ctx: Context) -> CheckResult:
     """Vergleicht Apple-Stringskataloge mit gleichem Dateinamen sowie flache
     TS/JS-Literalkataloge mit Locale-Konstanten (z. B. `const de`, `const en`)
     in Katalogpfaden. Jede Sprache muss die Vereinigung der Schlüssel tragen.
+    Template-Werte mit einfachen Member-Referenzen sind lesbar; es werden
+    nur Schlüssel verglichen, keine Markenwerte oder Übersetzungen ausgeführt.
 
     Eine Katalogdatei, die nur in EINER Sprache existiert (z. B.
     InfoPlist.strings), hat nichts zum Vergleichen und zählt nicht als

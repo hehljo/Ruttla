@@ -3,16 +3,16 @@
 
 # Rule catalog
 
-133 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+135 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 42 | 9 |
 | dotnet | 9 | 0 |
-| godot | 18 | 0 |
+| godot | 19 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
-| universal | 26 | 3 |
+| universal | 27 | 3 |
 | unreal | 6 | 0 |
 | web | 20 | 3 |
 
@@ -3512,6 +3512,65 @@ run/main_scene="res://scenes/main.tscn"
 
 </details>
 
+### `godot.mobile_button_touch_target_too_small`
+
+**Button-Touch-Target für Mobile-Auflösung (1080p) zu klein (unter 80px Höhe)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Display & Orientierung
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+In hochauflösenden mobilen Godot-Projekten (z. B. 1080x1920 Portrait)
+müssen Buttons ergonomisch bedienbar sein. Eine Höhe unter 80px
+verfehlt die empfohlenen 44-48pt Touch-Ziele und führt zu Fehlklicks.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Button mit nur 64px Höhe in 1080p Mobile-Projekt</summary>
+
+`project.godot`
+
+```text
+[display]
+window/size/viewport_width=1080
+window/size/viewport_height=1920
+window/handheld/orientation=1
+```
+
+`scenes/menu.tscn`
+
+```text
+[node name="BackButton" type="Button"]
+custom_minimum_size = Vector2(140, 64)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Button mit 110px Höhe in 1080p Mobile-Projekt</summary>
+
+`project.godot`
+
+```text
+[display]
+window/size/viewport_width=1080
+window/size/viewport_height=1920
+window/handheld/orientation=1
+```
+
+`scenes/menu.tscn`
+
+```text
+[node name="BackButton" type="Button"]
+custom_minimum_size = Vector2(200, 110)
+```
+
+</details>
+
 ### `godot.mobile_orientation_mismatch`
 
 **Handheld-Orientierung passt nicht zum Viewport (Verzerrung/Black Bars auf Mobile)**
@@ -4642,6 +4701,48 @@ stehen und bei direkter Shell-Eingabe als I/O-Redirection fehlinterpretiert werd
 
 </details>
 
+### `gate.container_leaks_anonymous_volume`
+
+**Wegwerf-Container hinterlässt sein anonymes Volume**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Gates
+- Public rationale: [GUIDELINES.md › gates-must-not-lie](GUIDELINES.md#gates-must-not-lie)
+
+<details><summary>Why it exists</summary>
+
+```text
+Prüfgegenstand ist jeder Start eines Images mit VOLUME ohne `--rm`.
+
+Er ist sauber, wenn dieselbe Datei die Volumes wieder entfernt
+(`docker rm -v`/`--volumes`, `docker volume rm|prune`). Compose-Stacks
+(`docker compose down -v`) sind hier nicht gemessen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Originalfall test-migrations.sh</summary>
+
+`t.sh`
+
+```text
+trap 'docker rm -f $C >/dev/null 2>&1' EXIT
+docker run -d --name $C -e POSTGRES_PASSWORD=test postgres:17 >/dev/null
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: --rm</summary>
+
+`t.sh`
+
+```text
+docker run --rm -d --name $C postgres:17
+```
+
+</details>
+
 ### `gate.pipe_swallows_exit_status`
 
 **Exit-Status wird durch eine Pipe verfälscht**
@@ -4797,6 +4898,8 @@ fi
 Vergleicht Apple-Stringskataloge mit gleichem Dateinamen sowie flache
 TS/JS-Literalkataloge mit Locale-Konstanten (z. B. `const de`, `const en`)
 in Katalogpfaden. Jede Sprache muss die Vereinigung der Schlüssel tragen.
+Template-Werte mit einfachen Member-Referenzen sind lesbar; es werden
+nur Schlüssel verglichen, keine Markenwerte oder Übersetzungen ausgeführt.
 
 Eine Katalogdatei, die nur in EINER Sprache existiert (z. B.
 InfoPlist.strings), hat nichts zum Vergleichen und zählt nicht als

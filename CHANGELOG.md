@@ -6,6 +6,7 @@ when added, changed or deprecated.
 ## [Unreleased] — 0.1.0 (public preview)
 
 ### Changed
+- `i18n.catalog_key_parity`: read template string values with plain text and simple member substitutions. A central brand in a greeting no longer hides an otherwise flat catalogue. Missing/extra keys remain findings; interpolation calls, nested templates, spreads and computed keys remain unmeasured. Target code is never executed.
 - Integration guidance distinguishes a sample payload's demonstrated product branch from unconfirmed target-product contracts. Public provenance is anonymised and the hash guard extended; the temporary-file rationale no longer implies a legacy file-count limit on current .NET.
 - `i18n.string_concatenation`: replace overlapping literal quantifiers with complete string tokens; a healthy 6 KB data literal previously stalled the scan. Long-literal and following-defect probes plus a bounded CLI regression prevent recurrence.
 - `web.supabase_email_login_without_smtp`: parse TOML instead of regex fragments; enabled SMTP needs a nonempty host, commented `enabled=false` stays disabled, invalid configuration remains unmeasured. Diagnostic distinguishes local configuration from unmeasured remote SMTP and delivery.

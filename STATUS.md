@@ -1,5 +1,29 @@
 # STATUS
 
+## Katalogparität bei Templatewerten und Service-Handover (2026-10-01)
+
+- Reale flache DE/EN-Kataloge mit einer Begrüßung wie
+  `welcome: \`Hallo, ${BRAND.name}\`` waren vollständig ungemessen.
+  Der Parser akzeptiert jetzt schlichte Templatewerte und einfache
+  Member-Referenzen; Zielcode und importierte Markenwerte werden nicht ausgeführt.
+  Funktionsaufrufe, verschachtelte Templates, Spreads und berechnete Schlüssel
+  bleiben ungemessen. Bestehende Regel-ID/Exit-/Schweregradverträge erhalten.
+- Intakter realer Katalog vor isolierter Schlüsselentfernung/-ergänzung geprüft:
+  gesund Exit0, beide Einzeldefekte im Strict-Modus Exit1 mit konkretem Schlüssel.
+  Acht neue Referenz-/Defekt-/Unknown-Proben;463/463 Selbsttestproben bestanden.
+-119 Unit-/Contracttests:118 bestanden/ein optionaler SARIF-Schema-Skip.
+  Zunächst veraltete Regeldoku reproduziert (Registry134, Katalog133),
+  anschließend generiert und vollständige Suite erneut bestanden.
+  `gen_rule_docs.py --check` und Diff-Check bestanden. Changed-only und
+  strikter Selbstscan:je11PASS/0FAIL/22UNMEASURED/0Blocker.
+  Ruff auf dem verwendeten Startpfad nicht vorhanden; Lint ungemessen.
+- Wiederverwendbare Service-Guideline trennt Env-Startweg, nachträglich
+  eingelesene Prozessvariablen, HTTP-Readiness, Verarbeitungsfreigabe und echten
+  Provider-/Kosten-/Speichernachweis. Nur eigene Unit neu starten, Dienst beim
+  Sessionabschluss erhalten. Keine spekulative Runtime-Regel hinzugefügt.
+- Dieser Patch bleibt lokal; kein Commit/Push beauftragt oder ausgeführt.
+  Vorherige Main-Sicherungen unten gehören zu früheren freigegebenen Blöcken.
+
 ## Main-Sicherung und Integrationsnachweis (2026-10-01)
 
 - Nutzer hat Commit/Push des geprüften Ruttla-Arbeitsstands auf main freigegeben.

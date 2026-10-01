@@ -432,8 +432,28 @@ browser download event and verify its contents before classifying the
 control as unwired. Likewise, wait for the actual application/editor before
 layout or design measurement; a clean loading spinner is no app audit.
 
+For flat locale catalogues, a template value containing a central brand does
+not make the object keys dynamic. The parity scanner can read plain templates
+and simple member substitutions without resolving or executing values.
+Interpolation calls, nested templates, spreads and computed keys still remain
+unmeasured. Validate a real intact catalogue before independently removing or
+adding a key; compiling the application remains a separate gate.
+
+For a private Node service, verify its working directory, actual startup command
+and proxy target before restarting only that unit. An environment file read at
+startup is not hot reloaded. Keep keys out of status output; report only their
+presence, model selection and processing approval. Node-added environment
+values need not appear in `/proc/PID/environ`, so their absence there is not proof
+of failed loading. Verify the same start path and the running status endpoint.
+HTTP 200 and an enabled AI flag prove configuration/readiness, not account/model
+access, actual inference, charges, stored answers or consent. Keep the service
+running at handover unless stopping it was explicitly requested.
+
 References: <https://developers.openai.com/api/docs/guides/function-calling>,
-<https://playwright.dev/docs/downloads>.
+<https://playwright.dev/docs/downloads>,
+<https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals>,
+<https://nodejs.org/api/cli.html#--env-filefile>,
+<https://man7.org/linux/man-pages/man5/proc_pid_environ.5.html>.
 
 ### Anchored selection controls inside modal navigation
 
