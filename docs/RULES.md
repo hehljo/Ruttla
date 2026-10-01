@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-136 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+137 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 42 | 9 |
 | dotnet | 9 | 0 |
-| godot | 20 | 0 |
+| godot | 21 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 27 | 3 |
@@ -3411,6 +3411,54 @@ func setup():
 extends Control
 func setup():
 	$Button.text = tr("BTN_START")
+```
+
+</details>
+
+### `godot.instant_hitbox_overlapping_bodies`
+
+**Kurzlebige Hitbox nutzt get_overlapping_bodies() statt PhysicsDirectSpaceState2D.intersect_shape()**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+In Godot 4 führt get_overlapping_bodies() bei kurzlebigen Hitboxen (wie
+Peitschen-Hieben oder Explosionen) regelmäßig zu Null-Treffern, weil neu erzeugte
+Area2Ds auf bereits überlappende Körper erst nach mehreren Simulations-Ticks reagieren.
+Lösung: Sofortige, synchrone Kollisionsabfrage über
+PhysicsDirectSpaceState2D.intersect_shape(PhysicsShapeQueryParameters2D).
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Hitbox mit get_overlapping_bodies nach await physics_frame</summary>
+
+`scripts/whip.gd`
+
+```text
+extends Node2D
+func strike():
+	var a = Area2D.new()
+	await get_tree().physics_frame
+	for b in a.get_overlapping_bodies():
+		b.take_damage(10)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Legitimer get_overlapping_bodies Aufruf ohne await</summary>
+
+`scripts/zone.gd`
+
+```text
+extends Area2D
+func check_occupants():
+	var count = get_overlapping_bodies().size()
 ```
 
 </details>

@@ -971,6 +971,90 @@ def check_unsupported_emoji_in_ui(ctx: Context) -> CheckResult:
                       "UI-Textstellen", PLATFORM)
 
 
+@register(
+    "godot.instant_hitbox_overlapping_bodies",
+    "Kurzlebige Hitbox nutzt get_overlapping_bodies() statt PhysicsDirectSpaceState2D.intersect_shape()",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik",
+    self_tests=[
+        SelfTestCase(
+            name="Hitbox mit get_overlapping_bodies nach await physics_frame",
+            files={
+                "scripts/whip.gd": (
+                    "extends Node2D\n"
+                    "func strike():\n"
+                    "\tvar a = Area2D.new()\n"
+                    "\tawait get_tree().physics_frame\n"
+                    "\tfor b in a.get_overlapping_bodies():\n"
+                    "\t\tb.take_damage(10)\n"
+                )
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="get_overlapping_bodies",
+        ),
+        SelfTestCase(
+            name="Legitimer get_overlapping_bodies Aufruf ohne await",
+            files={
+                "scripts/zone.gd": (
+                    "extends Area2D\n"
+                    "func check_occupants():\n"
+                    "\tvar count = get_overlapping_bodies().size()\n"
+                )
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_instant_hitbox_query(ctx: Context) -> CheckResult:
+    """In Godot 4 führt get_overlapping_bodies() bei kurzlebigen Hitboxen (wie
+    Peitschen-Hieben oder Explosionen) regelmäßig zu Null-Treffern, weil neu erzeugte
+    Area2Ds auf bereits überlappende Körper erst nach mehreren Simulations-Ticks reagieren.
+    Lösung: Sofortige, synchrone Kollisionsabfrage über
+    PhysicsDirectSpaceState2D.intersect_shape(PhysicsShapeQueryParameters2D)."""
+    title = "Kurzlebige Hitbox nutzt get_overlapping_bodies() statt intersect_shape()"
+    files = _gd(ctx)
+    if not files:
+        return unmeasured("godot.instant_hitbox_overlapping_bodies", title,
+                          "Keine GDScript-Dateien gefunden.", PLATFORM)
+
+    await_physics = re.compile(r"await\s+get_tree\(\)\.physics_frame")
+    overlap_pat = re.compile(r"\.get_overlapping_bodies\(\)")
+
+    findings: list[Finding] = []
+    measured = 0
+
+    for sf in files:
+        body = strip_comments(sf.text, sf.ext)
+        if "get_overlapping_bodies" not in body:
+            continue
+        measured += 1
+        lines = sf.lines
+        for idx, line in enumerate(lines, start=1):
+            if overlap_pat.search(line):
+                # Prüfen, ob in den vorherigen 5 Zeilen ein await physics_frame stand (typisches Hitbox-Muster)
+                start_window = max(0, idx - 6)
+                preceding_text = "\n".join(lines[start_window:idx])
+                if await_physics.search(preceding_text):
+                    findings.append(Finding(
+                        check_id="godot.instant_hitbox_overlapping_bodies",
+                        severity=Severity.WARNING,
+                        message="Hitbox nutzt 'get_overlapping_bodies()' nach 'await physics_frame' — reagiert bei neuen Area2Ds unzuverlässig.",
+                        file=sf.rel,
+                        line=idx,
+                        evidence=snippet(line),
+                        fix="Nutze PhysicsDirectSpaceState2D.intersect_shape(PhysicsShapeQueryParameters2D) für synchrone Treffererfassung.",
+                        guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik",
+                    ))
+
+    if measured == 0:
+        return unmeasured("godot.instant_hitbox_overlapping_bodies", title,
+                          "Keine get_overlapping_bodies()-Aufrufe gefunden.", PLATFORM)
+    return result_for("godot.instant_hitbox_overlapping_bodies", title, findings, measured,
+                      "Hitbox-Abfragen", PLATFORM)
+
+
+
 
 
 
