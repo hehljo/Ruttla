@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-135 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+136 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 42 | 9 |
 | dotnet | 9 | 0 |
-| godot | 19 | 0 |
+| godot | 20 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 27 | 3 |
@@ -3831,6 +3831,49 @@ func _ready():
 extends Control
 func _ready():
 	$Label.add_theme_font_size_override("font_size", 28)
+```
+
+</details>
+
+### `godot.unsupported_emoji_in_ui`
+
+**Unicode-Emoji in Godot UI-Texten ohne dedizierten Emoji-Font (erzeugt Tofu-Kästchen auf Web/Canvas)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Godots eingebetteter Standardfont unterstützt auf WebAssembly (HTML5) und
+vielen Mobilplattformen keine Farbemojis (wie ⚔, 💰, 👑, 🛡).
+Ohne explizite Einbindung einer .ttf/.otf mit Emoji-Glyphen rendert Godot
+diese Symbole als leere Rechtecke ('Tofu') oder Artefakte.
+Lösung: TextureRect/SVG-Icons oder Text-Bezeichner nutzen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Emoji in Label-Text</summary>
+
+`scenes/hud.tscn`
+
+```text
+[node name="GoldLabel" type="Label"]
+text = "💰 100"
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Normaler Text ohne Emoji</summary>
+
+`scenes/hud.tscn`
+
+```text
+[node name="GoldLabel" type="Label"]
+text = "Gold: 100"
 ```
 
 </details>

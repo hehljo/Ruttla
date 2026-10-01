@@ -901,5 +901,76 @@ def check_theme_override_slash_syntax(ctx: Context) -> CheckResult:
                       "Theme-Override-Zugriffe", PLATFORM)
 
 
+@register(
+    "godot.unsupported_emoji_in_ui",
+    "Unicode-Emoji in Godot UI-Texten ohne dedizierten Emoji-Font (erzeugt Tofu-Kästchen auf Web/Canvas)",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes",
+    self_tests=[
+        SelfTestCase(
+            name="Emoji in Label-Text",
+            files={
+                "scenes/hud.tscn": '[node name="GoldLabel" type="Label"]\ntext = "💰 100"\n',
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="Emoji",
+        ),
+        SelfTestCase(
+            name="Normaler Text ohne Emoji",
+            files={
+                "scenes/hud.tscn": '[node name="GoldLabel" type="Label"]\ntext = "Gold: 100"\n',
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_unsupported_emoji_in_ui(ctx: Context) -> CheckResult:
+    """Godots eingebetteter Standardfont unterstützt auf WebAssembly (HTML5) und
+    vielen Mobilplattformen keine Farbemojis (wie ⚔, 💰, 👑, 🛡).
+    Ohne explizite Einbindung einer .ttf/.otf mit Emoji-Glyphen rendert Godot
+    diese Symbole als leere Rechtecke ('Tofu') oder Artefakte.
+    Lösung: TextureRect/SVG-Icons oder Text-Bezeichner nutzen."""
+    title = "Unicode-Emoji in Godot UI-Text"
+    files = list(ctx.files(".tscn")) + list(_gd(ctx))
+    if not files:
+        return unmeasured("godot.unsupported_emoji_in_ui", title,
+                          "Keine Szenen- oder GDScript-Dateien gefunden.", PLATFORM)
+
+    emoji_pat = re.compile(r"([\U0001F300-\U0001FAFF]|[\u2600-\u27BF])")
+    # Nur Textzuweisungen oder Szenentexte prüfen
+    ui_text_pat = re.compile(r'(?:text\s*=\s*"|\.text\s*=\s*).*?([\U0001F300-\U0001FAFF]|[\u2600-\u27BF])')
+
+    findings: list[Finding] = []
+    measured = 0
+
+    for sf in files:
+        lines = sf.lines
+        for idx, line in enumerate(lines, start=1):
+            if "text" not in line:
+                continue
+            measured += 1
+            m = ui_text_pat.search(line)
+            if m:
+                found_emoji = m.group(1)
+                findings.append(Finding(
+                    check_id="godot.unsupported_emoji_in_ui",
+                    severity=Severity.WARNING,
+                    message=f"Unicode-Emoji '{found_emoji}' in Anzeigetext gefunden — Godots Default-Font erzeugt auf Web/Mobile Tofu-Kästchen.",
+                    file=sf.rel,
+                    line=idx,
+                    evidence=snippet(line),
+                    fix="Statt Emoji ein TextureRect mit SVG/PNG-Icon oder Text (z. B. 'Gold:', 'Kills:') verwenden.",
+                    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes",
+                ))
+
+    if measured == 0:
+        return unmeasured("godot.unsupported_emoji_in_ui", title,
+                          "Keine UI-Texteinträge gefunden.", PLATFORM)
+    return result_for("godot.unsupported_emoji_in_ui", title, findings, measured,
+                      "UI-Textstellen", PLATFORM)
+
+
+
 
 
