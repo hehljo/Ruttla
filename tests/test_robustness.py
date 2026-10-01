@@ -125,6 +125,29 @@ class PathRobustness(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first, sorted(first, key=lambda r: (r.split("/")[0], r)))
 
+    def _link_or_skip(self, link: str, target: str) -> None:
+        try:
+            os.symlink(target, link)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"symlinks unavailable: {exc}")
+
+    def test_symlink_alias_inside_root_is_scanned_once(self) -> None:
+        # Hostless test packages link the real sources; scanning the link too
+        # reported every finding twice and the file as its own duplicate.
+        with make_tree({"src/real.py": "values = [1, 2, 3]\n", "pkg/keep.py": "x = 1\n"}) as tmp:
+            self._link_or_skip(os.path.join(tmp, "pkg/alias.py"), os.path.join(tmp, "src/real.py"))
+            rels = [f.rel for f in Context(tmp, Config()).all_files()]
+            code, report = cli_json(tmp, "--check", "quality.duplicate_literal_list")
+        self.assertEqual(sorted(rels), ["pkg/keep.py", "src/real.py"])
+        self.assertEqual(report["coverage"]["files_skipped_symlink_alias"], 1)
+
+    def test_symlink_alias_to_excluded_target_is_still_scanned(self) -> None:
+        # Gegenrichtung: ist das Ziel selbst nicht erfasst, trägt der Link den Inhalt.
+        with make_tree({"node_modules/lib.py": "x = 1\n", "src/keep.py": "y = 2\n"}) as tmp:
+            self._link_or_skip(os.path.join(tmp, "src/lib.py"), os.path.join(tmp, "node_modules/lib.py"))
+            rels = sorted(f.rel for f in Context(tmp, Config()).all_files())
+        self.assertEqual(rels, ["src/keep.py", "src/lib.py"])
+
     def test_finding_normalizes_windows_backslashes(self) -> None:
         f = Finding(check_id="x.y", severity=Severity.WARNING, message="msg", file="src\\sub\\file.py")
         self.assertEqual(f.file, "src/sub/file.py")

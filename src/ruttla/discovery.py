@@ -99,6 +99,7 @@ class Coverage:
     skipped: list[SkippedFile] = field(default_factory=list)
     excluded_agent_files: int = 0
     excluded_by_config: int = 0
+    aliases_skipped: int = 0
     max_file_bytes: int = 0
 
     def to_dict(self) -> dict:
@@ -108,6 +109,7 @@ class Coverage:
             "files_skipped_total": len(self.skipped),
             "files_excluded_agent_instructions": self.excluded_agent_files,
             "files_excluded_by_config": self.excluded_by_config,
+            "files_skipped_symlink_alias": self.aliases_skipped,
             "max_file_bytes": self.max_file_bytes,
         }
 
@@ -215,11 +217,32 @@ def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
     coverage = Coverage(max_file_bytes=config.max_file_bytes)
     exclude_dirs = DEFAULT_EXCLUDE_DIRS | set(config.exclude_dirs)
     root_real = os.path.realpath(root)
+    aliases: list[tuple[str, str, str, str]] = []
 
     def walk_error(exc: OSError) -> None:
         raise GateInputError(
             f"Eingabeverzeichnis nicht lesbar: {exc.filename or root}: {exc}"
         ) from exc
+
+    def admit(full: str, rel: str, name: str) -> None:
+        try:
+            size = os.path.getsize(full)
+            if size > config.max_file_bytes:
+                # Not silent any more (P02-T008): reported as coverage
+                # diagnostic in every output format.
+                coverage.skipped.append(SkippedFile(rel, "max_file_bytes", size))
+                return
+            # Nicht erst hoffen, dass irgendein Check die Datei liest:
+            # eine unlesbare Eingabe macht den gesamten Lauf ungültig.
+            with open(full, "rb"):
+                pass
+        except OSError as exc:
+            raise GateInputError(
+                f"Eingabedatei nicht prüfbar: {rel}: {exc}"
+            ) from exc
+        found.append(SourceFile(
+            path=full, rel=rel, ext=os.path.splitext(name)[1].lower()
+        ))
 
     for dirpath, dirnames, filenames in os.walk(root, onerror=walk_error):
         # Deterministic order on every OS and file system (FR-012).
@@ -245,23 +268,21 @@ def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
                 raise GateInputError(
                     f"Eingabepfad verlässt die Prüfwurzel: {rel}"
                 )
-            try:
-                size = os.path.getsize(full)
-                if size > config.max_file_bytes:
-                    # Not silent any more (P02-T008): reported as coverage
-                    # diagnostic in every output format.
-                    coverage.skipped.append(SkippedFile(rel, "max_file_bytes", size))
-                    continue
-                # Nicht erst hoffen, dass irgendein Check die Datei liest:
-                # eine unlesbare Eingabe macht den gesamten Lauf ungültig.
-                with open(full, "rb"):
-                    pass
-            except OSError as exc:
-                raise GateInputError(
-                    f"Eingabedatei nicht prüfbar: {rel}: {exc}"
-                ) from exc
-            found.append(SourceFile(
-                path=full, rel=rel, ext=os.path.splitext(name)[1].lower()
-            ))
+            if os.path.islink(full):
+                # Ein Link auf eine Datei innerhalb der Wurzel ist ein Alias
+                # (z. B. hostlose Testpakete, die echte Quellen verlinken). Doppelt
+                # gelesen meldet er jeden Befund zweimal und sich selbst als Duplikat.
+                aliases.append((full, rel, name, resolved))
+                continue
+            admit(full, rel, name)
+    scanned = {os.path.realpath(sf.path) for sf in found}
+    for full, rel, name, resolved in aliases:
+        if resolved in scanned:
+            coverage.aliases_skipped += 1
+            continue
+        # Ziel nicht selbst erfasst (ausgeschlossen oder ebenfalls nur Alias):
+        # dann trägt der Alias den Inhalt in die Prüfung.
+        admit(full, rel, name)
+        scanned.add(resolved)
     coverage.files_scanned = len(found)
     return found, coverage
