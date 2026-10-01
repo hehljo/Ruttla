@@ -3,17 +3,18 @@
 
 # Rule catalog
 
-121 rules in 7 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+133 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 42 | 9 |
+| dotnet | 9 | 0 |
 | godot | 18 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
-| universal | 25 | 3 |
+| universal | 26 | 3 |
 | unreal | 6 | 0 |
-| web | 18 | 3 |
+| web | 20 | 3 |
 
 ## Pack `apple`
 
@@ -2677,6 +2678,455 @@ struct V: View { var body: some View { Text("x") } }
 
 </details>
 
+## Pack `dotnet`
+
+### `dotnet.async_void_outside_event_handler`
+
+**async void außerhalb eines Event-Handlers**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_DOTNET_UI.md § 4
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Eine Ausnahme aus einer async-void-Methode lässt sich nicht abfangen und beendet den Prozess über den Dispatcher; Aufrufer können nicht warten. Zulässig nur für Event-Handler (Parameter vom Typ *EventArgs).
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): async void mit Nutzdaten-Parameter</summary>
+
+`A.cs`
+
+```text
+class A { private async void Load(string path) { await Task.Delay(1); } }
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Event-Handler und override</summary>
+
+`A.cs`
+
+```text
+class A {
+  private async void OnClick(object sender, RoutedEventArgs e) { await Task.Delay(1); }
+  protected override async void OnStartup(StartupEventArgs e) { await Task.Delay(1); }
+  private async Task LoadAsync() { await Task.Delay(1); }
+}
+```
+
+</details>
+
+### `dotnet.data_path_single_source`
+
+**Datenordner wird an mehreren Stellen zusammengesetzt**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_DOTNET_UI.md § Datenpfade
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Wo Datenbank, Einstellungen, Logs und Backups ihren Ordner je selbst aus %APPDATA% bauen, ist ein Umzug des Datenorts (z. B. fester Installationsordner für die IT) eine Suche über die ganze Codebasis — eine vergessene Stelle schreibt still weiter an den alten Ort. Belegt in einem Desktopprojekt: 11 Aufrufe in 9 Dateien. Eine Pfadklasse, alle anderen fragen sie.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Datenordner in zwei Dateien gebaut</summary>
+
+`Db.cs`
+
+```text
+class Db { string p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "X"); }
+```
+
+`Log.cs`
+
+```text
+class Log { string p = System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData); }
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): eine Pfadklasse, Dokumente-Ordner anderswo</summary>
+
+`AppPaths.cs`
+
+```text
+static class AppPaths {
+  static string A = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+  static string B = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+}
+```
+
+`Dialog.cs`
+
+```text
+class D { string p = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); }
+```
+
+</details>
+
+### `dotnet.temp_file_name_with_suffix`
+
+**GetTempFileName() + Endung lässt eine leere .tmp-Datei zurück**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_DOTNET_UI.md § Datenpfade
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+- Reference: <https://learn.microsoft.com/en-us/dotnet/api/system.io.path.gettempfilename>
+
+<details><summary>Why it exists</summary>
+
+```text
+Path.GetTempFileName() legt die Datei sofort an. Wer eine Endung anhängt, schreibt in eine ZWEITE Datei und löscht nur diese — die leere .tmp-Datei bleibt bei jedem Aufruf liegen. Belegt in einem Desktopprojekt (ICS-Export).
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Endung an GetTempFileName angehängt</summary>
+
+`Ics.cs`
+
+```text
+class I { string p = Path.GetTempFileName() + ".ics"; }
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): GetTempFileName direkt benutzt, eigener Name im Arbeitsordner</summary>
+
+`Ics.cs`
+
+```text
+class I {
+  string a = Path.GetTempFileName();
+  string b = Path.Combine(dir, $"ics_{Guid.NewGuid():N}.ics");
+}
+```
+
+</details>
+
+### `dotnet.wpf_combobox_template_without_editable_part`
+
+**ComboBox-Template ohne PART_EditableTextBox bei editierbaren ComboBoxen**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WPF.md § 3 (ComboBox-Template)
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Eine editierbare WPF-ComboBox schreibt ihren Text in das Template-Teil PART_EditableTextBox. Fehlt es im eigenen Template, bleibt der gewählte oder getippte Text bei geschlossenem Dropdown unsichtbar, ohne Fehler und ohne Log. Hinweis statt Fehler, weil eine editierbare ComboBox auch ein eigenes Template tragen kann.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Template ohne Part, editierbare ComboBox im Projekt</summary>
+
+`Styles/S.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<ControlTemplate TargetType="ComboBox"><ContentPresenter x:Name="ContentSite"/></ControlTemplate>
+</UserControl>
+```
+
+`Views/V.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<ComboBox IsEditable="True"/>
+</UserControl>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Template mit Part bzw. keine editierbare ComboBox</summary>
+
+`Styles/S.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<ControlTemplate TargetType="{x:Type ComboBox}"><Grid><ContentPresenter x:Name="ContentSite"/><TextBox x:Name="PART_EditableTextBox"/></Grid></ControlTemplate>
+</UserControl>
+```
+
+`Views/V.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<ComboBox IsEditable="True"/>
+</UserControl>
+```
+
+</details>
+
+### `dotnet.wpf_commandparameter_literal_to_value_type`
+
+**CommandParameter-Literal an RelayCommand mit Werttyp**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WPF.md § 3.4
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+WPF übergibt ein CommandParameter-Attribut immer als string. RelayCommand<int> prüft den Typ in CanExecute und wirft ArgumentException (Parameter cannot be of type System.String). Der Fehler fällt erst beim Öffnen der Ansicht auf.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): int-Command mit Literal</summary>
+
+`ViewModels/VM.cs`
+
+```text
+public partial class VM {
+    [RelayCommand]
+    private void SelectQuarter(int quarter) { }
+}
+```
+
+`Views/V.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Button Command="{Binding SelectQuarterCommand}" CommandParameter="1"/>
+</UserControl>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): string-Parameter bzw. sys:Int32-Element</summary>
+
+`ViewModels/VM.cs`
+
+```text
+public partial class VM {
+    [RelayCommand]
+    private void SelectQuarter(string quarterStr) { }
+    [RelayCommand]
+    private async Task PickYearAsync(int year) { }
+}
+```
+
+`Views/V.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Button Command="{Binding SelectQuarterCommand}" CommandParameter="1"/>
+<Button Command="{Binding PickYearCommand}">
+  <Button.CommandParameter><sys:Int32>2026</sys:Int32></Button.CommandParameter>
+</Button>
+</UserControl>
+```
+
+</details>
+
+### `dotnet.wpf_layouttransform_ui_scaling`
+
+**UI-Skalierung per LayoutTransform/ScaleTransform**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WPF.md § 0
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Eine gebundene ScaleTransform im LayoutTransform skaliert Pixel statt Schrift: Text wird unscharf, Layout-Messungen stimmen nicht mehr, Scrollbereiche und Popups laufen aus dem Fenster. Skalierung gehört in DynamicResource-Schriftgrößen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): gebundene Skalierung</summary>
+
+`Views/A.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Grid><Grid.LayoutTransform>
+  <ScaleTransform ScaleX="{Binding UiScale}" ScaleY="{Binding UiScale}"/>
+</Grid.LayoutTransform></Grid>
+</UserControl>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): feste Drehung/Spiegelung eines Symbols</summary>
+
+`Views/A.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Path><Path.LayoutTransform><ScaleTransform ScaleX="-1"/></Path.LayoutTransform></Path>
+</UserControl>
+```
+
+</details>
+
+### `dotnet.wpf_run_text_binding_without_mode`
+
+**Run.Text-Binding ohne Mode (bindet TwoWay)**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WPF.md § 3.3
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Run.Text hat BindsTwoWayByDefault=true, anders als TextBlock.Text. Zeigt die Quelle auf eine schreibgeschützte Eigenschaft (z. B. ObservableCollection.Count), wirft WPF beim Laden InvalidOperationException: 'A TwoWay or OneWayToSource binding cannot work on the read-only property'. Ein Run ist nie editierbar, ein ausdrücklicher Mode ist daher immer richtig.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Run ohne Mode</summary>
+
+`Views/A.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<TextBlock><Run Text="{Binding Items.Count}"/></TextBlock>
+</UserControl>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Run mit Mode=OneWay, TextBlock ohne Mode</summary>
+
+`Views/A.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<TextBlock><Run Text="{Binding Items.Count, Mode=OneWay}"/></TextBlock>
+<TextBlock Text="{Binding Name}"/>
+</UserControl>
+```
+
+</details>
+
+### `dotnet.wpf_style_set_twice`
+
+**Style als Attribut und als Property-Element gesetzt**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WPF.md § 3.2
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Eine Eigenschaft darf in XAML nur einmal gesetzt werden. Style="{StaticResource …}" plus <Button.Style> bricht den Markup-Build ('The property Style is set more than once'); auf einem Linux-Host ohne Windows-Build fällt das erst in CI auf.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Attribut plus Property-Element</summary>
+
+`Views/A.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Button Style="{StaticResource Foo}">
+  <Button.Style><Style TargetType="Button"/></Button.Style>
+</Button>
+</UserControl>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): nur eins von beiden, verschachtelter Button mit eigenem Style</summary>
+
+`Views/A.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Button Style="{StaticResource Foo}">
+  <Button Content="x">
+    <Button.Style><Style BasedOn="{StaticResource Foo}"/></Button.Style>
+  </Button>
+</Button>
+<Button Style="{StaticResource Foo}"/>
+</UserControl>
+```
+
+</details>
+
+### `dotnet.wpf_thickness_two_args`
+
+**new Thickness(a, b) — WPF kennt nur 1 oder 4 Argumente**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WPF.md § 3.1
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+System.Windows.Thickness hat Konstruktoren mit 1 und 4 Argumenten. Zwei Argumente sind CS1729 ('Thickness' does not contain a constructor that takes 2 arguments). Avalonia und MAUI kennen die Zwei-Werte-Form, deshalb zählen nur Dateien mit System.Windows und ohne Avalonia/MAUI.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): WPF mit zwei Argumenten</summary>
+
+`Views/A.cs`
+
+```text
+using System.Windows;
+class A { object M() => new Thickness(0, 10); }
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): WPF mit 1/4 Argumenten, Avalonia mit 2</summary>
+
+`Views/A.cs`
+
+```text
+using System.Windows;
+class A { object M() => new Thickness(Math.Max(0, 1), 10, 0, 10);
+  object N() => new Thickness(4); }
+```
+
+`Views/B.cs`
+
+```text
+using Avalonia;
+class B { object M() => new Thickness(0, 10); }
+```
+
+</details>
+
 ## Pack `godot`
 
 ### `godot.add_child_before_configure`
@@ -4571,6 +5021,45 @@ export const isLabEnabled = import.meta.env.VITE_ENABLE_LAB !== 'false';
 
 </details>
 
+### `linux.tzdata_host_timezone`
+
+**tzdata: localtime verweist auf eine nicht registrierte Host-Zeitzone**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § Linux host preflight
+- Public rationale: [GUIDELINES.md › linux-host-preflight](GUIDELINES.md#linux-host-preflight)
+- Reference: <https://manpages.debian.org/testing/debconf-doc/debconf-devel.7.en.html>
+- Reference: <https://sources.debian.org/src/tzdata/2026c-1/debian/tzdata.config/>
+
+<details><summary>Why it exists</summary>
+
+```text
+Reproduced on a fresh Linux container: /etc/timezone was Etc/UTC, but /etc/localtime linked to /usr/share/zoneinfo/Host. tzdata derived area Host and FSET tzdata/Zones/Host returned 10 because that template did not exist. Only explicit version-1 snapshots with target template metadata are measured offline; this is not a remote server audit. Custom registered Host templates are accepted. Other timezone aliases are not classified as invalid by this bounded check.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Host</summary>
+
+`ops/host.json`
+
+```text
+{"ruttla_host_snapshot": 1, "os_id": "ubuntu", "localtime_target": "/usr/share/zoneinfo/Host", "tzdata_config_present": true, "tzdata_zone_templates": ["Etc", "Europe"]}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: UTC</summary>
+
+`ops/host.json`
+
+```text
+{"ruttla_host_snapshot": 1, "os_id": "ubuntu", "localtime_target": "/usr/share/zoneinfo/Etc/UTC", "tzdata_config_present": true, "tzdata_zone_templates": ["Etc", "Europe"]}
+```
+
+</details>
+
 ### `media.ffmpeg_limiter_auto_level`
 
 **FFmpeg-Limiter hebt den Mix trotz Limit wieder bis 0 dB an**
@@ -6166,6 +6655,123 @@ export const A = () => { useEffect(() => { const ctx = ref.current.getContext('2
 
 ```text
 export const A = () => { useEffect(() => { const ctx = ref.current.getContext('2d'); draw(ctx); return () => ctx.reset(); }, []); return null; };
+```
+
+</details>
+
+### `web.supabase_email_login_without_smtp`
+
+**Mail-Anmeldung über den Supabase-Standardversand**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: docs/GUIDELINES.md § Mail-Anmeldung ohne eigenen SMTP
+- Public rationale: [GUIDELINES.md › supabase-email-login-smtp](GUIDELINES.md#supabase-email-login-smtp)
+- Reference: <https://supabase.com/docs/guides/auth/auth-smtp>
+
+<details><summary>Why it exists</summary>
+
+```text
+Ohne eigenen SMTP verschickt Supabase Anmeldemails selbst: laut Doku
+2 Mails pro Stunde und nur an Adressen aus dem eigenen Team, „not meant
+for production use". Ein Mail-Login-Formular für Fremde ist dann ein
+Versprechen ohne Zustellung.
+
+Gemessen wird nur `supabase/config.toml` im Repo. Ein im Dashboard
+gesetzter SMTP ist offline unsichtbar; deshalb WARNING, nie FAIL-hart,
+und die Meldung sagt es. TOML-Kommentare werden geparst; aktiviert ohne
+gesetzten Host ist kein SMTP-Nachweis. Ungültiges TOML bleibt ungemessen.
+Hostpräsenz belegt weder DNS, Credentials, Limits noch Zustellung.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Aktiv ohne SMTP-Host</summary>
+
+`src/auth.ts`
+
+```text
+await sb.auth.signInWithOtp({ email });
+```
+
+`supabase/config.toml`
+
+```text
+[auth.email.smtp]
+enabled = true
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Mail-Login mit eigenem SMTP</summary>
+
+`src/auth.ts`
+
+```text
+await sb.auth.signInWithOtp({ email, options: {} });
+```
+
+`supabase/config.toml`
+
+```text
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+```
+
+</details>
+
+### `web.supabase_loopback_on_remote_dev_host`
+
+**Supabase-Loopback im extern erreichbaren Vite-Frontend**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: docs/GUIDELINES.md § Browser-Supabase im Remote-Dev-Modus
+- Public rationale: [GUIDELINES.md › browser-supabase-remote-dev](GUIDELINES.md#browser-supabase-remote-dev)
+- Reference: <https://supabase.com/docs/guides/auth/redirect-urls>
+- Reference: <https://vite.dev/config/server-options.html#server-allowedhosts>
+
+<details><summary>Why it exists</summary>
+
+```text
+Eine Browser-App auf einem fremden Host erreicht 127.0.0.1/localhost
+auf dem *Client*, nicht auf dem Dev-Server. Dadurch kann OAuth auf den
+falschen lokalen Supabase-Stack zeigen. Der Check misst nur explizite
+allowedHosts-Listen und statische Dev-Env-Dateien; Prozess-Overrides,
+Reverse-Proxys und den tatsächlich laufenden Supabase-Stack nicht.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Remote-Host mit Browser-Loopback</summary>
+
+`vite.config.ts`
+
+```text
+export default {server:{allowedHosts:['dev.example.test']}};
+```
+
+`.env`
+
+```text
+VITE_SUPABASE_URL=http://127.0.0.1:54321
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Remote-Host und Cloud-Supabase</summary>
+
+`vite.config.ts`
+
+```text
+export default {server:{allowedHosts:['dev.example.test']}};
+```
+
+`.env`
+
+```text
+VITE_SUPABASE_URL=https://project.supabase.co
 ```
 
 </details>

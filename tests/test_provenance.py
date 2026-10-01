@@ -20,6 +20,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 
 DENY = {
+    "82787a82924fe155e62cafb2",
     "5d609a9734f81c6623ef71c3",
     "d479a9ed2f89ade03814ec61",
     "8dbec0bf81ab29bd19eba0ca",

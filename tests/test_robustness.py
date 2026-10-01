@@ -7,11 +7,14 @@ for a longer run.
 from __future__ import annotations
 
 import os
+import json
 import random
 import string
+import subprocess
+import sys
 import unittest
 
-from _support import cli_json, make_tree
+from _support import REPO, cli_json, make_tree
 
 from ruttla.config import Config
 from ruttla.context import Context
@@ -62,6 +65,20 @@ class SelectorProperties(unittest.TestCase):
             self.assertTrue(selector_matches(cid, cid))
             self.assertTrue(selector_matches(cid[:cut] + "*", cid))
             self.assertFalse(selector_matches(cid + "x", cid))
+
+
+class LiteralScanPerformance(unittest.TestCase):
+    def test_long_literal_finishes_and_following_defect_is_detected(self) -> None:
+        source = 'const icon = "data:image/png;base64,' + 'A' * 30000 + '";\n'
+        for suffix, expected in [("", "pass"), ('const msg = "Es wurden " + count;\n', "fail")]:
+            with self.subTest(expected=expected), make_tree({"src/a.ts": source + suffix}) as tmp:
+                proc = subprocess.run(
+                    [sys.executable, str(REPO / "master_gate.py"), tmp,
+                     "--check", "i18n.string_concatenation", "--format", "json"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                self.assertEqual(proc.returncode, 0)  # advisory, not a blocking default
+                self.assertEqual(json.loads(proc.stdout)["results"][0]["status"], expected)
 
 
 class ConfigFuzz(unittest.TestCase):

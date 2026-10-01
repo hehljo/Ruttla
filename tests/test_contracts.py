@@ -179,20 +179,26 @@ class PlatformRegistryTests(unittest.TestCase):
         self.assertTrue(any(r["platform"] == "godot" for r in report["results"]))
 
     def test_platform_without_pack_is_rejected_in_profile(self) -> None:
-        with make_tree({".ruttla.toml": '[project]\nplatform = "dotnet"\n'}) as tmp:
-            with self.assertRaisesRegex(ConfigError, "kein Regelpaket"):
-                Config.load(tmp)
+        # Seit dotnet ein Paket hat, gibt es keine echte Plattform ohne Paket
+        # mehr; der Mechanismus (R-011) bleibt trotzdem geschützt.
+        with mock.patch("ruttla.config.PLATFORMS_WITHOUT_PACK", ("cobol",)):
+            with make_tree({".ruttla.toml": '[project]\nplatform = "cobol"\n'}) as tmp:
+                with self.assertRaisesRegex(ConfigError, "kein Regelpaket"):
+                    Config.load(tmp)
 
-    def test_platform_without_pack_is_rejected_on_cli(self) -> None:
+    def test_unknown_platform_is_rejected_on_cli(self) -> None:
         with make_tree({"a.py": "x = 1\n"}) as tmp:
-            proc = cli(tmp, "--platform", "dotnet", "--format", "agent")
+            proc = cli(tmp, "--platform", "cobol", "--format", "agent")
         self.assertEqual(proc.returncode, 3)
-        self.assertIn("ohne Regelpaket", proc.stdout)
+        self.assertIn("Unbekannte Plattform", proc.stdout)
 
-    def test_detected_platform_without_pack_is_reported(self) -> None:
-        with make_tree({"App.cs": "class A {}\n", "a.py": "x = 1\n"}) as tmp:
+    def test_dotnet_is_a_pack_platform(self) -> None:
+        with make_tree({"App.cs": "class A {}\n"}) as tmp:
             _, report = cli_json(tmp)
-        self.assertIn("dotnet", report["platforms_without_pack"])
+            proc = cli(tmp, "--platform", "dotnet", "--format", "agent")
+        self.assertNotIn("dotnet", report["platforms_without_pack"])
+        self.assertTrue(any(r["platform"] == "dotnet" for r in report["results"]))
+        self.assertNotEqual(proc.returncode, 3)
 
 
 class CoverageDiagnosticsTests(unittest.TestCase):

@@ -18,6 +18,12 @@ GUIDELINES_DOC = "docs/GUIDELINES.md"
 # (prefix of the guideline string, anchor in docs/GUIDELINES.md, one-line
 # public summary). First match wins, so more specific prefixes come first.
 GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
+    ("GUIDELINES.md § Linux host preflight", "linux-host-preflight",
+     "Explicit host snapshots separate a reproduced tzdata defect from live VPS capabilities."),
+    ("docs/GUIDELINES.md § Browser-Supabase im Remote-Dev-Modus", "browser-supabase-remote-dev",
+     "Remote browser hosts must use a Supabase URL reachable from the browser."),
+    ("docs/GUIDELINES.md § Mail-Anmeldung ohne eigenen SMTP", "supabase-email-login-smtp",
+     "Email login needs its own SMTP; Supabase's default sender is rate-limited and team-only."),
     ("GUIDELINES.md § Server-only boundary", "server-only-boundary",
      "Private server modules must not enter browser runtime import graphs."),
     ("Apple:", "apple-platform-documentation",
@@ -70,6 +76,10 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Godot: lifecycle order, physics timing, signals, data-driven balance, multiplayer trust."),
     ("CODE_QUALITY_GUIDELINES_RASPBERRY.md", "raspberry-pi-field-device-guidelines",
      "Field devices: isolation, timeouts, validated config, immutable raw data, restarts."),
+    ("CODE_QUALITY_GUIDELINES_WPF.md", "wpf-desktop-guidelines",
+     "WPF: XAML pitfalls that only fail on the Windows build or at view load, UI scaling."),
+    ("CODE_QUALITY_GUIDELINES_DOTNET_UI.md", "wpf-desktop-guidelines",
+     "WPF: XAML pitfalls that only fail on the Windows build or at view load, UI scaling."),
     ("CODE_QUALITY_GUIDELINES_UNREAL.md", "unreal-engine-guidelines",
      "Unreal: asset loading, callers, config readers, collision notify, authority."),
     ("IOS_DEBUGGING_GUIDELINES.md", "apple-build-and-debugging-guidelines",

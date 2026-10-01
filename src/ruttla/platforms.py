@@ -19,8 +19,9 @@ if TYPE_CHECKING:  # pragma: no cover
 
 PACK_PLATFORMS: tuple[str, ...] = (
     "universal", "apple", "web", "godot", "python", "raspberry", "unreal",
+    "dotnet",
 )
-PLATFORMS_WITHOUT_PACK: tuple[str, ...] = ("dotnet",)
+PLATFORMS_WITHOUT_PACK: tuple[str, ...] = ()
 KNOWN_PLATFORMS: tuple[str, ...] = PACK_PLATFORMS + PLATFORMS_WITHOUT_PACK
 
 # Diese Liste MUSS zu HW_IMPORT im Raspberry-Pack passen — sonst erkennt die

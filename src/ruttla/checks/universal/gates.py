@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import os
 import re
+import ast
 
 from ruttla.core import (
     CheckResult,
     Context,
     Finding,
+    is_rule_definition_file,
     register,
     result_for,
     SelfTestCase,
@@ -27,6 +29,76 @@ from ruttla.core import (
 # ===========================================================================
 # Gate-Hygiene: die Pipe-Falle
 # ===========================================================================
+
+def _substitution_end(text: str, start: int, nesting: int = 0) -> int | None:
+    """Find the closing parenthesis without executing shell input."""
+    if nesting >= 32:
+        return None  # Keep deeply nested/unparsed input conservative.
+    depth = 1
+    quote = ""
+    idx = start + 2
+    while idx < len(text):
+        char = text[idx]
+        if char == "\\" and quote != "'":
+            idx += 2
+            continue
+        if text.startswith("$(", idx) and quote != "'":
+            end = _substitution_end(text, idx, nesting + 1)
+            if end is None:
+                return None
+            idx = end + 1
+            continue
+        if quote:
+            if char == quote:
+                quote = ""
+        elif char in ("'", '"'):
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return idx
+        idx += 1
+    return None
+
+
+def _mask_argument_pipes(text: str) -> str:
+    """Argument substitutions do not determine the enclosing command status.
+
+    Keep assignment substitutions visible: ``out=$(gate | head)`` really
+    loses the gate status. Bodies with their own status reads stay visible;
+    this bounded projection is not a full shell control-flow parser.
+    """
+    chars = list(text)
+    idx = 0
+    quote = ""
+    while idx < len(text):
+        char = text[idx]
+        if char == "\\" and quote != "'":
+            idx += 2
+            continue
+        if text.startswith("$(", idx) and quote != "'":
+            end = _substitution_end(text, idx)
+            if end is None:
+                break  # Unparsed input retains the original conservative check.
+            body = text[idx + 2:end]
+            prefix = text[:idx]
+            assignment = re.search(r'(?:^|[;\n])\s*[A-Za-z_]\w*=\s*"?$', prefix)
+            if assignment or "$?" in body or text.startswith("$((", idx):
+                chars[idx + 2:end] = _mask_argument_pipes(body)
+            else:
+                chars[idx + 2:end] = body.replace("|", " ")
+            idx = end + 1
+            continue
+        if quote:
+            if char == quote:
+                quote = ""
+        elif char in ("'", '"'):
+            quote = char
+        idx += 1
+    return "".join(chars)
+
 
 @register(
     "gate.pipe_swallows_exit_status",
@@ -45,6 +117,22 @@ from ruttla.core import (
             files={"run.sh": '#!/bin/bash\nout=$(python3 gate.py 2>&1)\nstatus=$?\necho "$out" | head -3\n'},
             expect=Status.PASS,
         ),
+        SelfTestCase(name="gesund: verschachtelte Dateiauswahl", files={
+            "run.sh": 'out=$(gate \\\n  $(ls tests/*.ts | grep -v excluded) 2>&1)\nstatus=$?\n'}, expect=Status.PASS),
+        SelfTestCase(name="gesund: Argument ohne Ausgabezuweisung", files={
+            "run.sh": 'gate $(ls tests/*.ts | grep -v excluded)\nstatus=$?\n'}, expect=Status.PASS),
+        SelfTestCase(name="gesund: gequotetes Argument", files={
+            "run.sh": 'out=$(gate "$(ls tests/*.ts | grep -v excluded)")\nstatus=$?\n'}, expect=Status.PASS),
+        SelfTestCase(name="defekt: aeußerer Filter trotz Dateiauswahl", files={
+            "run.sh": 'out=$(gate $(ls tests/*.ts | grep -v excluded) | tail -3)\nstatus=$?\n'}, expect=Status.FAIL),
+        SelfTestCase(name="defekt: Filter in Ausgabezuweisung", files={
+            "run.sh": 'out=$(gate | head -3)\nstatus=$?\n'}, expect=Status.FAIL),
+        SelfTestCase(name="defekt: gequotete Ausgabezuweisung", files={
+            "run.sh": 'out="$(gate | head -3)"\nstatus=$?\n'}, expect=Status.FAIL),
+        SelfTestCase(name="defekt: Status im Argument selbst", files={
+            "run.sh": 'gate $(check | head -3; echo $?)\n'}, expect=Status.FAIL),
+        SelfTestCase(name="defekt: Argument verdeckt keine folgende Pipe", files={
+            "run.sh": 'gate $(ls tests/*.ts | grep -v excluded)\ncheck | head -3\nstatus=$?\n'}, expect=Status.FAIL),
     ],
 )
 def check_pipe_exit(ctx: Context) -> CheckResult:
@@ -65,7 +153,7 @@ def check_pipe_exit(ctx: Context) -> CheckResult:
             if sf.ext not in (".yml", ".yaml") or "workflow" not in sf.rel.lower():
                 continue
         units += 1
-        lines = sf.lines
+        lines = _mask_argument_pipes(sf.text).splitlines()
         for idx, raw in enumerate(lines, start=1):
             code = raw.split("#", 1)[0]
             if "pipefail" in raw:
@@ -76,7 +164,7 @@ def check_pipe_exit(ctx: Context) -> CheckResult:
                     check_id="gate.pipe_swallows_exit_status",
                     severity=Severity.ERROR,
                     message="Pipe und $? in derselben Zeile — $? ist der Status des letzten Glieds.",
-                    file=sf.rel, line=idx, evidence=snippet(raw),
+                    file=sf.rel, line=idx, evidence=snippet(sf.lines[idx - 1]),
                     fix="Ausgabe in eine Variable, Status sofort danach lesen, "
                         "dann erst filtern.",
                     guideline="CLAUDE.md § Gates",
@@ -91,7 +179,7 @@ def check_pipe_exit(ctx: Context) -> CheckResult:
                         severity=Severity.ERROR,
                         message="$? unmittelbar nach einer Pipe gelesen — "
                                 "das ist der Status des Filters, nicht des Gates.",
-                        file=sf.rel, line=idx + 1, evidence=snippet(nxt),
+                        file=sf.rel, line=idx + 1, evidence=snippet(sf.lines[idx]),
                         fix="Ausgabe in eine Variable, Status sofort danach, "
                             "dann filtern. Oder `set -o pipefail` setzen.",
                         guideline="CLAUDE.md § Gates",
@@ -183,6 +271,12 @@ def check_zero_tests(ctx: Context) -> CheckResult:
             ".gitignore": "build/\n", "gates/check_web.py": "reference = 'https://docs.netlify.com/build/edge-functions/api/'\n"}, expect=Status.PASS),
         SelfTestCase(name="defekt: Adresse verdeckt keinen lokalen Read", files={
             ".gitignore": "build/\n", "gates/check_web.py": "reference = 'https://docs.netlify.com/build/edge-functions/api/'; read('build/old.json')\n"}, expect=Status.FAIL),
+        SelfTestCase(name="gesund: inline Probe ist kein Dateiread", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "SelfTestCase(files={'x': \"read('build/old.json')\"})\n"}, expect=Status.PASS),
+        SelfTestCase(name="defekt: Probe verdeckt keinen echten Read", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "SelfTestCase(files={'x': \"read('build/old.json')\"})\nread('build/current.json')\n"}, expect=Status.FAIL),
+        SelfTestCase(name="defekt: Inline-Probe verdeckt keinen Read derselben Zeile", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "SelfTestCase(files={'x': \"read('build/old.json')\"}); read('build/current.json')\n"}, expect=Status.FAIL),
         SelfTestCase(
             name="Gate liest ignoriertes Artefakt",
             files={".gitignore": ".build/\n", "gates/check_x.mjs": "import { render } from '../.build/renderer.js';\n"},
@@ -241,6 +335,24 @@ def check_gate_artifact(ctx: Context) -> CheckResult:
     findings: list[Finding] = []
     for sf in gate_files:
         body = strip_comments(sf.text, sf.ext)
+        if sf.ext == '.py' and is_rule_definition_file(sf):
+            # Fixture source is data. Keep actual accesses in the rule measured.
+            try:
+                tree = ast.parse(body)
+                lines = body.splitlines(keepends=True)
+                offsets = [0]
+                for line in lines:
+                    offsets.append(offsets[-1] + len(line))
+                spans = []
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'SelfTestCase':
+                        start = offsets[node.lineno - 1] + len(lines[node.lineno - 1].encode('utf-8')[:node.col_offset].decode('utf-8'))
+                        end = offsets[node.end_lineno - 1] + len(lines[node.end_lineno - 1].encode('utf-8')[:node.end_col_offset].decode('utf-8'))
+                        spans.append((start, end))
+                for start, end in sorted(spans, reverse=True):
+                    body = body[:start] + re.sub(r'[^\n]', ' ', body[start:end]) + body[end:]
+            except SyntaxError:
+                pass  # Unparsed source stays visible to the original check.
         # HTTP documentation addresses are not reads from local build artifacts.
         body = re.sub(r'https?://[^\s\"\'`<>]+', lambda m: ' ' * len(m.group()), body)
         for entry in ignored:

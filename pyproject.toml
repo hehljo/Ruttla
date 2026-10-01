@@ -53,6 +53,7 @@ include = [
     "schemas",
     "docs",
     "scripts/gen_rule_docs.py",
+    "scripts/collect_host_snapshot.py",
     "master_gate.py",
     "core.py",
     "README.md",

@@ -406,27 +406,48 @@ def check_literal_text(ctx: Context) -> CheckResult:
             files={"src/a.ts": 'const c = { email: "a@example.com", phone: "+49 1" };\n'},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="gesund: langes Datenliteral ohne Verkettung",
+            files={"src/a.ts": 'const icon = "data:image/png;base64,' + 'A' * 6000 + '";\n'},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="defekt: Text nach langem Datenliteral",
+            files={"src/a.ts": 'const icon = "data:image/png;base64,' + 'A' * 6000
+                   + '";\nconst msg = "Es wurden " + count;\n'},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="defekt: Textliteral mit escaped Quotes",
+            files={"src/a.ts": 'const msg = "Es wurden \\"neue\\" " + count;\n'},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_string_concat(ctx: Context) -> CheckResult:
     title = "Sichtbarer Text wird zusammengeklebt statt über Platzhalter gebildet"
-    # Literal mit Satzzeichen/Leerzeichen am Rand + '+' + Variable
-    pat = re.compile(r'["\'][^"\']*[A-Za-zÄÖÜäöüß]{3,}[^"\']*\s["\']\s*\+\s*\w')
+    # Erst vollständige Literale mit disjunkten Escape-/Zeichenalternativen
+    # lesen. Die alte Regex verteilte lange Buchstabenfolgen auf drei
+    # überlappende Quantifizierer und hing schon an einem 6-KB-Datenliteral.
+    pat = re.compile(
+        r'"(?:\\.|[^"\\])*"'
+        r"|'(?:\\.|[^'\\])*'"
+    )
+    letters = re.compile(r'[A-Za-zÄÖÜäöüß]{3,}')
+    suffix = re.compile(r'\s*\+\s*\w')
     findings: list[Finding] = []
     units = 0
     for sf in ctx.files(*SOURCE_EXTS):
         units += 1
         haystack = strip_comments(sf.text, sf.ext)
         for line_no, m, raw in iter_matches(sf, pat):
+            content = m.group()[1:-1]
+            if not content or not content[-1].isspace() or not letters.search(content):
+                continue
+            if not suffix.match(haystack, m.end()):
+                continue
             if re.search(r"(console\.|print\(|log\w*\(|logger|throw |Error\(|assert)", raw, re.I):
                 continue  # Entwicklertext, gehört nicht in den Katalog
-            # Das öffnende Zeichen muss ein öffnendes Anführungszeichen sein.
-            # Ist es das schließende eines vorherigen Literals, ist der
-            # "Text" Code zwischen zwei Strings und das '+' steht im nächsten.
-            line_start = haystack.rfind("\n", 0, m.start()) + 1
-            quote = haystack[m.start()]
-            if haystack[line_start:m.start()].count(quote) % 2 == 1:
-                continue
             findings.append(Finding(
                 check_id="i18n.string_concatenation",
                 severity=Severity.WARNING,

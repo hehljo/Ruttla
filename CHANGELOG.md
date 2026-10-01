@@ -6,6 +6,9 @@ when added, changed or deprecated.
 ## [Unreleased] — 0.1.0 (public preview)
 
 ### Changed
+- Integration guidance distinguishes a sample payload's demonstrated product branch from unconfirmed target-product contracts. Public provenance is anonymised and the hash guard extended; the temporary-file rationale no longer implies a legacy file-count limit on current .NET.
+- `i18n.string_concatenation`: replace overlapping literal quantifiers with complete string tokens; a healthy 6 KB data literal previously stalled the scan. Long-literal and following-defect probes plus a bounded CLI regression prevent recurrence.
+- `web.supabase_email_login_without_smtp`: parse TOML instead of regex fragments; enabled SMTP needs a nonempty host, commented `enabled=false` stays disabled, invalid configuration remains unmeasured. Diagnostic distinguishes local configuration from unmeasured remote SMTP and delivery.
 - `i18n.orphan_catalog_keys`: zur Laufzeit zusammengesetzte Schlüssel in Template-Strings (`app.sort${x}`, `overview.${k}Hint`) zählen als benutzt, sofern das Blatt mindestens drei feste Zeichen trägt; reine Platzhalter sprechen nichts frei.
 - `web.a11y_missing_label`: `<label for=…>`, umschließendes `<label>` und `data-i18n` an Knopf/Link (auch im Kind-Element) zählen als Beschriftung — der Fix-Text empfahl `<label for>`, der Check erkannte es nicht. `data-i18n` an Eingabefeldern bleibt ein Befund.
 - `brand.hardcoded_in_display`: Swift PackageDescription module/product/dependency names are technical contracts; visible SwiftUI text in the same file remains checked. Includes separate healthy and broken probes.
@@ -13,6 +16,11 @@ when added, changed or deprecated.
 - `apple.project_settings`: `LastUpgradeCheck`-Schwelle auf Xcode 27.0 (2700) angehoben.
 
 ### Added
+- `linux.tzdata_host_timezone`: offline advisory for an explicitly captured Linux host whose localtime link uses `Host` without a registered tzdata template. Healthy UTC/custom-template controls, isolated Host defects and unknown-input probes included. Read-only collector and reusable 1blu/OpenVZ/Tailnet setup procedure added; no automatic SSH or host execution during scans.
+- `dotnet.temp_file_name_with_suffix` (Hinweis): `Path.GetTempFileName() + ".ext"` legt die .tmp-Datei an und lässt sie liegen. Belegt in einem WPF-Desktopprojekt (ICS-Export); Altstand rot, Fix grün.
+- `dotnet.data_path_single_source` (Hinweis): `GetFolderPath(SpecialFolder.ApplicationData/LocalApplicationData/CommonApplicationData)` in mehr als einer Datei = Datenort ohne eine Quelle. Belegt in einem WPF-Desktopprojekt (11 Aufrufe in 8 Dateien, gefunden beim Umzug der Daten in den festen Installationsordner); Altstand rot, Stand mit `AppPaths` grün. `MyDocuments` u. ä. (Dialog-Startordner) zählen nicht.
+- Neues Regelpaket `dotnet` (WPF): `dotnet.wpf_run_text_binding_without_mode`, `dotnet.wpf_commandparameter_literal_to_value_type`, `dotnet.wpf_style_set_twice`, `dotnet.wpf_thickness_two_args` (Fehler) sowie `dotnet.wpf_combobox_template_without_editable_part`, `dotnet.wpf_layouttransform_ui_scaling`, `dotnet.async_void_outside_event_handler` (Hinweise). Belegt in einem WPF-Desktopprojekt: Fehler, die sonst erst im Windows-CI-Build oder beim Öffnen der Ansicht auffallen. Avalonia-/MAUI-XAML und -C# bleiben außen vor; `dotnet` ist damit keine Plattform ohne Paket mehr.
+- `web.supabase_loopback_on_remote_dev_host`: erkennt eine statische Browser-Supabase-Loopback-URL bei extern erreichbarem Vite-Dev-Host; Env-Priorität, lokale Gegenprobe und isolierte Defektproben enthalten. Laufzeit-Overrides und reale Portbelegung bleiben ungemessen.
 - `web.local_asset_missing`: Verweise in HTML, CSS `url()` und Web-Manifest auf Bilder, Symbole, Schriften, die es nicht gibt. Wurzel wird je Ebene gesucht (public/, static/, Vite-Teilprojekte); Skripte und Stylesheets bleiben außen vor, weil sie oft erst im Build entstehen. `safe_by_default`. Gegen alle Web-Projekte unter /root geprüft: ein echter Befund, kein Fehlalarm.
 - `web.i18n_target_has_children`: Element mit `data-i18n`/`data-brand-name`, das Kind-Elemente enthält — das Setzen des Textes löscht sie. Hinweis, weil ein Rückfalltext mit Auszeichnung absichtlich ersetzt werden darf.
 - `web.legal_placeholder`: Pflichtseiten (erkannt an `<title>`/`<h1>`: Impressum, Datenschutz, AGB, Terms …) mit unausgefülltem `[Platzhalter]`, „Lorem ipsum" oder Entwurfsvermerk („Entwurf.", „Noch auszufüllen:"). Code, Script und Fußnoten bleiben still. `safe_by_default`.
@@ -52,9 +60,10 @@ when added, changed or deprecated.
 - Broken stdout pipe exits 3 instead of a traceback with exit 1.
 
 ### Fixed
+- `gate.pipe_swallows_exit_status`: distinguish argument-selection pipelines from filters on the gate output, including nested and wrapped command substitutions. Four healthy and six broken probes preserve detection of real status loss; this remains a bounded syntax check.
 - `web.touch_target_too_small`: decorative pseudo-elements and line heights no longer count as control dimensions; mixed selectors still measure real controls.
 - `web.legal_pages_missing`: documentation mentions and code comments cannot satisfy legal-page presence. This remains a source-presence heuristic.
-- `gate.reads_from_gitignored_artifact`: direct browser-report and screenshot writes are outputs; actual reads on the same line remain findings.
+- `gate.reads_from_gitignored_artifact`: direct browser-report and screenshot writes are outputs. HTTP reference URLs and exact Python `SelfTestCase` AST spans are data; actual reads beside them, including on the same line, remain findings. Healthy and isolated broken cases cover each boundary.
 - Catalog metadata covers the localization guideline; the historical healthy Godot projection reflects the existing main scene without weakening broken cases.
 - `apple.unguarded_module_import`: recognize QuartzCore and MetalKit as Apple system frameworks; healthy framework imports and an isolated unknown-module mutation are covered.
 - `protocol.version_bump_without_fallback`: Swift enums now require their own explicit Codable/Decodable conformance (including same-file extensions). An unrelated decoder no longer flags UI enums or namespace enums; CodingKey enums are excluded. The fix advice now requires a decoding fallback and an unknown-value test instead of promising that an Unknown case alone changes synthesized decoding.
