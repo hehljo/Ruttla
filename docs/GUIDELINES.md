@@ -82,6 +82,39 @@ Verify actual session tools and a scoped read operation; direct official API
 access can provide the latter independently. Offline scans cannot measure
 authentication, permissions, resource ownership, or email delivery.
 
+<a id="interaction-before-final-artwork"></a>
+### App workflow — core interaction before final asset polish
+
+Start with the product benefit, its primary action and the central navigation
+path. Use a short interactive prototype only to resolve a concrete interaction
+question. Once that question is answered, continue in small vertical slices in
+the actual app, using real data and error states and respecting its safety and
+identity contracts. Avoid a prolonged standalone artwork or mockup phase.
+
+Consider design from the beginning: use shared theme tokens, localization and
+accessibility and establish a coherent visual direction. Refine final artwork,
+logo, typography and animation against working app screens. Early assets can
+still be justified when they are needed to test a specific interaction.
+
+A prototype with sample data demonstrates only the interaction it exercises.
+It does not prove integration, native focus or input behavior, device
+performance or safety. Record app tests separately from prototype tests and
+identify which target-platform checks remain unmeasured. For a TV interface,
+include remote navigation, focus and return, reading distance and reduced
+motion. Decorative motion must not delay input or add an artificial launch
+wait; preserve timing that belongs to a verified domain or playback contract.
+
+This is a workflow guideline, not a static source-code rule. An offline scan
+cannot reliably establish project chronology, visual quality or device
+usability; absence of a finding must not become an automatic PASS. Use a
+repeatable platform checklist with the tested revision, scenario, expected
+result and observed result instead.
+
+References: <https://developer.apple.com/tutorials/develop-in-swift/build-an-interactive-prototype>,
+<https://developer.apple.com/design/human-interface-guidelines/designing-for-tvos/>,
+<https://developer.apple.com/design/human-interface-guidelines/launching/>,
+<https://developer.apple.com/design/human-interface-guidelines/motion/>.
+
 <a id="sample-payload-contract-scope"></a>
 ### Sample payloads prove only their contract branch
 
