@@ -3,11 +3,11 @@
 
 # Rule catalog
 
-140 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+141 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 42 | 9 |
+| apple | 43 | 9 |
 | dotnet | 10 | 0 |
 | godot | 23 | 0 |
 | python | 6 | 0 |
@@ -2527,6 +2527,45 @@ Color.clear
 ```text
 import SwiftUI
 struct Screen: View { var body: some View { Button("Filter") {}.focusable() } }
+```
+
+</details>
+
+### `apple.swiftui_sensitive_text_blur`
+
+**Story-Metadaten werden für Spoilerschutz nur geblurrt**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: Apple: SwiftUI blur und Accessibility
+- Public rationale: [GUIDELINES.md › apple-platform-documentation](GUIDELINES.md#apple-platform-documentation)
+- Reference: <https://developer.apple.com/documentation/swiftui/view/blur(radius:opaque:)>
+- Reference: <https://developer.apple.com/documentation/swiftui/view/accessibilityhidden(_:)>
+
+<details><summary>Why it exists</summary>
+
+```text
+blur verändert laut Apple die Darstellung der View, nicht den Textwert. Eine an spoiler/shield/redact gekoppelte Blur-Kette an title/summary/tagline behält damit Story-Metadaten im Renderer. Gemessen wird dieses konkrete Quellcode-Muster, kein tatsächlicher VoiceOver- oder Übergangs-Leak. Advisory: Herkunft bereits projizierter Felder und übergeordnete Accessibility-Modifier müssen manuell geprüft werden. Dekorative Blurs, andere Metadatenpfade und Datenfluss über Helper bleiben ungemessen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Titel trotz Spoilerschutz im Text</summary>
+
+`App/Episodes.swift`
+
+```text
+Text(item.title).font(.headline).blur(radius: shouldHideSpoilers ? 8 : 0)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: projizierter Titel ohne Blur</summary>
+
+`App/Episodes.swift`
+
+```text
+Text(presentation.title.localized).font(.headline)
 ```
 
 </details>

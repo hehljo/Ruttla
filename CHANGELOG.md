@@ -6,6 +6,7 @@ when added, changed or deprecated.
 ## [Unreleased] — 0.1.0 (public preview)
 
 ### Changed
+- Split the final three Godot physics checks into their own module without changing function ASTs, rule IDs or behavior; the package monolith gate now passes. Remove a private app identifier from the public handover.
 - `i18n.catalog_key_parity`: read template string values with plain text and simple member substitutions. A central brand in a greeting no longer hides an otherwise flat catalogue. Missing/extra keys remain findings; interpolation calls, nested templates, spreads and computed keys remain unmeasured. Target code is never executed.
 - Integration guidance distinguishes a sample payload's demonstrated product branch from unconfirmed target-product contracts. Public provenance is anonymised and the hash guard extended; the temporary-file rationale no longer implies a legacy file-count limit on current .NET.
 - `i18n.string_concatenation`: replace overlapping literal quantifiers with complete string tokens; a healthy 6 KB data literal previously stalled the scan. Long-literal and following-defect probes plus a bounded CLI regression prevent recurrence.
@@ -17,6 +18,7 @@ when added, changed or deprecated.
 - `apple.project_settings`: `LastUpgradeCheck`-Schwelle auf Xcode 27.0 (2700) angehoben.
 
 ### Added
+- `apple.swiftui_sensitive_text_blur`: bounded advisory for title/summary/tagline Text rendered with a spoiler/shield/redact-controlled blur. Healthy controls and isolated title/summary probes verify the concrete source pattern; actual VoiceOver, transitions and metadata provenance remain unmeasured.
 - `linux.tzdata_host_timezone`: offline advisory for an explicitly captured Linux host whose localtime link uses `Host` without a registered tzdata template. Healthy UTC/custom-template controls, isolated Host defects and unknown-input probes included. Read-only collector and reusable 1blu/OpenVZ/Tailnet setup procedure added; no automatic SSH or host execution during scans.
 - `dotnet.temp_file_name_with_suffix` (Hinweis): `Path.GetTempFileName() + ".ext"` legt die .tmp-Datei an und lässt sie liegen. Belegt in einem WPF-Desktopprojekt (ICS-Export); Altstand rot, Fix grün.
 - `dotnet.data_path_single_source` (Hinweis): `GetFolderPath(SpecialFolder.ApplicationData/LocalApplicationData/CommonApplicationData)` in mehr als einer Datei = Datenort ohne eine Quelle. Belegt in einem WPF-Desktopprojekt (11 Aufrufe in 8 Dateien, gefunden beim Umzug der Daten in den festen Installationsordner); Altstand rot, Stand mit `AppPaths` grün. `MyDocuments` u. ä. (Dialog-Startordner) zählen nicht.

@@ -1,5 +1,19 @@
 # STATUS
 
+## SwiftUI Story-Text / Modulgrenze (2026-10-02)
+
+- Neues Offline-Advisory `apple.swiftui_sensitive_text_blur`: Blur an Story-Text
+  mit spoiler/shield/redact-Steuerung; kein gerenderter Accessibility-Nachweis.
+  Im alten Appcode zwei Befunde, nach sicherer Projektion null. Gesundes Paket
+  vor isoliertem Titel-/Summary-Defekt: Exit 0, beide Defekte im Strict-Modus Exit 1.
+- 488/488 Selbsttestproben grün; neue Regel mit 11 gesund/defekt/ungemessen-Proben.
+- Godot-Modulgrenze repariert: 18 Funktions-ASTs exakt unverändert, drei Regeln
+  nach `physics.py`, gemeinsamer Helper separat; sieben Pakettests bestanden.
+- Privaten Bezeichner aus lokalem HANDOVER neutralisiert. Regelkatalog aktuell;
+  121 Unit-/Contracttests (120 grün, ein optionaler SARIF-Schema-Skip),
+  Changed-only ohne Blocker und Diff-Check grün. Ruff ist nicht installiert;
+  Lint ungemessen. Main-Sicherung im laufenden Block freigegeben.
+
 ## Katalogparität bei Templatewerten und Service-Handover (2026-10-01)
 
 - Reale flache DE/EN-Kataloge mit einer Begrüßung wie
