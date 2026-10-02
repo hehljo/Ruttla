@@ -2545,17 +2545,17 @@ struct Screen: View { var body: some View { Button("Filter") {}.focusable() } }
 <details><summary>Why it exists</summary>
 
 ```text
-blur verändert laut Apple die Darstellung der View, nicht den Textwert. Eine an spoiler/shield/redact gekoppelte Blur-Kette an title/summary/tagline behält damit Story-Metadaten im Renderer. Gemessen wird dieses konkrete Quellcode-Muster, kein tatsächlicher VoiceOver- oder Übergangs-Leak. Advisory: Herkunft bereits projizierter Felder und übergeordnete Accessibility-Modifier müssen manuell geprüft werden. Dekorative Blurs, andere Metadatenpfade und Datenfluss über Helper bleiben ungemessen.
+blur verändert laut Apple die Darstellung der View, nicht den Textwert. Eine an spoiler/shield/redact gekoppelte Blur-Kette an title/summary/tagline behält damit Story-Metadaten im Renderer. Gemessen wird dieses konkrete Quellcode-Muster, kein tatsächlicher VoiceOver- oder Übergangs-Leak. Advisory: Herkunft bereits projizierter Felder und übergeordnete Accessibility-Modifier müssen manuell geprüft werden. Dekorative Blurs, andere Metadatenpfade und Datenfluss über Helper bleiben ungemessen. Einfache lokale Aliasse werden nach Block, Reihenfolge und Schattenbindung zugeordnet; das ist keine vollständige Swift-Namens-/Typauflösung.
 ```
 
 </details>
 
-<details><summary>Broken probe (must FAIL): defekt: Titel trotz Spoilerschutz im Text</summary>
+<details><summary>Broken probe (must FAIL): defekt: äußerer Alias im verschachtelten Block</summary>
 
 `App/Episodes.swift`
 
 ```text
-Text(item.title).font(.headline).blur(radius: shouldHideSpoilers ? 8 : 0)
+func view() { let summary = item.summary; VStack { Text(summary).blur(radius: spoilerShield ? 8 : 0) } }
 ```
 
 </details>

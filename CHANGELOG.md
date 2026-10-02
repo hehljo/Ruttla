@@ -63,6 +63,7 @@ when added, changed or deprecated.
 - Broken stdout pipe exits 3 instead of a traceback with exit 1.
 
 ### Fixed
+- `apple.swiftui_sensitive_text_blur`: resolve simple aliases by lexical block, declaration order and shadowing rather than file-wide names. Nine healthy/broken probes cover sibling views, local/parameter shadows, conditional bindings and protocol declarations; this remains a bounded advisory, not Swift type/dataflow analysis.
 - `gate.pipe_swallows_exit_status`: distinguish argument-selection pipelines from filters on the gate output, including nested and wrapped command substitutions. Four healthy and six broken probes preserve detection of real status loss; this remains a bounded syntax check.
 - `web.touch_target_too_small`: decorative pseudo-elements and line heights no longer count as control dimensions; mixed selectors still measure real controls.
 - `web.legal_pages_missing`: documentation mentions and code comments cannot satisfy legal-page presence. This remains a source-presence heuristic.

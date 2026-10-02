@@ -1,5 +1,17 @@
 # STATUS
 
+## SwiftUI-Aliasgrenzen (2026-10-02)
+
+- Sechs gesunde Swift-Muster reproduzierten falsche Blur-Befunde: gleichnamige
+  Bindungen in anderen Views, lokalen Blöcken sowie Funktions-/Closure-Parametern.
+  Einfache Aliasse werden jetzt nach Block, Reihenfolge und Schattenbindung
+  aufgelöst; keine vollständige Swift-Typ-/Datenflussanalyse behauptet.
+- Isolierter Stand auf e3fc80a: 497/497 Selbsttestproben, 121 Unit-/Contracttests
+  (120 bestanden, ein optionaler SARIF-Skip), generierte Regeldoku aktuell.
+  Gesunde reale CLI-Probe Exit 0, einzeln geänderte Story-Quelle Strict Exit 1.
+- Gleichzeitig vorhandene fremde CSV-i18n-Änderung bleibt uncommittet und wird
+  nicht Teil dieses Slices oder seines veröffentlichten Regeldokuments.
+
 ## SwiftUI Story-Text / Modulgrenze (2026-10-02)
 
 - Neues Offline-Advisory `apple.swiftui_sensitive_text_blur`: Blur an Story-Text
