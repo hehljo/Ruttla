@@ -3,12 +3,12 @@
 
 # Rule catalog
 
-139 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+140 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 42 | 9 |
-| dotnet | 9 | 0 |
+| dotnet | 10 | 0 |
 | godot | 23 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
@@ -2717,6 +2717,129 @@ class A {
   protected override async void OnStartup(StartupEventArgs e) { await Task.Delay(1); }
   private async Task LoadAsync() { await Task.Delay(1); }
 }
+```
+
+</details>
+
+### `dotnet.config_field_without_consumer`
+
+**Bearbeitetes Feld ohne Verbraucher außerhalb des Editors**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Existenz ist nicht Wirkung
+- Public rationale: [GUIDELINES.md › existence-is-not-effect](GUIDELINES.md#existence-is-not-effect)
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein Feld, das der Benutzer im Editor bearbeitet, wird gespeichert und wieder angezeigt — Wirkung hat es erst, wenn ein Verbraucher außerhalb des Editors damit rechnet. Belegt in einem WPF-Desktopprojekt: eine Profil-Auswahl wurde monatelang gespeichert, gelesen hat sie niemand; die Berechnung lief fest mit dem Standardwert.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Feld nur im eigenen Editor gelesen, anderswo nur kopiert</summary>
+
+`Models/Lager.cs`
+
+```text
+public class Lager {
+    public Lager() { Farbe = "rot"; }
+    [JsonPropertyName("Farbe")]
+    public string Name { get; set; } = "";
+    public string Farbe { get; set; } = "";
+    public Lager Clone() => new Lager { Name = Name, Farbe = this.Farbe };
+}
+```
+
+`ViewModels/LagerViewModel.cs`
+
+```text
+public partial class LagerViewModel {
+    [ObservableProperty] private string _gewaehlteFarbe = "";
+    [ObservableProperty] private string _lagerName = "";
+    void Laden(Lager? l) {
+        GewaehlteFarbe = l?.Farbe ?? string.Empty;
+        LagerName = l?.Name ?? string.Empty;
+    }
+    void Speichern(Lager l) {
+        l.Farbe = GewaehlteFarbe ?? string.Empty;
+        l.Name = LagerName;
+    }
+}
+```
+
+`Services/Export.cs`
+
+```text
+class Export {
+    Lager Kopie(Lager a) => new Lager { Name = a.Name, Farbe = a.Farbe };
+    string Titel(Lager a) => a.Name.ToUpper();
+    void Zuruecksetzen(Lager a) { a.Farbe = ""; }
+}
+```
+
+`Tests/LagerTests.cs`
+
+```text
+public class LagerTests {
+    [Fact] public void F() { Assert.Equal("", new Lager().Farbe); }
+}
+```
+
+`Views/LagerView.xaml`
+
+```text
+<UserControl>
+  <TextBox Text="{Binding LagerName}"/>
+  <ComboBox SelectedValue="{Binding GewaehlteFarbe, Mode=TwoWay}"/>
+</UserControl>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Feld verkettet und mit ?. außerhalb gelesen</summary>
+
+`Models/Lager.cs`
+
+```text
+public class Lager {
+    public string Farbe { get; set; } = "";
+    public int Tiefe { get; set; }
+    public int Fach { get; set; }
+    public string Ort => $"Fach {Fach}";
+}
+```
+
+`ViewModels/LagerViewModel.cs`
+
+```text
+public partial class LagerViewModel {
+    public string GewaehlteFarbe { get; set; } = "";
+    public int Tiefe { get; set; }
+    public int Fach { get; set; }
+    void Laden(Lager l) { GewaehlteFarbe = l.Farbe; Tiefe = l.Tiefe; Fach = l.Fach; }
+    void Speichern(Lager l) { l.Farbe = GewaehlteFarbe; l.Tiefe = Tiefe; l.Fach = Fach; }
+}
+```
+
+`Services/Plan.cs`
+
+```text
+class Plan {
+    string F(Halle h) => h.Lager?.Farbe ?? "grau";
+    int T(Halle h) => h.Bereich.Lager.Tiefe * 2;
+}
+```
+
+`Views/LagerView.xaml`
+
+```text
+<UserControl>
+  <ComboBox SelectedValue="{Binding GewaehlteFarbe}"/>
+  <TextBox Text="{Binding Path=Tiefe}"/>
+  <TextBox Text="{Binding Fach}"/>
+</UserControl>
 ```
 
 </details>

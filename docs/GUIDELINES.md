@@ -143,6 +143,13 @@ structure.
 The same list of values maintained in two places drifts. The second list is
 almost never the last one; derive it from the first.
 
+<a id="existence-is-not-effect"></a>
+### Existence is not effect
+
+A setting the user edits, that is loaded into the editor, shown and saved back,
+only touches its own editor. It has an effect once a consumer outside the editor
+reads it and computes with it. Saved and displayed is not the same as used.
+
 <a id="wait-for-state-not-time"></a>
 ### Wait for state, not time
 

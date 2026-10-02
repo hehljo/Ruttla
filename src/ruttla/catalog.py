@@ -64,6 +64,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Source code and history carry no AI-assistant signatures."),
     ("CLAUDE.md § Supabase", "secrets-never-in-source",
      "Credentials are recognised by their form and never live in source."),
+    ("CLAUDE.md § Existenz ist nicht Wirkung", "existence-is-not-effect",
+     "A user-edited setting that is saved and shown but read nowhere else has no effect."),
     ("CLAUDE.md § Konsistenz", "one-list-not-two",
      "A value list maintained in two places drifts; derive the second one."),
     ("CLAUDE.md § Anker", "anchor-on-identifiers-not-display-text",
