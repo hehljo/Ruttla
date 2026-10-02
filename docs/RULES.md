@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-137 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+138 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 42 | 9 |
 | dotnet | 9 | 0 |
-| godot | 21 | 0 |
+| godot | 22 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 27 | 3 |
@@ -3700,6 +3700,52 @@ renderer/rendering_method.mobile="forward_plus"
 ```text
 [rendering]
 renderer/rendering_method.mobile="mobile"
+```
+
+</details>
+
+### `godot.physics_movement_in_process`
+
+**Area2D oder Physics-Knoten wird in _process() bewegt (verursacht Kollisionstunneln)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+In Godot läuft _process() auf variablen Render-Frames, während der Physikserver
+diskret im festen Takt (z. B. 60 Hz) simuliert. Wenn Area2D-Projektile oder
+Kollisionskörper ihre Position in _process() verändern, interpoliert der Physikserver
+stale Koordinaten und schnelle Projektile (ab ca. 300 px/s) tunneln ohne Treffer
+durch gegnerische Hitboxen.
+Lösung: Positionsaktualisierungen zwingend in _physics_process(delta) ausführen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Area2D in _process bewegt</summary>
+
+`scripts/bullet.gd`
+
+```text
+extends Area2D
+func _process(delta):
+	global_position += dir * speed * delta
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Area2D in _physics_process bewegt</summary>
+
+`scripts/bullet.gd`
+
+```text
+extends Area2D
+func _physics_process(delta):
+	global_position += dir * speed * delta
 ```
 
 </details>

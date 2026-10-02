@@ -1054,6 +1054,120 @@ def check_instant_hitbox_query(ctx: Context) -> CheckResult:
                       "Hitbox-Abfragen", PLATFORM)
 
 
+@register(
+    "godot.physics_movement_in_process",
+    "Area2D oder Physics-Knoten wird in _process() bewegt (verursacht Kollisionstunneln)",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik",
+    self_tests=[
+        SelfTestCase(
+            name="Area2D in _process bewegt",
+            files={
+                "scripts/bullet.gd": (
+                    "extends Area2D\n"
+                    "func _process(delta):\n"
+                    "\tglobal_position += dir * speed * delta\n"
+                )
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="Kollisionstunneln",
+        ),
+        SelfTestCase(
+            name="Area2D in _physics_process bewegt",
+            files={
+                "scripts/bullet.gd": (
+                    "extends Area2D\n"
+                    "func _physics_process(delta):\n"
+                    "\tglobal_position += dir * speed * delta\n"
+                )
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Area2D mit _process ohne Positionsbewegung",
+            files={
+                "scripts/area.gd": (
+                    "extends Area2D\n"
+                    "func _process(delta):\n"
+                    "\trotation += 1.0 * delta\n"
+                )
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_physics_movement_in_process(ctx: Context) -> CheckResult:
+    """In Godot läuft _process() auf variablen Render-Frames, während der Physikserver
+    diskret im festen Takt (z. B. 60 Hz) simuliert. Wenn Area2D-Projektile oder
+    Kollisionskörper ihre Position in _process() verändern, interpoliert der Physikserver
+    stale Koordinaten und schnelle Projektile (ab ca. 300 px/s) tunneln ohne Treffer
+    durch gegnerische Hitboxen.
+    Lösung: Positionsaktualisierungen zwingend in _physics_process(delta) ausführen."""
+    title = "Area2D oder Physics-Knoten wird in _process() bewegt"
+    files = _gd(ctx)
+    if not files:
+        return unmeasured("godot.physics_movement_in_process", title,
+                          "Keine GDScript-Dateien gefunden.", PLATFORM)
+
+    physics_base = re.compile(r"^\s*extends\s+(Area2D|Area3D|CharacterBody2D|CharacterBody3D|RigidBody2D|RigidBody3D)", re.MULTILINE)
+    func_process = re.compile(r"^\s*func\s+_process\s*\([^)]*\)")
+    func_any = re.compile(r"^\s*func\s+\w+\s*\(")
+    pos_move = re.compile(r"\b(?:global_)?position\s*[\+\-\*\/]?=|\btranslate\s*\(")
+
+    findings: list[Finding] = []
+    measured = 0
+
+    for sf in files:
+        body = strip_comments(sf.text, sf.ext)
+        if not physics_base.search(body):
+            continue
+        if "_process" not in body:
+            continue
+
+        measured += 1
+        lines = sf.lines
+        in_process = False
+        process_indent = 0
+
+        for idx, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+
+            if func_process.search(line):
+                in_process = True
+                process_indent = len(line) - len(line.lstrip())
+                continue
+
+            if in_process:
+                # Prüfen, ob eine neue Funktion auf gleicher/höherer Ebene beginnt
+                if func_any.search(line):
+                    curr_indent = len(line) - len(line.lstrip())
+                    if curr_indent <= process_indent:
+                        in_process = False
+                        continue
+
+                if pos_move.search(line):
+                    findings.append(Finding(
+                        check_id="godot.physics_movement_in_process",
+                        severity=Severity.WARNING,
+                        message="Kollisions-Knoten (Area2D/Body) bewegt Position in '_process()' — führt zu Kollisionstunneln und verpassten Treffern.",
+                        file=sf.rel,
+                        line=idx,
+                        evidence=snippet(line),
+                        fix="Bewege das Projektil/den Körper in '_physics_process(delta)' für synchrone Kollisionsberechnung.",
+                        guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik",
+                    ))
+
+    if measured == 0:
+        return unmeasured("godot.physics_movement_in_process", title,
+                          "Keine Physics-/Area-Knoten mit _process()-Funktionen gefunden.", PLATFORM)
+    return result_for("godot.physics_movement_in_process", title, findings, measured,
+                      "Physics-Knoten mit _process()", PLATFORM)
+
+
+
 
 
 
