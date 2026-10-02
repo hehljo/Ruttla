@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-138 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+139 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 42 | 9 |
 | dotnet | 9 | 0 |
-| godot | 22 | 0 |
+| godot | 23 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 27 | 3 |
@@ -3925,6 +3925,51 @@ func _ready():
 extends Control
 func _ready():
 	$Label.add_theme_font_size_override("font_size", 28)
+```
+
+</details>
+
+### `godot.tween_moving_target_position`
+
+**tween_property() nutzt *.global_position eines Zielknotens für Verfolgung (friert Koordinate statisch ein)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+In Godot wertet tween.tween_property(..., target_node.global_position) den
+Positionswert genau einmal zum Zeitpunkt des Aufrufs aus. Wenn sich das Ziel
+(z. B. der Spieler) während der Animation bewegt, steuert der Tween die verlassene
+Koordinate an statt dem bewegten Ziel zu folgen.
+Lösung: Dynamisches Tracking in _physics_process(delta) über Richtungsvektoren.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Tween auf player.global_position</summary>
+
+`scripts/boomerang.gd`
+
+```text
+extends Node2D
+func return_home():
+	tween.tween_property(self, "global_position", player.global_position, 0.5)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Tween auf feste Zielkoordinate</summary>
+
+`scripts/bullet.gd`
+
+```text
+extends Node2D
+func launch():
+	tween.tween_property(self, "global_position", target_pos, 0.5)
 ```
 
 </details>

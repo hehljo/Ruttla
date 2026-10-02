@@ -1167,6 +1167,83 @@ def check_physics_movement_in_process(ctx: Context) -> CheckResult:
                       "Physics-Knoten mit _process()", PLATFORM)
 
 
+@register(
+    "godot.tween_moving_target_position",
+    "tween_property() nutzt *.global_position eines Zielknotens für Verfolgung (friert Koordinate statisch ein)",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik",
+    self_tests=[
+        SelfTestCase(
+            name="Tween auf player.global_position",
+            files={
+                "scripts/boomerang.gd": (
+                    "extends Node2D\n"
+                    "func return_home():\n"
+                    "\ttween.tween_property(self, \"global_position\", player.global_position, 0.5)\n"
+                )
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="global_position",
+        ),
+        SelfTestCase(
+            name="Tween auf feste Zielkoordinate",
+            files={
+                "scripts/bullet.gd": (
+                    "extends Node2D\n"
+                    "func launch():\n"
+                    "\ttween.tween_property(self, \"global_position\", target_pos, 0.5)\n"
+                )
+            },
+            expect=Status.PASS,
+        ),
+    ],
+)
+def check_tween_moving_target_position(ctx: Context) -> CheckResult:
+    """In Godot wertet tween.tween_property(..., target_node.global_position) den
+    Positionswert genau einmal zum Zeitpunkt des Aufrufs aus. Wenn sich das Ziel
+    (z. B. der Spieler) während der Animation bewegt, steuert der Tween die verlassene
+    Koordinate an statt dem bewegten Ziel zu folgen.
+    Lösung: Dynamisches Tracking in _physics_process(delta) über Richtungsvektoren."""
+    title = "tween_property() auf dynamische Knoten-Position für Zielverfolgung"
+    files = _gd(ctx)
+    if not files:
+        return unmeasured("godot.tween_moving_target_position", title,
+                          "Keine GDScript-Dateien gefunden.", PLATFORM)
+
+    tween_target_pos = re.compile(
+        r'tween_property\s*\(\s*[^,]+,\s*"(?:global_)?position"\s*,\s*(?:player|target|enemy|body)\.(?:global_)?position\b'
+    )
+
+    findings: list[Finding] = []
+    measured = 0
+
+    for sf in files:
+        if "tween_property" not in sf.text:
+            continue
+        measured += 1
+        lines = sf.lines
+        for idx, line in enumerate(lines, start=1):
+            if tween_target_pos.search(line):
+                findings.append(Finding(
+                    check_id="godot.tween_moving_target_position",
+                    severity=Severity.WARNING,
+                    message="tween_property() liest *.position des Zielknotens statisch aus — folgt bewegten Zielen nicht dynamisch.",
+                    file=sf.rel,
+                    line=idx,
+                    evidence=snippet(line),
+                    fix="Nutze dynamisches Tracking in '_physics_process(delta)' statt einer statischen Tween-Position.",
+                    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik",
+                ))
+
+    if measured == 0:
+        return unmeasured("godot.tween_moving_target_position", title,
+                          "Keine tween_property()-Aufrufe gefunden.", PLATFORM)
+    return result_for("godot.tween_moving_target_position", title, findings, measured,
+                      "Tween-Positionsaufrufe", PLATFORM)
+
+
+
 
 
 
