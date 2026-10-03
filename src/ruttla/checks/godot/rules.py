@@ -201,6 +201,16 @@ def check_physics_timing(ctx: Context) -> CheckResult:
             files={"src/a.gd": "extends Node\nvar _warned := false\nfunc _process(delta):\n\tif not target and not _warned:\n\t\t_warned = true\n"},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="statische Ausgabe nach _draw ist kein Frame Logging",
+            files={"src/a.gd": "extends Node2D\nfunc _draw():\n\tpass\nstatic func on_event():\n\tprint(\"event\")\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="statische Folgemethode verdeckt Frame Logging nicht",
+            files={"src/a.gd": "extends Node2D\nfunc _draw():\n\tprint(\"frame\")\nstatic func on_event():\n\tpass\n"},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_hot_loop_logging(ctx: Context) -> CheckResult:
@@ -225,7 +235,7 @@ def check_hot_loop_logging(ctx: Context) -> CheckResult:
                 in_hot = hm.group(1)
                 measured += 1
                 continue
-            if re.match(r"^\s*func\s+", raw):
+            if re.match(r"^\s*(?:static\s+)?func\s+", raw):
                 in_hot = None
                 continue
             if in_hot is None or not noisy.search(raw):
@@ -264,6 +274,16 @@ def check_hot_loop_logging(ctx: Context) -> CheckResult:
             files={"src/a.gd": "extends Node\nvar t\nfunc _ready():\n\tt = get_node(\"Target\")\nfunc _process(delta):\n\tt.position.x += delta\n"},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="statische Ereignisfunktion nach _draw ist kein Hot Loop",
+            files={"src/a.gd": "extends Node2D\nfunc _draw():\n\tdraw_circle(Vector2.ZERO, 2, Color.WHITE)\nstatic func spawn(parent):\n\tvar nodes = parent.get_tree().get_nodes_in_group(\"effects\")\n\tvar node = Node2D.new()\n\tparent.add_child(node)\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="statische Folgemethode verdeckt echte _draw Allokation nicht",
+            files={"src/a.gd": "extends Node2D\nfunc _draw():\n\tvar node = Node2D.new()\nstatic func spawn(parent):\n\tpass\n"},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_hot_loop_alloc(ctx: Context) -> CheckResult:
@@ -292,7 +312,7 @@ def check_hot_loop_alloc(ctx: Context) -> CheckResult:
                 in_hot = hm.group(1)
                 measured += 1
                 continue
-            if re.match(r"^\s*func\s+", raw):
+            if re.match(r"^\s*(?:static\s+)?func\s+", raw):
                 in_hot = None
                 continue
             if in_hot is None:
@@ -773,9 +793,12 @@ def check_hardcoded_ui_text(ctx: Context) -> CheckResult:
         return unmeasured("godot.hardcoded_ui_text", title,
                           "Keine GDScript-Dateien gefunden.", PLATFORM)
 
-    # Zuweisungen an UI-Text-Eigenschaften
+    # Zuweisungen an UI-Text-Eigenschaften sowie Aufrufe von UI-Factory-Methoden mit Rohstrings
     ui_assign = re.compile(
         r'\b(?:(?:\w+|\$|\$"\w+")\.)?(text|placeholder_text|tooltip_text)\s*=\s*(.+)'
+    )
+    ui_factory_call = re.compile(
+        r'\bUIF\.(?:title|subtitle|button)\(\s*(.+?)(?:,.*|\))\s*$'
     )
     # Reiner String-Literal: beginnt und endet mit Anführungszeichen
     literal_str = re.compile(r'^"([^"\n]{2,})"$')
@@ -790,11 +813,20 @@ def check_hardcoded_ui_text(ctx: Context) -> CheckResult:
         lines = body.splitlines()
         for idx, line in enumerate(lines, start=1):
             m = ui_assign.search(line)
-            if not m:
+            prop_name = ""
+            rhs = ""
+            if m:
+                prop_name = f".{m.group(1)}"
+                rhs = m.group(2).strip()
+            else:
+                m_call = ui_factory_call.search(line)
+                if m_call:
+                    prop_name = "UIF-Aufruf"
+                    rhs = m_call.group(1).strip()
+
+            if not prop_name:
                 continue
             measured += 1
-            prop_name = m.group(1)
-            rhs = m.group(2).strip()
 
             str_match = literal_str.match(rhs)
             if not str_match:
@@ -815,7 +847,7 @@ def check_hardcoded_ui_text(ctx: Context) -> CheckResult:
             findings.append(Finding(
                 check_id="godot.hardcoded_ui_text",
                 severity=Severity.WARNING,
-                message=f"Hardcoded Anzeigetext in .{prop_name}: \"{snippet(raw_text, 40)}\"",
+                message=f"Hardcoded Anzeigetext in {prop_name}: \"{snippet(raw_text, 40)}\"",
                 file=sf.rel,
                 line=idx,
                 evidence=snippet(orig),
@@ -922,19 +954,12 @@ def check_theme_override_slash_syntax(ctx: Context) -> CheckResult:
     ],
 )
 def check_unsupported_emoji_in_ui(ctx: Context) -> CheckResult:
-    """Godots eingebetteter Standardfont unterstützt auf WebAssembly (HTML5) und
-    vielen Mobilplattformen keine Farbemojis (wie ⚔, 💰, 👑, 🛡).
-    Ohne explizite Einbindung einer .ttf/.otf mit Emoji-Glyphen rendert Godot
-    diese Symbole als leere Rechtecke ('Tofu') oder Artefakte.
-    Lösung: TextureRect/SVG-Icons oder Text-Bezeichner nutzen."""
     title = "Unicode-Emoji in Godot UI-Text"
     files = list(ctx.files(".tscn")) + list(_gd(ctx))
     if not files:
-        return unmeasured("godot.unsupported_emoji_in_ui", title,
-                          "Keine Szenen- oder GDScript-Dateien gefunden.", PLATFORM)
+        return unmeasured("godot.unsupported_emoji_in_ui", title, "Keine Szenen- oder GDScript-Dateien gefunden.", PLATFORM)
 
     emoji_pat = re.compile(r"([\U0001F300-\U0001FAFF]|[\u2600-\u27BF])")
-    # Nur Textzuweisungen oder Szenentexte prüfen
     ui_text_pat = re.compile(r'(?:text\s*=\s*"|\.text\s*=\s*).*?([\U0001F300-\U0001FAFF]|[\u2600-\u27BF])')
 
     findings: list[Finding] = []
@@ -965,3 +990,4 @@ def check_unsupported_emoji_in_ui(ctx: Context) -> CheckResult:
                           "Keine UI-Texteinträge gefunden.", PLATFORM)
     return result_for("godot.unsupported_emoji_in_ui", title, findings, measured,
                       "UI-Textstellen", PLATFORM)
+
