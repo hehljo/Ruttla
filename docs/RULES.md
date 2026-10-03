@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-148 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+149 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 44 | 9 |
 | dotnet | 10 | 0 |
-| godot | 27 | 0 |
+| godot | 28 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 29 | 5 |
@@ -4371,6 +4371,61 @@ func return_home():
 extends Node2D
 func launch():
 	tween.tween_property(self, "global_position", target_pos, 0.5)
+```
+
+</details>
+
+### `godot.ui_container_masks_buttons`
+
+**Übergeordneter Control/MarginContainer ohne mouse_filter = PASS blockiert Klicks auf Buttons**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Wenn in Godot Controls oder MarginContainer vollflächig über andere
+interaktive Elemente (wie Top-Bars oder Buttons) gelegt werden, fängt Godots
+Event-System Touch-/Mausevents standardmäßig ab (MOUSE_FILTER_STOP).
+Dies führt dazu, dass sichtbare Buttons nicht mehr klickbar sind ('tote Buttons').
+Lösung: Container auf mouse_filter = MOUSE_FILTER_PASS setzen oder z_index erhöhen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): MarginContainer blockiert darunterliegende Buttons</summary>
+
+`scripts/ui/menu.gd`
+
+```text
+extends Control
+func _ready():
+    var top = HBoxContainer.new()
+    add_child(top)
+    var margin = MarginContainer.new()
+    add_child(margin)
+    var btn = Button.new()
+    top.add_child(btn)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Saubere Z-Index oder Mouse-Filter Trennung</summary>
+
+`scripts/ui/menu.gd`
+
+```text
+extends Control
+func _ready():
+    var top = HBoxContainer.new()
+    top.z_index = 10
+    add_child(top)
+    var margin = MarginContainer.new()
+    margin.mouse_filter = Control.MOUSE_FILTER_PASS
+    add_child(margin)
 ```
 
 </details>
