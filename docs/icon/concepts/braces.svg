@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <style>
+    .mark { color: #C92A2A; }
+    @media (prefers-color-scheme: dark) { .mark { color: #FF6B6B; } }
+  </style>
+  <defs>
+    <path id="braceL" d="M196 72 C148 72 156 116 156 156 L156 196 C156 222 138 236 114 236 C138 236 156 250 156 276 L156 316 C156 356 148 400 196 400"/>
+    <path id="braceR" d="M316 72 C364 72 356 116 356 156 L356 196 C356 222 374 236 398 236 C374 236 356 250 356 276 L356 316 C356 356 364 400 316 400"/>
+    <mask id="bugShell">
+      <rect width="512" height="512" fill="#fff"/>
+      <rect x="252" y="446" width="8" height="54" fill="#000"/>
+    </mask>
+  </defs>
+  <g class="mark" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Nachbild der Bewegung -->
+    <g stroke-width="30" opacity="0.28">
+      <use href="#braceL" transform="translate(-22 -6) rotate(-4 156 236)"/>
+      <use href="#braceR" transform="translate(22 -6) rotate(4 356 236)"/>
+    </g>
+    <!-- geschüttelte Klammern -->
+    <g stroke-width="34">
+      <use href="#braceL" transform="rotate(3 156 236)"/>
+      <use href="#braceR" transform="rotate(-3 356 236)"/>
+    </g>
+    <!-- Rüttelstriche -->
+    <g stroke-width="14">
+      <path d="M54 170 Q40 236 54 302"/>
+      <path d="M22 192 Q12 236 22 280"/>
+      <path d="M458 170 Q472 236 458 302"/>
+      <path d="M490 192 Q500 236 490 280"/>
+    </g>
+    <!-- herausfallender Käfer mit Fallspur -->
+    <g stroke-width="8">
+      <path d="M232 392 L232 414 M256 384 L256 404 M280 392 L280 414"/>
+    </g>
+    <g transform="rotate(18 256 466)">
+      <g fill="currentColor" stroke="none" mask="url(#bugShell)">
+        <ellipse cx="256" cy="474" rx="22" ry="28"/>
+        <circle cx="256" cy="440" r="11"/>
+      </g>
+      <g stroke-width="7">
+        <path d="M236 460 L220 450 M234 476 L216 476 M236 490 L222 502 M276 460 L292 450 M278 476 L296 476 M276 490 L290 502"/>
+      </g>
+    </g>
+  </g>
+</svg>
