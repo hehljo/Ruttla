@@ -1,5 +1,19 @@
 # STATUS
 
+## Collider callbacks and evidence integration (2026-10-04)
+
+- New advisory `godot.collider_write_in_physics_signal`: explicitly connected
+  Area callbacks, typed onready collider references and direct local helpers.
+  Deferred setters/helpers/connections stay healthy; dynamic flags, awaits and
+  closures remain unmeasured. Cross-script reward paths require engine proofs.
+- Healthy controls before five individual static defects; separate CLI checks
+  verify three isolated regressions, exact locations and a 3D counterprobe.
+- 603/603 self-test probes; 172 unit/contract tests, 170 passed and two skipped.
+  Generated catalog, strict self-scan and changed-only passed with no blockers.
+- Reusable guidance covers real pickup callbacks, fresh complete simulation
+  receipts and balance-resource PCK/source parity. Human enjoyment and native
+  device quality remain unmeasured. User authorized integration and main push.
+
 ## Godot-Trefferflächen und Eingaberouting (2026-10-04)
 
 - Bestehende Mobile-Regel auf nächstes Projekt begrenzt, Konfigurationsabstände

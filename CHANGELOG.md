@@ -21,6 +21,7 @@ when added, changed or deprecated.
 - `apple.project_settings`: `LastUpgradeCheck`-Schwelle auf Xcode 27.0 (2700) angehoben.
 
 ### Added
+- `godot.collider_write_in_physics_signal`: bounded advisory for attached typed collider assignments in explicitly connected Area physics signals, including direct local helpers. Deferred writes/connections remain healthy; dynamic flags, awaits and closures remain unmeasured. Real cross-script pickup rewards need engine-backed project contracts. Healthy controls precede isolated disabled/shape/helper/signal defects; no target code execution.
 - `apple.swiftui_sensitive_text_blur`: bounded advisory for title/summary/tagline Text rendered with a spoiler/shield/redact-controlled blur. Healthy controls and isolated title/summary probes verify the concrete source pattern; actual VoiceOver, transitions and metadata provenance remain unmeasured.
 - `linux.tzdata_host_timezone`: offline advisory for an explicitly captured Linux host whose localtime link uses `Host` without a registered tzdata template. Healthy UTC/custom-template controls, isolated Host defects and unknown-input probes included. Read-only collector and reusable 1blu/OpenVZ/Tailnet setup procedure added; no automatic SSH or host execution during scans.
 - `dotnet.temp_file_name_with_suffix` (Hinweis): `Path.GetTempFileName() + ".ext"` legt die .tmp-Datei an und lässt sie liegen. Belegt in einem WPF-Desktopprojekt (ICS-Export); Altstand rot, Fix grün.

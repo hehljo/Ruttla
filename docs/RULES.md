@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-152 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+153 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 44 | 9 |
 | dotnet | 10 | 0 |
-| godot | 28 | 0 |
+| godot | 29 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
 | universal | 32 | 6 |
@@ -3507,6 +3507,45 @@ extends RefCounted
 const MIN_TOUCH_SIZE := 164.0
 const MIN_TOUCH_WIDTH: float = 164.0
 const MAX_TOUCH_HEIGHT = 240
+```
+
+</details>
+
+### `godot.collider_write_in_physics_signal`
+
+**Collider direkt in einem verbundenen Physiksignal geändert**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Physik
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Broken probe (must FAIL): Direkt disabled</summary>
+
+`a.gd`
+
+```text
+extends Area2D
+@onready var collider: CollisionShape2D = $CollisionShape2D
+func _ready():
+	body_entered.connect(on_contact)
+func on_contact(body):
+	collider.disabled = true
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Aufgeschobener Setter</summary>
+
+`a.gd`
+
+```text
+extends Area2D
+@onready var collider: CollisionShape2D = $CollisionShape2D
+func _ready():
+	body_entered.connect(on_contact)
+func on_contact(body):
+	collider.set_deferred("disabled", true)
 ```
 
 </details>

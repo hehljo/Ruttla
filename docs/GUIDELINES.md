@@ -280,6 +280,20 @@ nodes communicate via signals or exported references instead of fragile
 scene configured in `project.godot` must exist; the project root stays tidy;
 declarations are typed; visible UI text goes through `tr()`.
 
+Explicitly connected Area physics callbacks must defer collider changes using
+`set_deferred()` or a deferred geometry helper. The bounded
+`godot.collider_write_in_physics_signal` advisory checks typed onready collider
+references and direct same-file calls. Scene connections, dynamic flags,
+closures, awaits and cross-script reward chains require a real engine project
+proof; absence of this source pattern proves no runtime safety.
+See [Godot's CollisionShape2D contract](https://github.com/godotengine/godot/blob/master/doc/classes/CollisionShape2D.xml).
+
+Simulation proofs must bind the complete case matrix, clean engine log and
+report to current source hashes; generated balance resources must also appear
+in the exported PCK. Healthy runs precede individually broken callback,
+statistics and export probes. Bot win rates do not measure human enjoyment or
+native device performance.
+
 <a id="raspberry-pi-field-device-guidelines"></a>
 ### Raspberry Pi / field device guidelines
 
