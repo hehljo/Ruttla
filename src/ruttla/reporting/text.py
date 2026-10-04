@@ -60,6 +60,12 @@ def print_text(report: dict, use_color: bool, verbose: bool) -> None:
         for item in skipped:
             print(f"   {yellow}?{reset} {item['file']} ({item['bytes']} Bytes)")
         print()
+    broken = coverage.get("files_skipped_broken_symlink", [])
+    if broken:
+        print(f"{yellow}Nicht geprüft (Symlink ohne erreichbares Ziel):{reset}")
+        for rel in broken:
+            print(f"   {yellow}?{reset} {rel}")
+        print()
     for platform in report.get("platforms_without_pack", []):
         print(f"{yellow}? Plattform '{platform}' erkannt, aber es gibt noch kein "
               f"Regelpaket — nicht gemessen.{reset}\n")

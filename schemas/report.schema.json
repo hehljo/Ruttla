@@ -84,6 +84,7 @@
         "files_excluded_agent_instructions": { "type": "integer", "minimum": 0 },
         "files_excluded_by_config": { "type": "integer", "minimum": 0 },
         "files_skipped_symlink_alias": { "type": "integer", "minimum": 0 },
+        "files_skipped_broken_symlink": { "type": "array", "items": { "type": "string" } },
         "max_file_bytes": { "type": "integer", "minimum": 1 }
       }
     },

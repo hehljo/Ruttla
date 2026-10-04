@@ -100,6 +100,7 @@ class Coverage:
     excluded_agent_files: int = 0
     excluded_by_config: int = 0
     aliases_skipped: int = 0
+    broken_symlinks: list[str] = field(default_factory=list)
     max_file_bytes: int = 0
 
     def to_dict(self) -> dict:
@@ -110,6 +111,7 @@ class Coverage:
             "files_excluded_agent_instructions": self.excluded_agent_files,
             "files_excluded_by_config": self.excluded_by_config,
             "files_skipped_symlink_alias": self.aliases_skipped,
+            "files_skipped_broken_symlink": list(self.broken_symlinks),
             "max_file_bytes": self.max_file_bytes,
         }
 
@@ -268,6 +270,14 @@ def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
                 raise GateInputError(
                     f"Eingabepfad verlässt die Prüfwurzel: {rel}"
                 )
+            if os.path.islink(full) and not os.path.exists(full):
+                # Erst nach der Wurzelprüfung: ein Link nach außen bleibt ein Abbruch,
+                # auch wenn sein Ziel fehlt. Ein Link ohne erreichbares Ziel (gelöscht, zyklisch) hat keinen
+                # Inhalt — er ist eine Lücke, kein unlesbarer Inhalt. Früher
+                # brach er den ganzen Lauf ab (P10-T001); jetzt steht er in der
+                # Coverage, damit die Lücke sichtbar bleibt statt still zu fehlen.
+                coverage.broken_symlinks.append(rel)
+                continue
             if os.path.islink(full):
                 # Ein Link auf eine Datei innerhalb der Wurzel ist ein Alias
                 # (z. B. hostlose Testpakete, die echte Quellen verlinken). Doppelt

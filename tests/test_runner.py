@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -120,10 +121,45 @@ class InputAndGitTests(unittest.TestCase):
         )
 
     def test_dangling_input_is_not_silently_skipped(self) -> None:
+        # P10-T001: ein Link ohne Ziel bricht den Lauf nicht mehr ab, bleibt
+        # aber als Lücke in der Coverage sichtbar — nie still weg.
         with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "keep.py").write_text("x = 1\n", encoding="utf-8")
             symlink_or_skip(self, Path(tmp, "broken.py"), Path(tmp, "missing.py"))
+            ctx = Context(tmp, Config())
+            self.assertEqual([f.rel for f in ctx.all_files()], ["keep.py"])
+            self.assertEqual(ctx.coverage().broken_symlinks, ["broken.py"])
+
+    def test_cyclic_symlink_is_reported_not_fatal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            symlink_or_skip(self, Path(tmp, "a.py"), Path(tmp, "b.py"))
+            symlink_or_skip(self, Path(tmp, "b.py"), Path(tmp, "a.py"))
+            ctx = Context(tmp, Config())
+            self.assertEqual(ctx.all_files(), [])
+            self.assertEqual(ctx.coverage().broken_symlinks, ["a.py", "b.py"])
+
+    def test_dangling_symlink_outside_root_still_aborts(self) -> None:
+        # Gegenrichtung: die Wurzelgrenze gilt weiter, auch ohne Ziel.
+        with tempfile.TemporaryDirectory() as parent:
+            root = Path(parent, "root")
+            root.mkdir()
+            symlink_or_skip(self, Path(root, "out.py"), Path(parent, "missing.py"))
             with self.assertRaises(GateInputError):
-                Context(tmp, Config()).all_files()
+                Context(str(root), Config()).all_files()
+
+    def test_unreadable_regular_file_still_aborts(self) -> None:
+        # Gegenrichtung: echter, unlesbarer Inhalt macht den Lauf weiter ungültig.
+        if os.name != "posix" or os.geteuid() == 0:
+            self.skipTest("root liest auch chmod-000-Dateien")
+        with tempfile.TemporaryDirectory() as tmp:
+            locked = Path(tmp, "locked.py")
+            locked.write_text("x = 1\n", encoding="utf-8")
+            locked.chmod(0)
+            try:
+                with self.assertRaises(GateInputError):
+                    Context(tmp, Config()).all_files()
+            finally:
+                locked.chmod(0o644)
 
     def test_readable_symlink_cannot_escape_input_root(self) -> None:
         with tempfile.TemporaryDirectory() as parent:
@@ -404,9 +440,13 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("RUNNER_ERROR\tinvalid_config", result.stdout)
 
     def test_unreadable_input_uses_exit_three(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            symlink_or_skip(self, Path(tmp, "broken.py"), Path(tmp, "missing.py"))
-            result = self.run_cli(tmp, "--format", "agent")
+        # Ein Link ohne Ziel innerhalb der Wurzel ist seit P10-T001 nur noch
+        # eine Coverage-Lücke; die Grenzverletzung bleibt ein Runner-Fehler.
+        with tempfile.TemporaryDirectory() as parent:
+            tmp = Path(parent, "root")
+            tmp.mkdir()
+            symlink_or_skip(self, Path(tmp, "broken.py"), Path(parent, "missing.py"))
+            result = self.run_cli(str(tmp), "--format", "agent")
         self.assertEqual(result.returncode, master_gate.EXIT_CRASH)
         self.assertIn("RUNNER_ERROR\tinput_unreadable", result.stdout)
 

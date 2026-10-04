@@ -14,7 +14,7 @@ import subprocess
 import sys
 import unittest
 
-from _support import REPO, cli_json, make_tree
+from _support import REPO, cli, cli_json, make_tree
 
 from ruttla.config import Config
 from ruttla.context import Context
@@ -147,6 +147,18 @@ class PathRobustness(unittest.TestCase):
             self._link_or_skip(os.path.join(tmp, "src/lib.py"), os.path.join(tmp, "node_modules/lib.py"))
             rels = sorted(f.rel for f in Context(tmp, Config()).all_files())
         self.assertEqual(rels, ["src/keep.py", "src/lib.py"])
+
+    def test_broken_symlink_reaches_every_report_format(self) -> None:
+        # Die Lücke muss beim Leser ankommen, nicht nur in der Coverage stehen.
+        with make_tree({"src/keep.py": "x = 1\n"}) as tmp:
+            self._link_or_skip(os.path.join(tmp, "src/gone.py"), os.path.join(tmp, "src/missing.py"))
+            code, report = cli_json(tmp)
+            agent = cli(tmp, "--format", "agent").stdout
+            text = cli(tmp, "--no-color").stdout
+        self.assertNotEqual(code, 3, "kaputter Symlink darf den Lauf nicht abbrechen")
+        self.assertEqual(report["coverage"]["files_skipped_broken_symlink"], ["src/gone.py"])
+        self.assertIn("BROKEN_LINK\tsrc/gone.py", agent)
+        self.assertIn("src/gone.py", text)
 
     def test_finding_normalizes_windows_backslashes(self) -> None:
         f = Finding(check_id="x.y", severity=Severity.WARNING, message="msg", file="src\\sub\\file.py")

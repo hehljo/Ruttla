@@ -41,6 +41,8 @@ def print_agent(report: dict) -> None:
             print(f"TRUNCATED\t{res['check_id']}\t{res['findings_truncated']}")
     for skipped in coverage.get("files_skipped", []):
         print(f"SKIPPED\t{agent_field(skipped['file'])}\t{skipped['reason']}\t{skipped['bytes']}")
+    for rel in coverage.get("files_skipped_broken_symlink", []):
+        print(f"BROKEN_LINK\t{agent_field(rel)}\tSymlink ohne erreichbares Ziel — nicht geprüft")
     for platform in report.get("platforms_without_pack", []):
         print(f"NO_PACK\t{platform}\terkannt, aber kein Regelpaket — nicht gemessen")
     print(f"NEXT_ACTION\t{agent_field(report['next_action'])}")
