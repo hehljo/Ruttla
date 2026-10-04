@@ -6,6 +6,8 @@ shared helpers in _common.py.
 
 from __future__ import annotations
 
+import csv
+import io
 import re
 
 from ruttla.core import (
@@ -48,6 +50,38 @@ def _catalog_files(ctx: Context) -> list:
 def _apple_keys(sf) -> list[tuple[str, int]]:
     return [(m.group(1), sf.line_of(m.start()))
             for m in _APPLE_STRINGS_KEY.finditer(sf.text)]
+
+
+def _godot_csv_locales(sf):
+    """Read Godot's key/locale CSV format without executing target code.
+
+    Empty translations count as missing keys. Invalid tables remain
+    unmeasured; an arbitrary CSV file is not a translation catalog.
+    """
+    reader = csv.reader(io.StringIO(sf.text.lstrip('\ufeff')), strict=True)
+    try:
+        header = next(reader, [])
+        if not header or header[0].lower() not in ('keys', 'key'):
+            return None
+        locales = header[1:]
+        if (not locales or len(set(locales)) != len(locales)
+                or not all(re.fullmatch(r'[a-z]{2,3}(?:[_-][A-Za-z0-9]+)*', loc)
+                           for loc in locales)):
+            return {}, {}, True
+        keys = {}
+        tables = {loc: {} for loc in locales}
+        for row in reader:
+            if not row:
+                continue
+            if len(row) != len(header) or not row[0].strip() or row[0] in keys:
+                return {}, {}, True
+            keys[row[0]] = reader.line_num
+            for loc, value in zip(locales, row[1:]):
+                if value.strip():
+                    tables[loc][row[0]] = reader.line_num
+        return tables, keys, False
+    except csv.Error:
+        return {}, {}, True
 
 
 _LOCALE_DECLARATION = re.compile(
@@ -430,6 +464,10 @@ def check_literal_text(ctx: Context) -> CheckResult:
             files={"src/a.ts": 'const msg = "Es wurden \\"neue\\" " + count;\n'},
             expect=Status.FAIL,
         ),
+        SelfTestCase(name="gesund: Godot JavaScript-Datenzuweisung", files={
+            "src/probe.gd": 'extends Node\nfunc report(state):\n\tJavaScriptBridge.eval("window.__layout = " + JSON.stringify(state), true)\n'}, expect=Status.PASS),
+        SelfTestCase(name="defekt: Bridge-Aufruf verdeckt keinen UI-Text", files={
+            "src/probe.gd": 'extends Node\nfunc report(count):\n\tlabel.text = "Es sind " + str(count); JavaScriptBridge.eval("window.__count = " + str(count), true)\n'}, expect=Status.FAIL),
     ],
 )
 def check_string_concat(ctx: Context) -> CheckResult:
@@ -454,6 +492,10 @@ def check_string_concat(ctx: Context) -> CheckResult:
                 continue
             if not suffix.match(haystack, m.end()):
                 continue
+            prefix = haystack[haystack.rfind("\n", 0, m.start()) + 1:m.start()]
+            if (sf.ext == ".gd" and re.search(r"JavaScriptBridge\.eval\(\s*$", prefix)
+                    and re.fullmatch(r"window\.[A-Za-z_$][\w$]*\s*=\s*", content)):
+                continue  # A JS assignment prefix is program syntax, not UI text.
             if re.search(r"(console\.|print\(|log\w*\(|logger|throw |Error\(|assert)", raw, re.I):
                 continue  # Entwicklertext, gehört nicht in den Katalog
             findings.append(Finding(
@@ -609,11 +651,40 @@ def check_string_concat(ctx: Context) -> CheckResult:
                    "src/lang.js": "const de = {finish: 'Fertig'}; const en = {finish: 'Done'};"},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="Godot CSV quoted commas multiline and regional locale",
+            files={"localization/ui.csv": '\ufeffkeys,de,en_US\nUI_START,"Los, jetzt","Go, now"\nUI_END,"Fertig\n!",Done\n'},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Godot CSV empty English translation",
+            files={"localization/ui.csv": 'keys,de,en\nUI_START,Los,\n'},
+            expect=Status.FAIL,
+            expect_finding_contains="UI_START",
+        ),
+        SelfTestCase(
+            name="Godot CSV all locales empty",
+            files={"ui.csv": 'keys,de,en\nUI_START, ,\n'},
+            expect=Status.FAIL,
+            expect_finding_contains="UI_START",
+        ),
+        *[SelfTestCase(name="Godot CSV " + name,
+                      files={"ui.csv": content}, expect=Status.UNMEASURED)
+          for name, content in [
+              ("single language", 'keys,de\nUI_START,Los\n'),
+              ("duplicate key", 'keys,de,en\nUI_START,Los,Go\nUI_START,Los,Go\n'),
+              ("duplicate locale", 'keys,de,de\nUI_START,Los,Los\n'),
+              ("short row", 'keys,de,en\nUI_START,Los\n'),
+              ("extra column", 'keys,de,en\nUI_START,Los,Go,Extra\n'),
+              ("invalid quoting", 'keys,de,en\nUI_START,"Los,Go\n'),
+              ("unrelated data", 'id,name,amount\n1,item,2\n'),
+          ]],
     ],
 )
 def check_catalog_key_parity(ctx: Context) -> CheckResult:
     """Vergleicht Apple-Stringskataloge mit gleichem Dateinamen sowie flache
-    TS/JS-Literalkataloge mit Locale-Konstanten (z. B. `const de`, `const en`)
+    Godot-CSV-Tabellen (keys/de/en) und flache TS/JS-Literalkataloge
+    mit Locale-Konstanten (z. B. `const de`, `const en`)
     in Katalogpfaden. Jede Sprache muss die Vereinigung der Schlüssel tragen.
     Template-Werte mit einfachen Member-Referenzen sind lesbar; es werden
     nur Schlüssel verglichen, keine Markenwerte oder Übersetzungen ausgeführt.
@@ -628,7 +699,21 @@ def check_catalog_key_parity(ctx: Context) -> CheckResult:
     groups: dict[str, dict[str, dict[str, int]]] = {}
     files = {}
     unsupported = []
+    expected_keys = {}
     for sf in ctx.all_files():
+        if sf.ext == ".csv":
+            parsed = _godot_csv_locales(sf)
+            if parsed is not None:
+                locales, declared, invalid = parsed
+                if invalid:
+                    unsupported.append(sf.rel)
+                    continue
+                expected_keys[sf.rel] = set(declared)
+                for locale, keys in locales.items():
+                    identity = f"{sf.rel}::{locale}"
+                    groups.setdefault(sf.rel, {})[identity] = keys
+                    files[identity] = sf.rel
+            continue
         if sf.ext in (".ts", ".js") and _CATALOG_PATH.search(sf.rel):
             locales, dynamic = _literal_locale_keys(sf)
             if dynamic:
@@ -652,12 +737,13 @@ def check_catalog_key_parity(ctx: Context) -> CheckResult:
         return unmeasured(
             "i18n.catalog_key_parity", title,
             "Keine unterstützten Kataloge in mindestens zwei Sprachen gefunden. "
-            "Gemessen werden Apple .lproj/*.strings und flache TS/JS-Locale-Konstanten. "
+            "Gemessen werden Apple .lproj/*.strings, Godot-CSV und flache TS/JS-Locale-Konstanten. "
             "JSON und dynamische Kataloge sind nicht gemessen.")
     findings: list[Finding] = []
     units = 0
     for name, langs in sorted(compared.items()):
         union = set().union(*(set(k) for k in langs.values()))
+        union.update(expected_keys.get(name, set()))
         for rel, keys in sorted(langs.items()):
             units += 1
             for key in sorted(union - set(keys)):

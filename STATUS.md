@@ -1,5 +1,25 @@
 # STATUS
 
+## Godot-Trefferflächen und Eingaberouting (2026-10-04)
+
+- Bestehende Mobile-Regel auf nächstes Projekt begrenzt, Konfigurationsabstände
+  und Kommentare korrekt gelesen. Deklarierte Mindestgrößen sind kein
+  Gerätenachweis; frühere pauschale 96–120-Empfehlung entfernt.
+- Eingaberouting-Regel hatte zwei nicht funktionierende eigene Proben und
+  beruhte auf Variablennamen. Eng auf explizite Full-Rect-Geschwister mit
+  nativen Controls begrenzt. Unbekannte Geometrie/Verzweigungen ungemessen.
+  IGNORE lässt durch; PASS und z_index sind kein Fix. Godot 4.7.1 bestätigte
+  dies mit echten Viewport-Eingaben, ohne Enginefehler im isolierten Projekt.
+- Gesund-/Einzeldefektproben: 574/574; 136 Unit-/Contracttests, 135 bestanden,
+  ein optionaler Skip. Regeldokument aktuell, strikter Selbstscan und
+  changed-only je 11 PASS, 24 ungemessen, null Blocker oder Advisories.
+- Belegter Fehlalarm: MIN/MAX_TOUCH_SIZE/WIDTH/HEIGHT als UI-Geometrie vom
+  Balance-Advisory ausgenommen; Touch-Schaden bleibt erkannt. Zwei zusätzliche
+  gesunde/isoliert defekte Proben, vollständige Gates erneut bestanden.
+- Öffentliche UI-Guideline und Katalog aktualisiert. Kein Commit/Push;
+  gleichzeitig vorhandene Apple-, i18n- und Contract-Erweiterungen erhalten.
+
+
 ## SwiftUI-Aliasgrenzen (2026-10-02)
 
 - Sechs gesunde Swift-Muster reproduzierten falsche Blur-Befunde: gleichnamige

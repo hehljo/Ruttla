@@ -622,3 +622,24 @@ the application's production readiness.
 References: <https://manpages.debian.org/testing/debconf-doc/debconf-devel.7.en.html>,
 <https://tailscale.com/docs/reference/ssh-over-tailscale>,
 <https://docs.docker.com/engine/install/ubuntu/>.
+
+### Declared Godot button minima and runtime touch targets
+
+The mobile button check inspects explicit positive scene minima below 80
+logical units in a 1080-wide portrait project. This is a bounded static risk
+indicator, not a measurement of the resulting hit region. Container growth,
+font metrics, stretch and density remain runtime inputs. Do not recommend
+96–120 logical units as a universal platform minimum. Measure iOS regions
+in points (44×44), Android regions in dp (48×48), and browser regions separately
+in CSS pixels. Assign scene files to their nearest project; neighboring and
+nested desktop projects must not inherit another project's mobile setting.
+Use source-bound runtime receipts and isolated width/height mutations for
+actual scaled targets, layout reachability and input routing.
+
+References: [Apple Buttons](https://developer.apple.com/design/human-interface-guidelines/buttons),
+[Android touch targets](https://support.google.com/accessibility/android/answer/7101858),
+[Godot resolutions](https://docs.godotengine.org/en/stable/tutorials/rendering/multiple_resolutions.html).
+
+Explicit `MIN/MAX_TOUCH_SIZE/WIDTH/HEIGHT` constants express UI geometry, not
+gameplay balance. Excluding them from balance advisories does not prove their
+actual runtime hit regions. Health and touch damage constants remain covered.

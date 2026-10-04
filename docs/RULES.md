@@ -3,16 +3,16 @@
 
 # Rule catalog
 
-146 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+152 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 43 | 9 |
+| apple | 44 | 9 |
 | dotnet | 10 | 0 |
-| godot | 25 | 0 |
+| godot | 28 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
-| universal | 30 | 4 |
+| universal | 32 | 6 |
 | unreal | 6 | 0 |
 | web | 20 | 3 |
 
@@ -105,6 +105,56 @@ buildSettings = {
     CODE_SIGN_IDENTITY = "Apple Development";
     CODE_SIGN_STYLE = Automatic;
 };
+```
+
+</details>
+
+### `apple.bridging_header_pragma_once`
+
+**#pragma once im Swift-Bridging-Header**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: IOS_DEBUGGING_GUIDELINES.md § Buildort & Toolchain
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+
+<details><summary>Broken probe (must FAIL): Defekt: referenzierter verschachtelter Bridging-Header</summary>
+
+`App.xcodeproj/project.pbxproj`
+
+```text
+SWIFT_OBJC_BRIDGING_HEADER = "App/Bridge.h";
+```
+
+`App/Bridge.h`
+
+```text
+/* license */
+#pragma once
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Gesund: Include-Guard, gewöhnlicher Header mit Pragma erlaubt</summary>
+
+`App.xcodeproj/project.pbxproj`
+
+```text
+SWIFT_OBJC_BRIDGING_HEADER = "App/Bridge.h";
+```
+
+`App/Bridge.h`
+
+```text
+#ifndef APP_BRIDGE_H
+#define APP_BRIDGE_H
+#endif
+```
+
+`App/Ordinary.h`
+
+```text
+#pragma once
 ```
 
 </details>
@@ -3437,24 +3487,26 @@ const SUPPORT_EMAIL: String = "support@example.com"
 - Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § 3
 - Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
 
-<details><summary>Broken probe (must FAIL): Balancewert als const</summary>
+<details><summary>Broken probe (must FAIL): defekt: Touch-Schaden bleibt Balance</summary>
 
 `src/a.gd`
 
 ```text
 extends Node
-const MAX_HEALTH := 100
+const MIN_TOUCH_DAMAGE := 20
 ```
 
 </details>
 
-<details><summary>Healthy probe (must PASS): aus Resource</summary>
+<details><summary>Healthy probe (must PASS): gesund: Touch-Mindestfläche ist UI-Geometrie</summary>
 
 `src/a.gd`
 
 ```text
-extends Node
-@export var stats: Resource
+extends RefCounted
+const MIN_TOUCH_SIZE := 164.0
+const MIN_TOUCH_WIDTH: float = 164.0
+const MAX_TOUCH_HEIGHT = 240
 ```
 
 </details>
@@ -3531,6 +3583,52 @@ extends Node
 @export var manager_path: NodePath
 func go():
 	var n = get_node(manager_path)
+```
+
+</details>
+
+### `godot.fresh_control_editor_anchor_preset`
+
+**Full-Rect-Editorpreset an einem neu erzeugten Control im Positionsmodus**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Control defaults to Position mode. Its internal editor preset setter
+returns without applying anchors in that mode. Deliberately only measure
+an immediately following assignment on a known, freshly created builtin:
+existing nodes, intervening setup and custom classes need runtime evidence.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): frische Textzeile mit wirkungslosem Editorpreset</summary>
+
+`src/ui.gd`
+
+```text
+extends Control
+func create():
+	var row := HBoxContainer.new()
+	row.anchors_preset = Control.PRESET_FULL_RECT
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): echte Anker und Offsets anwenden</summary>
+
+`src/ui.gd`
+
+```text
+extends Control
+func create():
+	var row := HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 ```
 
 </details>
@@ -3789,7 +3887,7 @@ run/main_scene="res://scenes/main.tscn"
 
 ### `godot.mobile_button_touch_target_too_small`
 
-**Button-Touch-Target für Mobile-Auflösung (1080p) zu klein (unter 80px Höhe)**
+**Kleine deklarierte Button-Mindesthöhe im 1080p-Portrait-Projekt**
 
 - Default severity: `warning`
 - Lifecycle: stable, introduced in 0.1.0
@@ -3799,14 +3897,15 @@ run/main_scene="res://scenes/main.tscn"
 <details><summary>Why it exists</summary>
 
 ```text
-In hochauflösenden mobilen Godot-Projekten (z. B. 1080x1920 Portrait)
-müssen Buttons ergonomisch bedienbar sein. Eine Höhe unter 80px
-verfehlt die empfohlenen 44-48pt Touch-Ziele und führt zu Fehlklicks.
+Inspect declared minima only. Containers/fonts can grow a Control;
+no actual hit region, device density or platform compliance is proved.
+Keep the historical <80 advisory threshold; 96/110 are not universal
+recommendations. Real scaled regions require a bound runtime receipt.
 ```
 
 </details>
 
-<details><summary>Broken probe (must FAIL): Button mit nur 64px Höhe in 1080p Mobile-Projekt</summary>
+<details><summary>Broken probe (must FAIL): defekt: nur 64 deklarierte Einheiten</summary>
 
 `project.godot`
 
@@ -3821,12 +3920,12 @@ window/handheld/orientation=1
 
 ```text
 [node name="BackButton" type="Button"]
-custom_minimum_size = Vector2(140, 64)
+custom_minimum_size = Vector2(200, 64)
 ```
 
 </details>
 
-<details><summary>Healthy probe (must PASS): Button mit 110px Höhe in 1080p Mobile-Projekt</summary>
+<details><summary>Healthy probe (must PASS): gesund: deklarierte Untergrenze, kein Gerätenachweis</summary>
 
 `project.godot`
 
@@ -3841,7 +3940,7 @@ window/handheld/orientation=1
 
 ```text
 [node name="BackButton" type="Button"]
-custom_minimum_size = Vector2(200, 110)
+custom_minimum_size = Vector2(200, 164)
 ```
 
 </details>
@@ -4111,6 +4210,84 @@ func submit(data: Dictionary) -> void:
 
 </details>
 
+### `godot.test_helper_assert_then_success`
+
+**Testhelfer-Assertion mit anschließendem Erfolgsexit**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Testing — Godot-Exitcode und Skriptfehler getrennt prüfen
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Broken probe (must FAIL): defekt: Helferfehler wird als Erfolg beendet</summary>
+
+`tests/run.gd`
+
+```text
+extends Node
+func _ready():
+	_test_logic()
+	get_tree().quit(0)
+func _test_logic():
+	assert(1 == 2)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: gezählte Fehler entscheiden Exit</summary>
+
+`tests/run.gd`
+
+```text
+extends Node
+var failures = 0
+func _ready():
+	_test_logic()
+	get_tree().quit(1 if failures else 0)
+func _test_logic():
+	if 1 != 2:
+		failures += 1
+```
+
+</details>
+
+### `godot.test_wrapper_exit_only`
+
+**Godot-Testwrapper akzeptiert ausschließlich den Prozessstatus**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Testing — Godot-Exitcode und Skriptfehler getrennt prüfen
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Broken probe (must FAIL): defekt: nur OS-Exit akzeptiert</summary>
+
+`tools/test.py`
+
+```text
+import subprocess
+def main():
+    result = subprocess.run(["godot", "--headless", "res://tests/run.tscn"], capture_output=True, text=True)
+    return result.returncode
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Fehlerlog und Prüfergebnis kontrolliert</summary>
+
+`tools/test.py`
+
+```text
+import subprocess
+def main():
+    result = subprocess.run(["godot", "--headless", "res://tests/run.tscn"], capture_output=True, text=True)
+    if "SCRIPT ERROR" in result.stdout or "TEST_RESULT" not in result.stdout:
+        return 1
+    return result.returncode
+```
+
+</details>
+
 ### `godot.theme_override_slash_syntax`
 
 **Zuweisung an theme_override_*/property mit Schrägstrich statt add_theme_*_override()**
@@ -4203,55 +4380,49 @@ func launch():
 
 ### `godot.ui_container_masks_buttons`
 
-**Übergeordneter Control/MarginContainer ohne mouse_filter = PASS blockiert Klicks auf Buttons**
+**Vollflächiger Geschwister-Container verdeckt eine Buttonzeile für Eingaben**
 
 - Default severity: `error`
 - Lifecycle: stable, introduced in 0.1.0
 - Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes
 - Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
 
-<details><summary>Why it exists</summary>
+<details><summary>Broken probe (must FAIL): defekt: STOP fängt Eingaben ab</summary>
 
-```text
-Wenn in Godot Controls oder MarginContainer vollflächig über andere
-interaktive Elemente (wie Top-Bars oder Buttons) gelegt werden, fängt Godots
-Event-System Touch-/Mausevents standardmäßig ab (MOUSE_FILTER_STOP).
-Dies führt dazu, dass sichtbare Buttons nicht mehr klickbar sind ('tote Buttons').
-Lösung: Container auf mouse_filter = MOUSE_FILTER_PASS setzen oder z_index erhöhen.
-```
-
-</details>
-
-<details><summary>Broken probe (must FAIL): MarginContainer blockiert darunterliegende Buttons</summary>
-
-`scripts/ui/menu.gd`
+`scenes/menu.gd`
 
 ```text
 extends Control
 func _ready():
-    var top = HBoxContainer.new()
-    add_child(top)
-    var margin = MarginContainer.new()
-    add_child(margin)
-    var btn = Button.new()
-    top.add_child(btn)
+    var bar := HBoxContainer.new()
+    bar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    add_child(bar)
+    var button := Button.new()
+    bar.add_child(button)
+    var overlay := MarginContainer.new()
+    overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    add_child(overlay)
+    overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 ```
 
 </details>
 
-<details><summary>Healthy probe (must PASS): Saubere Z-Index oder Mouse-Filter Trennung</summary>
+<details><summary>Healthy probe (must PASS): gesund: IGNORE lässt Eingaben durch</summary>
 
-`scripts/ui/menu.gd`
+`scenes/menu.gd`
 
 ```text
 extends Control
 func _ready():
-    var top = HBoxContainer.new()
-    top.z_index = 10
-    add_child(top)
-    var margin = MarginContainer.new()
-    margin.mouse_filter = Control.MOUSE_FILTER_PASS
-    add_child(margin)
+    var bar := HBoxContainer.new()
+    bar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    add_child(bar)
+    var button := Button.new()
+    bar.add_child(button)
+    var overlay := MarginContainer.new()
+    overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    add_child(overlay)
+    overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 ```
 
 </details>
@@ -5348,7 +5519,8 @@ fi
 
 ```text
 Vergleicht Apple-Stringskataloge mit gleichem Dateinamen sowie flache
-TS/JS-Literalkataloge mit Locale-Konstanten (z. B. `const de`, `const en`)
+Godot-CSV-Tabellen (keys/de/en) und flache TS/JS-Literalkataloge
+mit Locale-Konstanten (z. B. `const de`, `const en`)
 in Katalogpfaden. Jede Sprache muss die Vereinigung der Schlüssel tragen.
 Template-Werte mit einfachen Member-Referenzen sind lesbar; es werden
 nur Schlüssel verglichen, keine Markenwerte oder Übersetzungen ausgeführt.
@@ -5930,6 +6102,132 @@ export const a = 1;
 ```text
 import Anthropic from "@anthropic-ai/sdk";
 const c = new Anthropic();
+```
+
+</details>
+
+### `quality.contract_expressions`
+
+**Explizite Sollwerte und Rechenfälle**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Gates — explizite Sollwerte und aktuelle Laufzeitnachweise
+- Public rationale: [GUIDELINES.md › gates-must-not-lie](GUIDELINES.md#gates-must-not-lie)
+
+<details><summary>Why it exists</summary>
+
+```text
+`.ruttla-contracts.json`, version 1, optionally declares `expressions`.
+Each entry needs id, source (.gd/.py), target and cases (inputs, expected).
+Optional scope selects a unique function; kind=argument with an argument
+index selects a call argument instead of an assignment. Bounded arithmetic,
+input reads and conditionals are interpreted without eval or target calls.
+Unknown syntax stays UNMEASURED. Contracts in nested projects are included.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Heilmenge weicht ab</summary>
+
+`.ruttla-contracts.json`
+
+```text
+{"version": 1, "expressions": [{"id": "healing", "source": "src/item.gd", "target": "HEAL", "cases": [{"inputs": {}, "expected": 30}]}]}
+```
+
+`src/item.gd`
+
+```text
+const HEAL: float = 25.0
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: vereinbarte Heilmenge</summary>
+
+`.ruttla-contracts.json`
+
+```text
+{"version": 1, "expressions": [{"id": "healing", "source": "src/item.gd", "target": "HEAL", "cases": [{"inputs": {}, "expected": 30}]}]}
+```
+
+`src/item.gd`
+
+```text
+const HEAL: float = 30.0
+```
+
+</details>
+
+### `quality.contract_runtime_evidence`
+
+**Vollständige aktuelle Laufzeitnachweise**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Gates — explizite Sollwerte und aktuelle Laufzeitnachweise
+- Public rationale: [GUIDELINES.md › gates-must-not-lie](GUIDELINES.md#gates-must-not-lie)
+
+<details><summary>Why it exists</summary>
+
+```text
+Opt-in `proofs` declare id, receipt, sources and required_cases.
+A project's own test runner calls ruttla.contracts.snapshot_inputs before
+testing and write_receipt after testing. Missing/failed cases, zero tests
+and altered source/runner/contract hashes block. Ruttla does not launch the
+runner. This verifies freshness/completeness of self-reported results;
+it does not independently authenticate tests, platforms or visual quality.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Nachweis missing</summary>
+
+`.ruttla-contracts.json`
+
+```text
+{"version": 1, "proofs": [{"id": "layout", "receipt": ".test-evidence.json", "sources": ["src/ui.gd", "tools/test_ui.py"], "required_cases": ["mobile"]}]}
+```
+
+`src/ui.gd`
+
+```text
+extends Node
+```
+
+`tools/test_ui.py`
+
+```text
+# runner
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: aktueller vollständiger Nachweis</summary>
+
+`.ruttla-contracts.json`
+
+```text
+{"version": 1, "proofs": [{"id": "layout", "receipt": ".test-evidence.json", "sources": ["src/ui.gd", "tools/test_ui.py"], "required_cases": ["mobile"]}]}
+```
+
+`src/ui.gd`
+
+```text
+extends Node
+```
+
+`tools/test_ui.py`
+
+```text
+# runner
+```
+
+`.test-evidence.json`
+
+```text
+{"version": 1, "proof_id": "layout", "checks": 1, "failures": 0, "cases": {"mobile": true}, "inputs": {".ruttla-contracts.json": "cbdc3d9cbadab4a15637dace72a69e9247db10ee6b07d5655e3f0c927b3bacbd", "src/ui.gd": "006c373933f8e49903c974a70b81864df932f34b72076a11916696e4577e804a", "tools/test_ui.py": "7cd14ebdd927a6af35c8bcf3fc6f87f97c7fd2a2f4ddb7b0ee37b139cdcf8e7e"}}
 ```
 
 </details>

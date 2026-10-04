@@ -435,66 +435,42 @@ def check_water_shader_shadows_disabled(ctx: Context) -> CheckResult:
                       "Wasser-Shader", PLATFORM)
 
 
+TOUCH_PROJECT = "[display]\nwindow/size/viewport_width=1080\nwindow/size/viewport_height=1920\nwindow/handheld/orientation=1\n"
+TOUCH_BUTTON = '[node name="BackButton" type="Button"]\ncustom_minimum_size = Vector2(200, 164)\n'
+
+
 @register(
     "godot.mobile_button_touch_target_too_small",
-    "Button-Touch-Target für Mobile-Auflösung (1080p) zu klein (unter 80px Höhe)",
+    "Kleine deklarierte Button-Mindesthöhe im 1080p-Portrait-Projekt",
     platform=PLATFORM,
     severity=Severity.WARNING,
     guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Display & Orientierung",
     self_tests=[
-        SelfTestCase(
-            name="Button mit nur 64px Höhe in 1080p Mobile-Projekt",
-            files={
-                "project.godot": (
-                    "[display]\n"
-                    "window/size/viewport_width=1080\n"
-                    "window/size/viewport_height=1920\n"
-                    "window/handheld/orientation=1\n"
-                ),
-                "scenes/menu.tscn": (
-                    '[node name="BackButton" type="Button"]\n'
-                    "custom_minimum_size = Vector2(140, 64)\n"
-                ),
-            },
-            expect=Status.FAIL,
-            expect_finding_contains="Touch-Target",
-        ),
-        SelfTestCase(
-            name="Button mit 110px Höhe in 1080p Mobile-Projekt",
-            files={
-                "project.godot": (
-                    "[display]\n"
-                    "window/size/viewport_width=1080\n"
-                    "window/size/viewport_height=1920\n"
-                    "window/handheld/orientation=1\n"
-                ),
-                "scenes/menu.tscn": (
-                    '[node name="BackButton" type="Button"]\n'
-                    "custom_minimum_size = Vector2(200, 110)\n"
-                ),
-            },
-            expect=Status.PASS,
-        ),
+        SelfTestCase("gesund: deklarierte Untergrenze, kein Gerätenachweis", {"project.godot": TOUCH_PROJECT, "scenes/menu.tscn": TOUCH_BUTTON}, Status.PASS),
+        SelfTestCase("gesund: fremdes Desktopprojekt nicht als Mobile prüfen", {"mobile/project.godot": TOUCH_PROJECT, "mobile/scenes/menu.tscn": TOUCH_BUTTON, "desktop/project.godot": "[display]\nwindow/size/viewport_width=800\n", "desktop/scenes/menu.tscn": TOUCH_BUTTON.replace("164", "64")}, Status.PASS),
+        SelfTestCase("gesund: verschachteltes Desktopprojekt", {"project.godot": TOUCH_PROJECT, "scenes/menu.tscn": TOUCH_BUTTON, "desktop/project.godot": "[display]\nwindow/size/viewport_width=800\n", "desktop/scenes/menu.tscn": TOUCH_BUTTON.replace("164", "64")}, Status.PASS),
+        SelfTestCase("defekt: nur 64 deklarierte Einheiten", {"project.godot": TOUCH_PROJECT, "scenes/menu.tscn": TOUCH_BUTTON.replace("164", "64")}, Status.FAIL, expect_finding_contains="Touch-Ziel"),
+        SelfTestCase("defekt: Leerzeichen und Kommentare in Konfiguration", {"project.godot": TOUCH_PROJECT.replace("=", " = ").replace("orientation = 1", "orientation = 1 ; portrait"), "scenes/menu.tscn": TOUCH_BUTTON.replace("164", "64")}, Status.FAIL),
+        SelfTestCase("ungemessen: Kommentar ist keine Mobile-Konfiguration", {"project.godot": TOUCH_PROJECT.replace("window/handheld", "; window/handheld"), "scenes/menu.tscn": TOUCH_BUTTON.replace("164", "64")}, Status.UNMEASURED),
+        SelfTestCase("ungemessen: Nullminimum erlaubt Containerwachstum", {"project.godot": TOUCH_PROJECT, "scenes/menu.tscn": TOUCH_BUTTON.replace("164", "0")}, Status.UNMEASURED),
+        SelfTestCase("ungemessen: kleiner Button außerhalb des Projekts", {"mobile/project.godot": TOUCH_PROJECT, "desktop/scenes/menu.tscn": TOUCH_BUTTON.replace("164", "64")}, Status.UNMEASURED),
     ],
 )
 def check_mobile_button_touch_target(ctx: Context) -> CheckResult:
-    """In hochauflösenden mobilen Godot-Projekten (z. B. 1080x1920 Portrait)
-    müssen Buttons ergonomisch bedienbar sein. Eine Höhe unter 80px
-    verfehlt die empfohlenen 44-48pt Touch-Ziele und führt zu Fehlklicks."""
-    title = "Button-Touch-Target für Mobile-Auflösung zu klein (< 80px)"
-
-    # Prüfen, ob das Projekt als Mobile-Projekt mit mindestens 1080p konfiguriert ist
-    is_mobile_1080p = False
+    """Inspect declared minima only. Containers/fonts can grow a Control;
+    no actual hit region, device density or platform compliance is proved.
+    Keep the historical <80 advisory threshold; 96/110 are not universal
+    recommendations. Real scaled regions require a bound runtime receipt.
+    """
+    title = "Kleine deklarierte Button-Mindesthöhe im 1080p-Portrait-Projekt"
+    projects = {}
     for pf in ctx.files_named("project.godot"):
-        text = pf.text
-        if "orientation=1" in text or "orientation=portrait" in text.lower():
-            if "viewport_width=1080" in text or "viewport_height=1920" in text:
-                is_mobile_1080p = True
-                break
-
-    if not is_mobile_1080p:
-        return unmeasured("godot.mobile_button_touch_target_too_small", title,
-                          "Kein 1080p-Portrait-Mobile-Projekt in project.godot erkannt.", PLATFORM)
+        sections = re.split(r"(?m)^\s*\[([^]\n]+)\]\s*$", pf.text)
+        display = next((sections[i + 1] for i in range(1, len(sections), 2)
+                        if sections[i] == "display"), "")
+        portrait = re.search(r"(?m)^\s*window/handheld/orientation\s*=\s*(?:1|portrait)\s*(?:;[^\n]*)?$", display, re.I)
+        width = re.search(r"(?m)^\s*window/size/viewport_width\s*=\s*1080\s*(?:;[^\n]*)?$", display)
+        projects[pf.rel.rsplit("/", 1)[0] if "/" in pf.rel else ""] = bool(portrait and width)
 
     tscn_files = ctx.files(".tscn")
     findings: list[Finding] = []
@@ -504,6 +480,9 @@ def check_mobile_button_touch_target(ctx: Context) -> CheckResult:
     size_pat = re.compile(r"custom_minimum_size\s*=\s*Vector2\(\s*([\d\.]+)\s*,\s*([\d\.]+)\s*\)")
 
     for tf in tscn_files:
+        owners = [root for root in projects if not root or tf.rel.startswith(root + "/")]
+        if not owners or not projects[max(owners, key=len)]:
+            continue
         current_btn = None
         current_btn_line = 0
         for idx, line in enumerate(tf.lines, start=1):
@@ -518,27 +497,30 @@ def check_mobile_button_touch_target(ctx: Context) -> CheckResult:
             if current_btn:
                 sm = size_pat.search(line)
                 if sm:
-                    measured += 1
                     h = float(sm.group(2))
+                    if h <= 0:
+                        current_btn = None
+                        continue
+                    measured += 1
                     if 0 < h < 80.0:
                         findings.append(Finding(
                             check_id="godot.mobile_button_touch_target_too_small",
                             severity=Severity.WARNING,
                             message=(
-                                f"Button '{current_btn}' hat in 1080p-Mobile ein Touch-Target von nur {h:.0f}px Höhe "
-                                "(Minimum für Finger-Touch-Ziele: 80–110px)."
+                                f"Button '{current_btn}' deklariert nur {h:.0f} Godot-Einheiten Mindesthöhe. "
+                                "Das kann nach Skalierung ein kleines Touch-Ziel ergeben; die tatsächliche Fläche ist hier ungemessen."
                             ),
                             file=tf.rel,
                             line=idx,
                             evidence=snippet(line),
-                            fix="custom_minimum_size auf mindestens 96–120px Höhe erhöhen (z. B. Vector2(..., 110)).",
+                            fix="Tatsächliche Trefferfläche nach Skalierung messen: iOS mindestens 44×44pt, Android mindestens 48×48dp. Für Web CSS-Pixel getrennt prüfen; Padding und Containerwachstum berücksichtigen.",
                             guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Display & Orientierung",
                         ))
                     current_btn = None
 
     if measured == 0:
         return unmeasured("godot.mobile_button_touch_target_too_small", title,
-                          "Keine Buttons mit explizitem custom_minimum_size in .tscn-Dateien gefunden.", PLATFORM)
+                          "Keine positiven expliziten Button-Mindesthöhen im 1080p-Portrait-Projekt gefunden; tatsächliche Flächen ungemessen.", PLATFORM)
 
     return result_for("godot.mobile_button_touch_target_too_small", title, findings, measured,
                       "Mobile-Buttons", PLATFORM)

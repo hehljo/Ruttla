@@ -388,6 +388,8 @@ def check_node_paths(ctx: Context) -> CheckResult:
     severity=Severity.INFO,
     guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § 3",
     self_tests=[
+        SelfTestCase("gesund: Touch-Mindestfläche ist UI-Geometrie", {"src/a.gd": "extends RefCounted\nconst MIN_TOUCH_SIZE := 164.0\nconst MIN_TOUCH_WIDTH: float = 164.0\nconst MAX_TOUCH_HEIGHT = 240\n"}, Status.PASS),
+        SelfTestCase("defekt: Touch-Schaden bleibt Balance", {"src/a.gd": "extends Node\nconst MIN_TOUCH_DAMAGE := 20\n"}, Status.FAIL),
         SelfTestCase(
             name="Balancewert als const",
             files={"src/a.gd": "extends Node\nconst MAX_HEALTH := 100\n"},
@@ -423,6 +425,8 @@ def check_balance_values(ctx: Context) -> CheckResult:
     findings: list[Finding] = []
     for sf in files:
         for line_no, m, raw in iter_matches(sf, pat):
+            if re.fullmatch(r"(?:MIN|MAX)_TOUCH_(?:SIZE|WIDTH|HEIGHT)", m.group(1), re.I):
+                continue  # UI units, not gameplay balancing; runtime size remains unmeasured.
             findings.append(Finding(
                 check_id="godot.balance_value_in_code", severity=Severity.INFO,
                 message=f"Balancewert '{m.group(1)}' als Konstante im Code.",

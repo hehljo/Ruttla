@@ -6,6 +6,9 @@ when added, changed or deprecated.
 ## [Unreleased] — 0.1.0 (public preview)
 
 ### Changed
+- `godot.balance_value_in_code`: exclude explicitly named touch width/height/size bounds from gameplay balance advisories; touch damage remains detected. Healthy geometry and isolated damage probes added.
+- `godot.mobile_button_touch_target_too_small`: scope scenes to the nearest portrait project, accept normal configuration whitespace/comments, and distinguish declared minima from actual platform hit regions. Remove the invalid universal 96–120-unit recommendation.
+- `godot.ui_container_masks_buttons`: replace name-based guesses with a bounded fresh Full-Rect sibling pattern. IGNORE passes through; PASS and z-index do not repair sibling input. Unknown geometry and dynamic setup remain unmeasured. Healthy/isolated defect and native Godot input probes validated.
 - Split the final three Godot physics checks into their own module without changing function ASTs, rule IDs or behavior; the package monolith gate now passes. Remove a private app identifier from the public handover.
 - `i18n.catalog_key_parity`: read template string values with plain text and simple member substitutions. A central brand in a greeting no longer hides an otherwise flat catalogue. Missing/extra keys remain findings; interpolation calls, nested templates, spreads and computed keys remain unmeasured. Target code is never executed.
 - Integration guidance distinguishes a sample payload's demonstrated product branch from unconfirmed target-product contracts. Public provenance is anonymised and the hash guard extended; the temporary-file rationale no longer implies a legacy file-count limit on current .NET.

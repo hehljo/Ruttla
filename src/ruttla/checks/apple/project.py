@@ -7,8 +7,10 @@ shared helpers in _common.py.
 from __future__ import annotations
 
 import os
+import ast
 import plistlib
 import re
+import subprocess
 
 from ruttla.core import (
     CheckResult,
@@ -691,6 +693,9 @@ def check_automatic_signing_distribution(ctx: Context) -> CheckResult:
             },
             expect=Status.PASS,
         ),
+        SelfTestCase(name="defekt: Kommentare ignorieren keine Benutzerdaten", files={
+            "App.xcodeproj/project.pbxproj": "// project\n",
+            ".gitignore": "# xcuserdata/\n# *.xcuserstate\n"}, expect=Status.FAIL),
     ],
 )
 def check_gitignore_xcode_user_data(ctx: Context) -> CheckResult:
@@ -702,6 +707,32 @@ def check_gitignore_xcode_user_data(ctx: Context) -> CheckResult:
     if not pbx_files:
         return unmeasured("apple.gitignore_xcode_user_data", title,
                           "Keine Xcode-Projekte im Arbeitsbereich gefunden.", PLATFORM)
+
+    # Ask Git about effective ignore policy, including parent files and
+    # negations. A shared workspace need not duplicate .gitignore per app.
+    probes = []
+    for sf in pbx_files:
+        project_dir = os.path.dirname(sf.path)
+        probes.extend([os.path.join(project_dir, "xcuserdata", "ruttla.xcuserdatad", "state"),
+                       os.path.join(project_dir, "ruttla.xcuserstate")])
+    try:
+        repo = subprocess.run(["git", "-C", ctx.root, "rev-parse", "--show-toplevel"],
+                              capture_output=True, text=True, timeout=15)
+        if repo.returncode == 0:
+            ignored = subprocess.run(["git", "-C", ctx.root, "check-ignore", "--no-index", "-z", "--stdin"],
+                                     input="\0".join(probes) + "\0", capture_output=True, text=True, timeout=15)
+            if ignored.returncode not in (0, 1):
+                return unmeasured("apple.gitignore_xcode_user_data", title, "Effektive Git-Ignore-Regeln konnten nicht gelesen werden.", PLATFORM)
+            protected = set(ignored.stdout.split("\0"))
+            findings = [Finding("apple.gitignore_xcode_user_data", Severity.ERROR,
+                "Git ignoriert Xcode-Benutzerdaten an diesem Projekt nicht vollständig.",
+                file=sf.rel, evidence="xcuserdata/ oder *.xcuserstate ist von Git nicht ignoriert",
+                fix="Effektive .gitignore-Regeln ergänzen und widersprechende Negationen korrigieren.",
+                guideline="IOS_DEBUGGING_GUIDELINES.md § Version Control")
+                for i, sf in enumerate(pbx_files) if not all(p in protected for p in probes[i * 2:i * 2 + 2])]
+            return result_for("apple.gitignore_xcode_user_data", title, findings, len(pbx_files), "Xcode-Projekte", PLATFORM)
+    except (OSError, subprocess.SubprocessError):
+        return unmeasured("apple.gitignore_xcode_user_data", title, "Git-Ignore-Prüfung ist nicht verfügbar.", PLATFORM)
 
     gitignore_files = ctx.files_named(".gitignore")
     gi_text = ""
@@ -719,8 +750,11 @@ def check_gitignore_xcode_user_data(ctx: Context) -> CheckResult:
                 pass
 
     findings: list[Finding] = []
-    has_xcuserdata = "xcuserdata" in gi_text
-    has_xcuserstate = "xcuserstate" in gi_text
+    active = {line.strip() for line in gi_text.splitlines() if line.strip() and not line.lstrip().startswith("#")}
+    if any(line.startswith("!") for line in active):
+        return unmeasured("apple.gitignore_xcode_user_data", title, "Negierte Ignore-Regeln brauchen eine effektive Prüfung in einem Git-Repository.", PLATFORM)
+    has_xcuserdata = bool(active & {"xcuserdata/", "**/xcuserdata/"})
+    has_xcuserstate = bool(active & {"*.xcuserstate", "**/*.xcuserstate"})
 
     if not has_xcuserdata or not has_xcuserstate:
         missing = []
@@ -763,6 +797,10 @@ def check_gitignore_xcode_user_data(ctx: Context) -> CheckResult:
                                      f'scheme = \'LastUpgradeVersion = "{_MIN_LAST_UPGRADE_CHECK}"\'\n'},
             expect=Status.PASS,
         ),
+        SelfTestCase(name="gesund: Python aktualisiert alten Generatorstand", files={
+            "tools/patch.py": 'content = content.replace("LastUpgradeCheck = 0500;", "LastUpgradeCheck = 2700;")\n'}, expect=Status.PASS),
+        SelfTestCase(name="defekt: Python schreibt alten Stand als Ersatz", files={
+            "tools/patch.py": 'content = content.replace("LastUpgradeCheck = 2700;", "LastUpgradeCheck = 0500;")\n'}, expect=Status.FAIL),
     ],
 )
 def check_project_generator(ctx: Context) -> CheckResult:
@@ -781,8 +819,21 @@ def check_project_generator(ctx: Context) -> CheckResult:
                           "Kein Projektgenerator mit LastUpgradeCheck gefunden.", PLATFORM)
     findings: list[Finding] = []
     for sf in candidates:
+        old_arguments = []
+        if sf.ext == ".py":
+            try:
+                tree = ast.parse(sf.text)
+                old_arguments = [node.args[0] for node in ast.walk(tree)
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "replace" and len(node.args) >= 2
+                    and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)]
+            except SyntaxError:
+                pass
         for i, line in enumerate(sf.lines, 1):
             for m in pattern.finditer(line):
+                byte_column = len(line[:m.start()].encode("utf-8"))
+                if any(arg.lineno == i == arg.end_lineno and arg.col_offset <= byte_column < arg.end_col_offset for arg in old_arguments):
+                    continue
                 if int(m.group(2)) >= _MIN_LAST_UPGRADE_CHECK:
                     continue
                 findings.append(Finding(
