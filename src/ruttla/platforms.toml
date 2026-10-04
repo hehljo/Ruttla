@@ -1,0 +1,91 @@
+# Erkennungsmanifest — die EINZIGE Quelle dafür, woran Ruttla eine Plattform
+# erkennt (P10-T002). Plattform-Erkennung und Pack-Prüfungen lesen beide hier;
+# eine zweite Liste im Code ist der Fehler, den diese Datei verhindert.
+#
+# Erkannt wird an technischen EIGENSCHAFTEN, nie an Ordner- oder Projektnamen.
+# Eine Plattform gilt als erkannt, sobald EIN Signal greift:
+#
+#   extensions     Dateiendung (kleingeschrieben, mit Punkt)
+#   file_names     Dateiname, Groß-/Kleinschreibung egal
+#   file_suffixes  Pfadende, Groß-/Kleinschreibung zählt ("Build.cs")
+#   dir_suffixes   Verzeichnisname endet so (".xcodeproj")
+#   content        Inhaltsmuster in Dateien bestimmter Endungen; Regel- und
+#                  Testdefinitionsdateien zählen nicht mit. Jedes Muster trägt
+#                  Beispiele, die beim Laden geprüft werden.
+#   requires       nur prüfen, wenn diese Plattformen schon erkannt sind
+#   root_markers   Pfadmuster (je Segment fnmatch), deren Fundort eine
+#                  Projektwurzel ist: "*.uproject" → Wurzel = Ordner der Datei,
+#                  "ProjectSettings/ProjectVersion.txt" → zwei Ebenen höher.
+#                  Ein Marker ist zugleich ein Erkennungssignal.
+#   claims         Endungen, die innerhalb einer Wurzel dieser Plattform ihr
+#                  gehören: andere Plattformen erkennen und prüfen sie dort
+#                  nicht (Unity-C# ist kein .NET-Desktop-Code). Universal
+#                  sieht weiter alles.
+#
+# pack = true: es gibt ein offizielles Regelpaket. pack = false: erkannt und
+# als "nicht gemessen" gemeldet, aber ohne Regeln.
+
+manifest_version = 1
+
+[platforms.universal]
+pack = true
+always = true
+
+[platforms.apple]
+pack = true
+extensions = [".swift"]
+dir_suffixes = [".xcodeproj"]
+root_markers = ["*.xcodeproj/project.pbxproj", "Package.swift"]
+
+[platforms.web]
+pack = true
+extensions = [".ts", ".tsx", ".jsx"]
+file_names = ["package.json"]
+root_markers = ["package.json"]
+
+[platforms.godot]
+pack = true
+extensions = [".gd"]
+file_names = ["project.godot"]
+root_markers = ["project.godot"]
+
+[platforms.python]
+pack = true
+extensions = [".py"]
+
+[platforms.raspberry]
+pack = true
+requires = ["python"]
+
+[[platforms.raspberry.content]]
+extensions = [".py"]
+pattern = '''^[ \t]*(?:import|from)\s+(?:RPi\.GPIO|RPi|gpiozero|smbus2?|spidev|pigpio|serial|w1thermsensor|board|busio|adafruit_\w+|picamera2?|luma\.\w+)\b'''
+examples = ["import gpiozero", "from RPi.GPIO import setup", "  import serial", "import adafruit_dht", "from luma.oled.device import ssd1306"]
+counter_examples = ["import boardgame", "# import gpiozero", "x = 'import serial'", "import serializer"]
+
+[platforms.unreal]
+pack = true
+extensions = [".uproject", ".uplugin"]
+file_suffixes = ["Build.cs", "Target.cs"]
+root_markers = ["*.uproject"]
+# Build.cs/Target.cs sind Unreal-Buildregeln, kein .NET-Anwendungscode.
+claims = [".cs"]
+
+[[platforms.unreal.content]]
+extensions = [".cpp", ".h", ".hpp", ".inl"]
+pattern = '''\b(?:UCLASS|USTRUCT|UENUM|GENERATED_BODY|UPROPERTY)\s*\('''
+examples = ["UCLASS()", "UENUM(BlueprintType)", "  GENERATED_BODY()", "UPROPERTY (EditAnywhere)"]
+counter_examples = ["MY_UCLASS()", "int main() { return 0; }", "UCLASSES"]
+
+[platforms.dotnet]
+pack = true
+extensions = [".cs", ".csproj", ".xaml"]
+root_markers = ["*.csproj"]
+
+# Unity: erkannt an der Projektversion, nicht am Ordnernamen. Belegt
+# (2026-10-04): ein Repo mit Godot-, Unreal- und Unity-Teil meldete die
+# Unity-Skripte als "dotnet" und ließ WPF-Checks darüber laufen.
+[platforms.unity]
+pack = false
+root_markers = ["ProjectSettings/ProjectVersion.txt"]
+claims = [".cs"]

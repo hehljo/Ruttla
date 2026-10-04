@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 
 from . import git as _git
 from .config import Config
@@ -17,7 +17,7 @@ from .discovery import (
     to_posix,
 )
 from .models import GateInputError
-from .platforms import detect_platforms
+from .platforms import ProjectRoot, claimed_files, detect_platforms, find_roots
 
 
 @dataclass
@@ -25,17 +25,60 @@ class Context:
     root: str
     config: Config
     _files: list[SourceFile] | None = None
-    _platforms: set[str] | None = None
     _coverage: Coverage | None = None
+    # Sicht einer Plattform (P10-T003): Dateien, die innerhalb einer fremden
+    # Projektwurzel einer anderen Plattform gehören, sind darin unsichtbar.
+    scope: str | None = None
+    _scoped_files: list[SourceFile] | None = None
+    # Zwischen Gesamt- und Plattformsichten geteilt: Plattformen, Wurzeln,
+    # Ansprüche und die Sichten selbst werden je Lauf nur einmal berechnet.
+    _shared: dict = field(default_factory=dict, compare=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._shared.setdefault("base", self)
 
     # -- Dateien ------------------------------------------------------------
-    def all_files(self) -> list[SourceFile]:
+    def _inventory(self) -> list[SourceFile]:
         if self._files is None:
             self._files, self._coverage = inventory(self.root, self.config)
         return self._files
 
+    def all_files(self) -> list[SourceFile]:
+        files = self._inventory()
+        if self.scope is None:
+            return files
+        if self._scoped_files is None:
+            owners = self.claims()
+            self._scoped_files = [
+                f for f in files if owners.get(f.rel, self.scope) == self.scope
+            ]
+        return self._scoped_files
+
+    def scoped(self, platform: str) -> "Context":
+        """Sicht der Plattform ``platform``; universal sieht alles."""
+        if platform == "universal":
+            return self if self.scope is None else self.unscoped()
+        views = self._shared.setdefault("views", {})
+        if platform not in views:
+            self._inventory()
+            views[platform] = replace(self, scope=platform, _scoped_files=None)
+        return views[platform]
+
+    def unscoped(self) -> "Context":
+        return self._shared.get("base", self)
+
+    def project_roots(self) -> list[ProjectRoot]:
+        if "roots" not in self._shared:
+            self._shared["roots"] = find_roots(self._inventory())
+        return self._shared["roots"]
+
+    def claims(self) -> dict[str, str]:
+        if "claims" not in self._shared:
+            self._shared["claims"] = claimed_files(self._inventory(), self.project_roots())
+        return self._shared["claims"]
+
     def coverage(self) -> Coverage:
-        self.all_files()
+        self._inventory()
         assert self._coverage is not None
         return self._coverage
 
@@ -91,16 +134,16 @@ class Context:
 
     # -- Plattformen --------------------------------------------------------
     def detected_platforms(self) -> set[str]:
-        return detect_platforms(self)
+        return detect_platforms(self.unscoped())
 
     def platforms(self) -> set[str]:
         """Detected platforms plus the profile's ``project.platform`` (additive)."""
-        if self._platforms is None:
-            platforms = self.detected_platforms()
+        if "platforms" not in self._shared:
+            platforms = self.unscoped().detected_platforms()
             if self.config.project_platform:
                 platforms.add(self.config.project_platform)
-            self._platforms = platforms
-        return self._platforms
+            self._shared["platforms"] = platforms
+        return self._shared["platforms"]
 
     # -- Git ----------------------------------------------------------------
     def changed_files(self, base: str) -> list[str]:

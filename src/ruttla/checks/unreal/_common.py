@@ -32,6 +32,7 @@ import os
 import re
 
 from ruttla.core import Context
+from ruttla.platforms import platform_present
 
 
 PLATFORM = "unreal"
@@ -60,20 +61,9 @@ def _sources(ctx: Context):
 
 
 def _is_unreal(ctx: Context) -> bool:
-    """Unreal erkannt an EIGENSCHAFTEN, nicht am Ordnernamen."""
-    if ctx.dirs_with_suffix(".uproject"):
-        return True
-    for f in ctx.all_files():
-        if f.ext == ".uproject" or f.rel.lower().endswith(".uplugin"):
-            return True
-    # Build.cs plus UE-Makros ist der zuverlässigste Fingerabdruck.
-    has_build_cs = any(f.rel.endswith("Build.cs") for f in ctx.all_files())
-    if has_build_cs:
-        return True
-    for sf in ctx.files(*CPP_EXTS):
-        if re.search(r"\b(?:UCLASS|USTRUCT|GENERATED_BODY|UPROPERTY)\s*\(", sf.text):
-            return True
-    return False
+    """Unreal erkannt an EIGENSCHAFTEN, nicht am Ordnernamen — dieselben
+    Signale wie die Plattform-Erkennung (platforms.toml), keine zweite Liste."""
+    return platform_present(ctx, PLATFORM)
 
 
 # ---------------------------------------------------------------------------

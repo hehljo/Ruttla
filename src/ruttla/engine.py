@@ -200,7 +200,7 @@ def run_checks(ctx: Context, *, only_platform: str | None,
             severity = ctx.config.severity_for(check.id, check.default_severity)
             if severity is None:
                 continue  # im Profil abgeschaltet
-            res = validate_result(check, check.fn(ctx))
+            res = validate_result(check, check.fn(ctx.scoped(check.platform)))
         except Exception:
             res = _crashed_check(
                 check, "Check abgestürzt:\n" + traceback.format_exc(limit=4)

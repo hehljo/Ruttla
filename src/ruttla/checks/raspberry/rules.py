@@ -19,13 +19,13 @@ from ruttla.core import (
     Context, CheckResult, Finding, Severity, Status, SelfTestCase,
     register, unmeasured, result_for, snippet, strip_comments,
 )
+from ruttla.platforms import content_patterns
 
 PLATFORM = "raspberry"
 
-HW_IMPORT = re.compile(
-    r"^\s*(?:import|from)\s+(RPi\.GPIO|RPi|gpiozero|smbus2?|spidev|pigpio|"
-    r"serial|w1thermsensor|board|busio|adafruit_\w+|picamera2?|luma\.\w+)"
-)
+# Dieselben Hardware-Importe, an denen die Plattform erkannt wird
+# (platforms.toml) — eine Liste, nicht zwei.
+(HW_IMPORT,) = content_patterns(PLATFORM)
 
 
 def _py(ctx: Context):
