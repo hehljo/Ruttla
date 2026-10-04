@@ -350,6 +350,19 @@ HMAC hex digests are legitimate. The heuristic is advisory because variable
 names alone cannot prove the accepted character set.
 Reference: <https://docs.python.org/3/library/hmac.html#hmac.compare_digest>.
 
+<a id="python-regex"></a>
+### Python regex
+
+Python's `re` backtracks. Under `re.MULTILINE` every line start is a match
+start, and `\s` also matches newlines: `^\s*` at each line of a blank-line run
+scans to the end of the run before it fails — quadratic time. A gate that reads
+foreign repositories then hangs on one file full of blank lines. Measured on
+this repository: 40 KB of blank lines cost 2.0 s per pattern, 80 KB 8.1 s;
+`^[ \t]*` cost 0.00 s. After `^`, allow horizontal whitespace only. The check
+judges literal patterns with a visible multiline flag (`re.M`, `re.MULTILINE`
+or a leading `(?m)`); patterns built at runtime are not measured.
+Reference: <https://docs.python.org/3/library/re.html#re.MULTILINE>.
+
 <a id="long-running-python-services"></a>
 ### Long-running Python services
 

@@ -44,16 +44,16 @@ def check_ui_container_masks_buttons(ctx: Context) -> CheckResult:
     findings, measured = [], 0
     for sf in _gd(ctx):
         text = strip_comments(sf.text, sf.ext)
-        if not re.search(r"(?m)^\s*extends\s+Control\s*$", text):
+        if not re.search(r"(?m)^[ \t]*extends\s+Control\s*$", text):
             continue
         functions = list(re.finditer(r"(?m)^func\s+\w+\([^\n]*", text))
         for i, fn in enumerate(functions):
             body = text[fn.end():functions[i + 1].start() if i + 1 < len(functions) else len(text)]
-            if re.search(r"(?m)^\s*(?:if|elif|for|while|match|await)\b", body):
+            if re.search(r"(?m)^[ \t]*(?:if|elif|for|while|match|await)\b", body):
                 continue
             nodes = {m[1]: m[2] for m in re.finditer(r"\bvar\s+(\w+)(?:\s*:\s*\w+)?\s*(?::=|=)\s*(HBoxContainer|MarginContainer|Button)\.new\(\)", body)}
             full = {m[1] for m in re.finditer(r"\b(\w+)\.set_anchors_and_offsets_preset\(Control\.PRESET_FULL_RECT\)", body)}
-            siblings = [(m[1], m.start()) for m in re.finditer(r"(?m)^\s*(?:self\.)?add_child\((\w+)\)\s*$", body)]
+            siblings = [(m[1], m.start()) for m in re.finditer(r"(?m)^[ \t]*(?:self\.)?add_child\((\w+)\)\s*$", body)]
             for bar, first in siblings:
                 if nodes.get(bar) != "HBoxContainer" or bar not in full:
                     continue
@@ -64,7 +64,7 @@ def check_ui_container_masks_buttons(ctx: Context) -> CheckResult:
                         continue
                     if re.search(r"\b" + re.escape(overlay) + r"\.(?:add_child|position|size|offset_\w+|visible|hide|show)\b", body):
                         continue
-                    assignments = re.findall(r"(?m)^\s*" + re.escape(overlay) + r"\.mouse_filter\s*=\s*([^\n]+)", body)
+                    assignments = re.findall(r"(?m)^[ \t]*" + re.escape(overlay) + r"\.mouse_filter\s*=\s*([^\n]+)", body)
                     if len(assignments) > 1 or assignments and assignments[0].strip() not in {"Control.MOUSE_FILTER_STOP", "Control.MOUSE_FILTER_PASS", "Control.MOUSE_FILTER_IGNORE", "0", "1", "2"}:
                         continue
                     measured += 1

@@ -151,7 +151,7 @@ def check_physics_movement_in_process(ctx: Context) -> CheckResult:
         return unmeasured("godot.physics_movement_in_process", title,
                           "Keine GDScript-Dateien gefunden.", PLATFORM)
 
-    physics_base = re.compile(r"^\s*extends\s+(Area2D|Area3D|CharacterBody2D|CharacterBody3D|RigidBody2D|RigidBody3D)", re.MULTILINE)
+    physics_base = re.compile(r"^[ \t]*extends\s+(Area2D|Area3D|CharacterBody2D|CharacterBody3D|RigidBody2D|RigidBody3D)", re.MULTILINE)
     func_process = re.compile(r"^\s*func\s+_process\s*\([^)]*\)")
     func_any = re.compile(r"^\s*func\s+\w+\s*\(")
     pos_move = re.compile(r"\b(?:global_)?position\s*[\+\-\*\/]?=|\btranslate\s*\(")

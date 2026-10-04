@@ -65,7 +65,7 @@ def check_fresh_control_editor_anchor_preset(ctx: Context) -> CheckResult:
     measured = 0
     for sf in _gd(ctx):
         body = strip_comments(sf.text, sf.ext)
-        if re.search(r"(?m)^\s*@tool\b", body):
+        if re.search(r"(?m)^[ \t]*@tool\b", body):
             continue
         measured += len(list(creation.finditer(body)))
         for match in invalid.finditer(body):

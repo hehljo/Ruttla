@@ -69,7 +69,7 @@ def check_ios_pck_ignored_in_gitignore(ctx: Context) -> CheckResult:
                           "Keine .gitignore gefunden.", PLATFORM)
 
     findings: list[Finding] = []
-    pck_ignore_pat = re.compile(r'^\s*([^#\n]*\b(?:ios/)?[\w\*\-]*\.pck\b)', re.MULTILINE)
+    pck_ignore_pat = re.compile(r'^[ \t]*([^#\n]*\b(?:ios/)?[\w\*\-]*\.pck\b)', re.MULTILINE)
 
     for gi in gitignore_files:
         for idx, line in enumerate(gi.lines, start=1):

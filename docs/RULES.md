@@ -3,14 +3,14 @@
 
 # Rule catalog
 
-153 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+154 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 44 | 9 |
 | dotnet | 10 | 0 |
 | godot | 29 | 0 |
-| python | 6 | 0 |
+| python | 7 | 0 |
 | raspberry | 6 | 0 |
 | universal | 32 | 6 |
 | unreal | 6 | 0 |
@@ -4780,6 +4780,46 @@ def _request(self, method, path, retries=3, **kw):
             if not idempotent:
                 raise
             time.sleep(2)
+```
+
+</details>
+
+### `python.regex_quadratic_line_start`
+
+**Zeilenanfang + \s* am Musteranfang läuft quadratisch über Leerzeilen**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § Python regex
+- Public rationale: [GUIDELINES.md › python-regex](GUIDELINES.md#python-regex)
+- Reference: <https://docs.python.org/3/library/re.html#re.MULTILINE>
+
+<details><summary>Why it exists</summary>
+
+```text
+With re.MULTILINE every line start is a match start. \s also matches newlines, so ^\s* at each line of a blank-line run scans to the run's end before failing: quadratic time. Measured on this repo: 40 KB of blank lines took 2.0 s per pattern, 80 KB 8.1 s; [ \t]* took 0.00 s. Only literal patterns with a visible multiline flag are judged.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): compile mit re.M</summary>
+
+`a.py`
+
+```text
+import re
+P = re.compile(r'^\s*class_name\s+X', re.MULTILINE)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): \n mitten im Muster nach festem Text</summary>
+
+`a.py`
+
+```text
+import re
+P = re.compile(r'foo\n\s*bar')
 ```
 
 </details>

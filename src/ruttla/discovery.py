@@ -57,6 +57,7 @@ class SourceFile:
     ext: str           # ".swift", kleingeschrieben
     _text: str | None = None
     _lines: list[str] | None = None
+    _rule_definition: bool | None = None
 
     @property
     def text(self) -> str:
@@ -202,7 +203,7 @@ def strip_comments(text: str, ext: str) -> str:
 # bekommt dieselben falschen Treffer. Gemessen wird die Eigenschaft "diese
 # Datei definiert Prüfungen", nicht ein Pfadname.
 _SELF_DESCRIBING = re.compile(
-    r"(?:^|\n)\s*(?:@register\s*\(|SelfTestCase\s*\(|def\s+test_\w+|"
+    r"(?:^|\n)[ \t]*(?:@register\s*\(|SelfTestCase\s*\(|def\s+test_\w+|"
     r"class\s+Test\w+|describe\s*\(|it\s*\(\s*[\"'])"
     r"|" + re.escape(RULE_DOCS_MARKER)
 )
@@ -210,7 +211,10 @@ _SELF_DESCRIBING = re.compile(
 
 def is_rule_definition_file(sf: SourceFile) -> bool:
     """True für Dateien, die Prüfregeln oder Testfälle definieren/dokumentieren."""
-    return bool(_SELF_DESCRIBING.search(sf.text))
+    # Jeder Check fragt das je Datei: einmal messen, nicht einmal je Check.
+    if sf._rule_definition is None:
+        sf._rule_definition = bool(_SELF_DESCRIBING.search(sf.text))
+    return sf._rule_definition
 
 
 def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:

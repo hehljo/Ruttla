@@ -31,7 +31,7 @@ from ._common import MARKUP_EXTS, SOURCE_EXTS
 _CATALOG_PATH = re.compile(
     r"(^|/)(locales?|i18n|lang|translations?|strings)(/|\.|$)", re.IGNORECASE)
 # Apple-Stringskatalog: "schluessel" = "Wert"; — je Sprache in <lang>.lproj/.
-_APPLE_STRINGS_KEY = re.compile(r'^\s*"((?:[^"\\\n]|\\.)+)"\s*=\s*"', re.MULTILINE)
+_APPLE_STRINGS_KEY = re.compile(r'^[ \t]*"((?:[^"\\\n]|\\.)+)"\s*=\s*"', re.MULTILINE)
 
 
 def _is_apple_catalog(sf) -> bool:
@@ -397,7 +397,7 @@ def check_literal_text(ctx: Context) -> CheckResult:
         units += 1
         body = strip_comments(sf.text, sf.ext)
         # Vorschauen sind Entwicklerfläche, keine ausgelieferte Oberfläche.
-        preview = re.search(r"^\s*#Preview\b|PreviewProvider\b", body, re.MULTILINE)
+        preview = re.search(r"^[ \t]*#Preview\b|PreviewProvider\b", body, re.MULTILINE)
         end = preview.start() if preview else len(body)
         for m in swift_ui.finditer(body, 0, end):
             text = m.group(1)

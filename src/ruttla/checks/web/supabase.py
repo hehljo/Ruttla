@@ -15,7 +15,7 @@ from ruttla.core import (
 _ID = "web.supabase_loopback_on_remote_dev_host"
 _TITLE = "Supabase-Loopback im extern erreichbaren Vite-Frontend"
 _ENV_NAMES = (".env", ".env.development", ".env.local", ".env.development.local")
-_ASSIGNMENT = re.compile(r"^\s*VITE_SUPABASE_URL\s*=\s*(.*?)\s*$", re.MULTILINE)
+_ASSIGNMENT = re.compile(r"^[ \t]*VITE_SUPABASE_URL\s*=\s*(.*?)\s*$", re.MULTILINE)
 _HOST_LIST = re.compile(r"\ballowedHosts\s*:\s*\[([^\]]*)\]", re.DOTALL)
 _QUOTED = re.compile(r"['\"]([^'\"]+)['\"]")
 _LOOPBACK = {"127.0.0.1", "localhost", "::1"}

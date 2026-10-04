@@ -345,8 +345,8 @@ def check_app_config_support_email(ctx: Context) -> CheckResult:
         return unmeasured("godot.app_config_missing_support_email", title,
                           "Keine GDScript-Dateien gefunden.", PLATFORM)
 
-    class_pat = re.compile(r"^\s*class_name\s+(AppConfig|Branding)\b", re.MULTILINE)
-    email_pat = re.compile(r"^\s*const\s+SUPPORT_EMAIL\s*[:=]", re.MULTILINE)
+    class_pat = re.compile(r"^[ \t]*class_name\s+(AppConfig|Branding)\b", re.MULTILINE)
+    email_pat = re.compile(r"^[ \t]*const\s+SUPPORT_EMAIL\s*[:=]", re.MULTILINE)
 
     findings: list[Finding] = []
     measured = 0
@@ -465,11 +465,11 @@ def check_mobile_button_touch_target(ctx: Context) -> CheckResult:
     title = "Kleine deklarierte Button-Mindesthöhe im 1080p-Portrait-Projekt"
     projects = {}
     for pf in ctx.files_named("project.godot"):
-        sections = re.split(r"(?m)^\s*\[([^]\n]+)\]\s*$", pf.text)
+        sections = re.split(r"(?m)^[ \t]*\[([^]\n]+)\]\s*$", pf.text)
         display = next((sections[i + 1] for i in range(1, len(sections), 2)
                         if sections[i] == "display"), "")
-        portrait = re.search(r"(?m)^\s*window/handheld/orientation\s*=\s*(?:1|portrait)\s*(?:;[^\n]*)?$", display, re.I)
-        width = re.search(r"(?m)^\s*window/size/viewport_width\s*=\s*1080\s*(?:;[^\n]*)?$", display)
+        portrait = re.search(r"(?m)^[ \t]*window/handheld/orientation\s*=\s*(?:1|portrait)\s*(?:;[^\n]*)?$", display, re.I)
+        width = re.search(r"(?m)^[ \t]*window/size/viewport_width\s*=\s*1080\s*(?:;[^\n]*)?$", display)
         projects[pf.rel.rsplit("/", 1)[0] if "/" in pf.rel else ""] = bool(portrait and width)
 
     tscn_files = ctx.files(".tscn")

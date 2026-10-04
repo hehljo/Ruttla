@@ -38,7 +38,7 @@ EXTENSIONS = ('.ts', '.tsx', '.js', '.jsx', '.mjs', '.mts')
 def check_server_only_reaches_browser(ctx: Context) -> CheckResult:
     check_id, title = 'web.server_only_reaches_browser', 'Server-only-Modul im Browser-Importpfad'
     files = {sf.rel: sf for sf in ctx.files(*EXTENSIONS)}
-    private = {path for path, sf in files.items() if re.search(r'^\s*//\s*@server-only\s*$', sf.text, re.M) or re.search(r'\.server\.(?:[cm]?[jt]sx?)$', path)}
+    private = {path for path, sf in files.items() if re.search(r'^[ \t]*//\s*@server-only\s*$', sf.text, re.M) or re.search(r'\.server\.(?:[cm]?[jt]sx?)$', path)}
     if not private:
         return unmeasured(check_id, title, 'Keine expliziten server-only-Module deklariert.', 'web')
 
