@@ -212,6 +212,22 @@ References: [SwiftUI Focus](https://developer.apple.com/documentation/swiftui/fo
 [Xcode test plans and schemes](https://developer.apple.com/documentation/xcode/organizing-tests-to-improve-feedback),
 [Xcode Cloud workflow actions](https://developer.apple.com/documentation/xcode/configuring-your-xcode-cloud-workflow-s-actions).
 
+<a id="app-store-review-metadata"></a>
+### App Store review metadata
+
+Rules whose guideline starts with `App Review Guidelines` read the store
+texts at their source — fastlane `metadata/<locale>/*.txt` or JSON profiles
+whose locale blocks carry a `subtitle`/`reviewNotes` — before anything is
+submitted. Apple product names (Mac, iPhone, iCloud, …) in the app name,
+subtitle or keywords are rejected under guideline 5.2.5/2.3.7; in the
+description a referential use is tolerated, so that is a warning. Review
+notes that decline a demo account, or describe a sign-in with credentials
+without one, are a warning: App Review only accepts this when the reviewer
+can provide the counterpart (e.g. any SMB server), not for proprietary
+backends. Whether Apple can reach the backend is not measurable from text.
+References: [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/),
+[Guidelines for using Apple trademarks](https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html).
+
 <a id="apple-build-and-debugging-guidelines"></a>
 ### Apple build and debugging guidelines
 

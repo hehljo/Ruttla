@@ -90,6 +90,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Apple builds: identifiers, toolchain, logging, compiler and SwiftUI traps."),
     ("swiftui_multiplatform_guideline.md", "apple-build-and-debugging-guidelines",
      "Apple builds: identifiers, toolchain, logging, compiler and SwiftUI traps."),
+    ("App Review Guidelines", "app-store-review-metadata",
+     "App Store metadata: Apple trademarks in name/subtitle/keywords, demo access for App Review."),
     ("GUIDELINES.md § Media pipelines", "media-pipelines",
      "Offline audio/video pipelines: limiter, TTS duration, mux verification, argument quoting."),
     ("GUIDELINES.md § Python services", "long-running-python-services",

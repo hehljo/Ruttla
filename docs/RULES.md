@@ -3,16 +3,16 @@
 
 # Rule catalog
 
-149 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+146 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 44 | 9 |
+| apple | 43 | 9 |
 | dotnet | 10 | 0 |
-| godot | 28 | 0 |
+| godot | 25 | 0 |
 | python | 6 | 0 |
 | raspberry | 6 | 0 |
-| universal | 29 | 5 |
+| universal | 30 | 4 |
 | unreal | 6 | 0 |
 | web | 20 | 3 |
 
@@ -105,56 +105,6 @@ buildSettings = {
     CODE_SIGN_IDENTITY = "Apple Development";
     CODE_SIGN_STYLE = Automatic;
 };
-```
-
-</details>
-
-### `apple.bridging_header_pragma_once`
-
-**#pragma once im Swift-Bridging-Header**
-
-- Default severity: `warning`
-- Lifecycle: stable, introduced in 0.1.0
-- Guideline: IOS_DEBUGGING_GUIDELINES.md § Buildort & Toolchain
-- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
-
-<details><summary>Broken probe (must FAIL): Defekt: referenzierter verschachtelter Bridging-Header</summary>
-
-`App.xcodeproj/project.pbxproj`
-
-```text
-SWIFT_OBJC_BRIDGING_HEADER = "App/Bridge.h";
-```
-
-`App/Bridge.h`
-
-```text
-/* license */
-#pragma once
-```
-
-</details>
-
-<details><summary>Healthy probe (must PASS): Gesund: Include-Guard, gewöhnlicher Header mit Pragma erlaubt</summary>
-
-`App.xcodeproj/project.pbxproj`
-
-```text
-SWIFT_OBJC_BRIDGING_HEADER = "App/Bridge.h";
-```
-
-`App/Bridge.h`
-
-```text
-#ifndef APP_BRIDGE_H
-#define APP_BRIDGE_H
-#endif
-```
-
-`App/Ordinary.h`
-
-```text
-#pragma once
 ```
 
 </details>
@@ -3585,52 +3535,6 @@ func go():
 
 </details>
 
-### `godot.fresh_control_editor_anchor_preset`
-
-**Full-Rect-Editorpreset an einem neu erzeugten Control im Positionsmodus**
-
-- Default severity: `warning`
-- Lifecycle: stable, introduced in 0.1.0
-- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes
-- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
-
-<details><summary>Why it exists</summary>
-
-```text
-Control defaults to Position mode. Its internal editor preset setter
-returns without applying anchors in that mode. Deliberately only measure
-an immediately following assignment on a known, freshly created builtin:
-existing nodes, intervening setup and custom classes need runtime evidence.
-```
-
-</details>
-
-<details><summary>Broken probe (must FAIL): frische Textzeile mit wirkungslosem Editorpreset</summary>
-
-`src/ui.gd`
-
-```text
-extends Control
-func create():
-	var row := HBoxContainer.new()
-	row.anchors_preset = Control.PRESET_FULL_RECT
-```
-
-</details>
-
-<details><summary>Healthy probe (must PASS): echte Anker und Offsets anwenden</summary>
-
-`src/ui.gd`
-
-```text
-extends Control
-func create():
-	var row := HBoxContainer.new()
-	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-```
-
-</details>
-
 ### `godot.hardcoded_ui_text`
 
 **Sichtbarer Text fest im GDScript statt über tr() oder Translation-Key**
@@ -4203,84 +4107,6 @@ func submit(data: Dictionary) -> void:
 func submit(data: Dictionary) -> void:
 	var s := multiplayer.get_remote_sender_id()
 	process_data(s, data)
-```
-
-</details>
-
-### `godot.test_helper_assert_then_success`
-
-**Testhelfer-Assertion mit anschließendem Erfolgsexit**
-
-- Default severity: `warning`
-- Lifecycle: stable, introduced in 0.1.0
-- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Testing — Godot-Exitcode und Skriptfehler getrennt prüfen
-- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
-
-<details><summary>Broken probe (must FAIL): defekt: Helferfehler wird als Erfolg beendet</summary>
-
-`tests/run.gd`
-
-```text
-extends Node
-func _ready():
-	_test_logic()
-	get_tree().quit(0)
-func _test_logic():
-	assert(1 == 2)
-```
-
-</details>
-
-<details><summary>Healthy probe (must PASS): gesund: gezählte Fehler entscheiden Exit</summary>
-
-`tests/run.gd`
-
-```text
-extends Node
-var failures = 0
-func _ready():
-	_test_logic()
-	get_tree().quit(1 if failures else 0)
-func _test_logic():
-	if 1 != 2:
-		failures += 1
-```
-
-</details>
-
-### `godot.test_wrapper_exit_only`
-
-**Godot-Testwrapper akzeptiert ausschließlich den Prozessstatus**
-
-- Default severity: `warning`
-- Lifecycle: stable, introduced in 0.1.0
-- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Testing — Godot-Exitcode und Skriptfehler getrennt prüfen
-- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
-
-<details><summary>Broken probe (must FAIL): defekt: nur OS-Exit akzeptiert</summary>
-
-`tools/test.py`
-
-```text
-import subprocess
-def main():
-    result = subprocess.run(["godot", "--headless", "res://tests/run.tscn"], capture_output=True, text=True)
-    return result.returncode
-```
-
-</details>
-
-<details><summary>Healthy probe (must PASS): gesund: Fehlerlog und Prüfergebnis kontrolliert</summary>
-
-`tools/test.py`
-
-```text
-import subprocess
-def main():
-    result = subprocess.run(["godot", "--headless", "res://tests/run.tscn"], capture_output=True, text=True)
-    if "SCRIPT ERROR" in result.stdout or "TEST_RESULT" not in result.stdout:
-        return 1
-    return result.returncode
 ```
 
 </details>
@@ -5522,8 +5348,7 @@ fi
 
 ```text
 Vergleicht Apple-Stringskataloge mit gleichem Dateinamen sowie flache
-Godot-CSV-Tabellen (keys/de/en) und flache TS/JS-Literalkataloge
-mit Locale-Konstanten (z. B. `const de`, `const en`)
+TS/JS-Literalkataloge mit Locale-Konstanten (z. B. `const de`, `const en`)
 in Katalogpfaden. Jede Sprache muss die Vereinigung der Schlüssel tragen.
 Template-Werte mit einfachen Member-Referenzen sind lesbar; es werden
 nur Schlüssel verglichen, keine Markenwerte oder Übersetzungen ausgeführt.
@@ -6109,132 +5934,6 @@ const c = new Anthropic();
 
 </details>
 
-### `quality.contract_expressions`
-
-**Explizite Sollwerte und Rechenfälle**
-
-- Default severity: `error` — blocking without a profile (`safe_by_default`)
-- Lifecycle: stable, introduced in 0.1.0
-- Guideline: CLAUDE.md § Gates — explizite Sollwerte und aktuelle Laufzeitnachweise
-- Public rationale: [GUIDELINES.md › gates-must-not-lie](GUIDELINES.md#gates-must-not-lie)
-
-<details><summary>Why it exists</summary>
-
-```text
-`.ruttla-contracts.json`, version 1, optionally declares `expressions`.
-Each entry needs id, source (.gd/.py), target and cases (inputs, expected).
-Optional scope selects a unique function; kind=argument with an argument
-index selects a call argument instead of an assignment. Bounded arithmetic,
-input reads and conditionals are interpreted without eval or target calls.
-Unknown syntax stays UNMEASURED. Contracts in nested projects are included.
-```
-
-</details>
-
-<details><summary>Broken probe (must FAIL): defekt: Heilmenge weicht ab</summary>
-
-`.ruttla-contracts.json`
-
-```text
-{"version": 1, "expressions": [{"id": "healing", "source": "src/item.gd", "target": "HEAL", "cases": [{"inputs": {}, "expected": 30}]}]}
-```
-
-`src/item.gd`
-
-```text
-const HEAL: float = 25.0
-```
-
-</details>
-
-<details><summary>Healthy probe (must PASS): gesund: vereinbarte Heilmenge</summary>
-
-`.ruttla-contracts.json`
-
-```text
-{"version": 1, "expressions": [{"id": "healing", "source": "src/item.gd", "target": "HEAL", "cases": [{"inputs": {}, "expected": 30}]}]}
-```
-
-`src/item.gd`
-
-```text
-const HEAL: float = 30.0
-```
-
-</details>
-
-### `quality.contract_runtime_evidence`
-
-**Vollständige aktuelle Laufzeitnachweise**
-
-- Default severity: `error` — blocking without a profile (`safe_by_default`)
-- Lifecycle: stable, introduced in 0.1.0
-- Guideline: CLAUDE.md § Gates — explizite Sollwerte und aktuelle Laufzeitnachweise
-- Public rationale: [GUIDELINES.md › gates-must-not-lie](GUIDELINES.md#gates-must-not-lie)
-
-<details><summary>Why it exists</summary>
-
-```text
-Opt-in `proofs` declare id, receipt, sources and required_cases.
-A project's own test runner calls ruttla.contracts.snapshot_inputs before
-testing and write_receipt after testing. Missing/failed cases, zero tests
-and altered source/runner/contract hashes block. Ruttla does not launch the
-runner. This verifies freshness/completeness of self-reported results;
-it does not independently authenticate tests, platforms or visual quality.
-```
-
-</details>
-
-<details><summary>Broken probe (must FAIL): defekt: Nachweis missing</summary>
-
-`.ruttla-contracts.json`
-
-```text
-{"version": 1, "proofs": [{"id": "layout", "receipt": ".test-evidence.json", "sources": ["src/ui.gd", "tools/test_ui.py"], "required_cases": ["mobile"]}]}
-```
-
-`src/ui.gd`
-
-```text
-extends Node
-```
-
-`tools/test_ui.py`
-
-```text
-# runner
-```
-
-</details>
-
-<details><summary>Healthy probe (must PASS): gesund: aktueller vollständiger Nachweis</summary>
-
-`.ruttla-contracts.json`
-
-```text
-{"version": 1, "proofs": [{"id": "layout", "receipt": ".test-evidence.json", "sources": ["src/ui.gd", "tools/test_ui.py"], "required_cases": ["mobile"]}]}
-```
-
-`src/ui.gd`
-
-```text
-extends Node
-```
-
-`tools/test_ui.py`
-
-```text
-# runner
-```
-
-`.test-evidence.json`
-
-```text
-{"version": 1, "proof_id": "layout", "checks": 1, "failures": 0, "cases": {"mobile": true}, "inputs": {".ruttla-contracts.json": "cbdc3d9cbadab4a15637dace72a69e9247db10ee6b07d5655e3f0c927b3bacbd", "src/ui.gd": "006c373933f8e49903c974a70b81864df932f34b72076a11916696e4577e804a", "tools/test_ui.py": "7cd14ebdd927a6af35c8bcf3fc6f87f97c7fd2a2f4ddb7b0ee37b139cdcf8e7e"}}
-```
-
-</details>
-
 ### `quality.display_text_as_anchor`
 
 **Position/Logik hängt an einem Anzeigetext statt an einem Bezeichner**
@@ -6480,6 +6179,138 @@ begin;
     null;
   end $$;
 rollback;
+```
+
+</details>
+
+### `store.apple_trademark_in_description`
+
+**Apple-Marke in Beschreibung oder Werbetext**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: App Review Guidelines 5.2.5; Apple Trademark List
+- Public rationale: [GUIDELINES.md › app-store-review-metadata](GUIDELINES.md#app-store-review-metadata)
+- Reference: <https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html>
+
+<details><summary>Why it exists</summary>
+
+```text
+Verweisender Gebrauch („für Mac“) ist in der Beschreibung zulässig,
+„Mac-App“ als Wortteil aber schon grenzwertig. Nur Warnung: App A (macOS)
+wurde allein für den Untertitel abgelehnt, App B (macOS) trug „Mac“ in der
+Beschreibung und ging durch.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): warnung: „Mac“ in der Beschreibung</summary>
+
+`config/store/app.json`
+
+```text
+{"locales": {"de-DE": {"name": "{app}", "subtitle": "Synology Photos am Desktop", "keywords": "Fotoverwaltung,Album,Finder", "description": "Läuft auf jedem Mac mit macOS 15.", "reviewNotes": "Sign in with the demo account below.", "demoAccountName": "appreview"}}}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Beschreibung ohne Apple-Marke</summary>
+
+`config/store/app.json`
+
+```text
+{"locales": {"en-US": {"subtitle": "Synology Photos on the desktop", "description": "Fast and clear, straight from your NAS."}}}
+```
+
+</details>
+
+### `store.apple_trademark_in_metadata`
+
+**Apple-Marke in Name, Untertitel oder Schlüsselwörtern**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: App Review Guidelines 5.2.5 / 2.3.7; Apple Trademark List
+- Public rationale: [GUIDELINES.md › app-store-review-metadata](GUIDELINES.md#app-store-review-metadata)
+- Reference: <https://developer.apple.com/app-store/review/guidelines/#intellectual-property>
+- Reference: <https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html>
+
+<details><summary>Why it exists</summary>
+
+```text
+Apple lehnt Apple-Produktnamen in Name, Untertitel und Schlüsselwörtern ab.
+
+Belegt am 04.10.2026 (App A (macOS), macOS): abgelehnt nach Guideline 5.2.5
+wegen „Mac“ im Untertitel („Für Synology Photos am Mac“). Ein Review-
+Durchlauf kostet Tage. Da die App ohnehin nur im passenden Store
+erscheint, trägt der Plattformname dort keine Information.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): negativ: „Mac“ im Untertitel (App A (macOS), abgelehnt)</summary>
+
+`config/store/app.json`
+
+```text
+{"locales": {"de-DE": {"name": "{app}", "subtitle": "Für Synology Photos am Mac", "keywords": "Album", "description": "x"}}}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Apple-Marke nur in der Beschreibung</summary>
+
+`config/store/app.json`
+
+```text
+{"locales": {"de-DE": {"name": "{app}", "subtitle": "Synology Photos am Desktop", "keywords": "Fotoverwaltung,Album,Finder", "description": "Läuft auf jedem Mac mit macOS 15.", "reviewNotes": "Sign in with the demo account below.", "demoAccountName": "appreview"}}}
+```
+
+</details>
+
+### `store.review_demo_access_missing`
+
+**Review Notes ohne Demo-Zugang für App Review**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: App Review Guidelines 2.1(a)
+- Public rationale: [GUIDELINES.md › app-store-review-metadata](GUIDELINES.md#app-store-review-metadata)
+- Reference: <https://developer.apple.com/app-store/review/guidelines/#app-completeness>
+
+<details><summary>Why it exists</summary>
+
+```text
+App Review braucht einen befüllten Demo-Zugang, wenn die App eine Anmeldung hat.
+
+Belegt am 04.10.2026 (App A (macOS)): die Review Notes erklärten, ein
+Demo-Zugang sei nicht möglich (App braucht einen eigenen NAS). Apple
+stoppte das Review nach Guideline 2.1(a) und verlangte einen Zugang mit
+echten Inhalten auf allen Seiten; ein Video reicht ausdrücklich nicht.
+Gemeldet wird, wenn die Notes einen Demo-Zugang ablehnen oder eine
+Anmeldung mit Zugangsdaten beschreiben, ohne dass im Block oder darüber
+ein Demo-Zugang steht. App B (macOS) wurde mit demselben Ablehnungssatz
+freigegeben — schwaches Signal, daher Warnung statt Abbruch.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): negativ: Notes lehnen Demo-Zugang ab (App A (macOS), abgelehnt)</summary>
+
+`config/store/app.json`
+
+```text
+{"locales": {"en-US": {"subtitle": "x", "reviewNotes": "A demo account cannot be provided: the app only works against a NAS."}}}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Anmeldung beschrieben, Demo-Zugang hinterlegt</summary>
+
+`config/store/app.json`
+
+```text
+{"locales": {"de-DE": {"name": "{app}", "subtitle": "Synology Photos am Desktop", "keywords": "Fotoverwaltung,Album,Finder", "description": "Läuft auf jedem Mac mit macOS 15.", "reviewNotes": "Sign in with the demo account below.", "demoAccountName": "appreview"}}}
 ```
 
 </details>
