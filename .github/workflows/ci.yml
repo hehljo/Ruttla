@@ -149,6 +149,32 @@ jobs:
           name: dist
           path: dist/
 
+  engine:
+    # Rust engine (ADR-0011). In CI the toolchain MUST exist: --require turns
+    # "not measured" into a failure instead of a silent skip.
+    name: engine (${{ matrix.os }}, rust ${{ matrix.rust }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+        include:
+          # MSRV = engine/Cargo.toml rust-version (measured, see comment there).
+          - { os: ubuntu-latest, rust: "1.85" }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install Rust ${{ matrix.rust }}
+        shell: bash
+        run: |
+          rustup toolchain install "${{ matrix.rust }}" --profile minimal
+          rustup default "${{ matrix.rust }}"
+      - name: Engine gate (toolchain ≥ MSRV, cargo test --locked)
+        run: python scripts/engine_gate.py --require
+
   coverage:
     runs-on: ubuntu-latest
     steps:

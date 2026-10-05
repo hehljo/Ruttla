@@ -45,7 +45,7 @@ OWNER_ALLOWED = {
     "src/ruttla/update.py",
 }
 
-SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "build", "dist", ".ruff_cache"}
+SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "build", "dist", "target", ".ruff_cache"}
 TOKEN = re.compile(r"[a-z0-9]+")
 
 
