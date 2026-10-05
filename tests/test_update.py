@@ -64,6 +64,10 @@ class UpdateCommandTests(unittest.TestCase):
             mock.patch("ruttla.update.subprocess.run", side_effect=fake_run),
             mock.patch("ruttla.update.sys.executable", "/python/active"),
             mock.patch("ruttla.update.engine_target", return_value=TARGET),
+            # platform.system() ruft unter Windows/Python 3.11 selbst `cmd /c ver`
+            # über subprocess auf — ohne Patch landet das im gezählten Mock.
+            mock.patch("ruttla.update.platform.system", return_value="Linux"),
+            mock.patch("ruttla.update.platform.machine", return_value="x86_64"),
             mock.patch("ruttla.update.os.name", "posix"),
             mock.patch("ruttla.update.sysconfig.get_path", return_value=self.scripts),
             contextlib.redirect_stdout(out),
