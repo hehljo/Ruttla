@@ -1,8 +1,8 @@
 """Explicit updater for the ``ruttla update`` command.
 
 Scanning remains offline. This opt-in command is the only network path: it
-reads the GitHub release, installs the Python package from the release's
-commit and puts the matching ``ruttla-engine`` next to the ``ruttla`` script,
+reads the GitHub release (direct download URLs, no API), installs the Python
+package from the release's commit and puts the matching ``ruttla-engine`` next to the ``ruttla`` script,
 where ``declarative.find_engine`` looks for it. Package and engine always come
 from the same commit — the package ships the rules, the engine must read
 exactly that rule format. A source checkout is never changed.
@@ -20,12 +20,21 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
+import urllib.error
 import urllib.request
 
 from .engine import EXIT_CRASH, EXIT_OK
 
 REPO = "hehljo/Ruttla"
-RELEASES_API = f"https://api.github.com/repos/{REPO}/releases?per_page=30"
+# Direkte Download-Adressen statt der Releases-API: die API erlaubt ohne
+# Anmeldung 60 Abfragen je Stunde und IP — auf einem geteilten CI-Runner
+# (belegt 2026-10-05, macOS-Smoke `HTTP 403 rate limit exceeded`) oder hinter
+# einem geteilten Netzanschluss ist das schnell aufgebraucht. `latest` ist das
+# neueste veröffentlichte Release ohne Vorab- und Entwurfsstatus.
+CHANNEL_BASES = {
+    "stable": f"https://github.com/{REPO}/releases/latest/download/",
+    "nightly": f"https://github.com/{REPO}/releases/download/nightly/",
+}
 MANIFEST = "ruttla-release.json"
 CHECKSUMS = "SHA256SUMS"
 TIMEOUT_S = 60
@@ -66,17 +75,21 @@ def engine_target(system: str | None = None, machine: str | None = None) -> str 
     return None
 
 
-def select_release(releases: list[dict], channel: str) -> dict | None:
-    """``stable``: newest non-prerelease; ``nightly``: the ``nightly`` tag;
-    ``auto``: stable if one exists, else nightly."""
-    usable = [r for r in releases if not r.get("draft")]
-    stable = next((r for r in usable if not r.get("prerelease")), None)
-    nightly = next((r for r in usable if r.get("tag_name") == "nightly"), None)
-    if channel == "stable":
-        return stable
-    if channel == "nightly":
-        return nightly
-    return stable or nightly
+def _fetch(url: str) -> bytes | None:
+    """Inhalt, oder None, wenn es die Datei im Release nicht gibt (404)."""
+    try:
+        return _get(url)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise UpdateError(f"GitHub-Release nicht lesbar: {exc}") from exc
+    except OSError as exc:
+        raise UpdateError(f"GitHub-Release nicht lesbar: {exc}") from exc
+
+
+def channels(channel: str) -> list[str]:
+    """``auto``: stable, falls es eins gibt, sonst nightly."""
+    return ["stable", "nightly"] if channel == "auto" else [channel]
 
 
 def parse_checksums(text: str) -> dict[str, str]:
@@ -132,35 +145,37 @@ def install_engine(data: bytes, filename: str, scripts_dir: str) -> str:
 
 
 def _update(channel: str) -> None:
-    try:
-        releases = json.loads(_get(RELEASES_API))
-    except (OSError, ValueError) as exc:
-        raise UpdateError(f"GitHub-Releases nicht lesbar: {exc}") from exc
-    release = select_release(releases, channel)
-    if release is None:
+    for name in channels(channel):
+        base = CHANNEL_BASES[name]
+        raw_sums = _fetch(base + CHECKSUMS)
+        if raw_sums is not None:
+            break
+    else:
         raise UpdateError(f"Kein Release im Kanal {channel!r} gefunden.")
-    assets = {a["name"]: a["browser_download_url"] for a in release.get("assets", [])}
-    if CHECKSUMS not in assets or MANIFEST not in assets:
-        raise UpdateError(f"Release {release.get('tag_name')} ohne {CHECKSUMS}/{MANIFEST} — Update abgebrochen.")
-    sums = parse_checksums(_get(assets[CHECKSUMS]).decode("utf-8"))
-    manifest = json.loads(_verified(MANIFEST, _get(assets[MANIFEST]), sums))
+    sums = parse_checksums(raw_sums.decode("utf-8"))
+    raw_manifest = _fetch(base + MANIFEST)
+    if raw_manifest is None:
+        raise UpdateError(f"Release {name} ohne {MANIFEST} — Update abgebrochen.")
+    manifest = json.loads(_verified(MANIFEST, raw_manifest, sums))
     commit = str(manifest.get("commit", ""))
     if len(commit) != 40 or any(c not in "0123456789abcdef" for c in commit):
         raise UpdateError(f"{MANIFEST}: kein gültiger Commit ({commit!r}) — Update abgebrochen.")
 
-    print(f"Aktualisiere Ruttla auf {release.get('tag_name')} ({manifest.get('version')}, {commit[:7]}) …")
+    print(f"Aktualisiere Ruttla auf {name} ({manifest.get('version')}, {commit[:7]}) …")
     _pip_install(package_requirement(commit))
 
     target = engine_target()
     exe = ".exe" if os.name == "nt" else ""
     asset = f"ruttla-engine-{target}{exe}" if target else None
-    if asset is None or asset not in assets:
+    # Was das Release enthält, sagt SHA256SUMS — ohne Eintrag keine Anfrage.
+    data = _fetch(base + asset) if asset is not None and asset in sums else None
+    if data is None:
         print(f"Für {platform.system()}/{platform.machine()} gibt es keine fertige Engine. Die "
               "deklarativen Regeln bleiben 'nicht gemessen', bis du sie selbst baust "
               "(cargo build --release --manifest-path engine/Cargo.toml, dann RUTTLA_ENGINE_BIN).",
               file=sys.stderr)
         return
-    data = _verified(asset, _get(assets[asset]), sums)
+    data = _verified(asset, data, sums)
     path = install_engine(data, f"ruttla-engine{exe}", sysconfig.get_path("scripts"))
     check = subprocess.run([path, "--version"], check=False, capture_output=True, text=True)
     if check.returncode != 0:

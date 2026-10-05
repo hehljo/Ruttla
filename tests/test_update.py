@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest import mock
 
@@ -17,7 +18,7 @@ if str(REPO / "src") not in sys.path:
     sys.path.insert(0, str(REPO / "src"))
 
 from ruttla.cli import EXIT_CRASH, EXIT_OK, main
-from ruttla.update import REPO as GH_REPO, RELEASES_API, engine_target, run_update, select_release
+from ruttla.update import CHANNEL_BASES, REPO as GH_REPO, channels, engine_target, run_update
 
 COMMIT = "a" * 40
 TARGET = "x86_64-unknown-linux-musl"
@@ -25,10 +26,10 @@ ENGINE = b"\x7fELF-engine"
 
 
 def _release(*, manifest: dict | None = None, engine: bytes = ENGINE, sums_engine: bytes = ENGINE,
-             with_engine: bool = True, tag: str = "v0.1.0", prerelease: bool = False) -> dict[str, bytes]:
+             with_engine: bool = True, channel: str = "stable") -> dict[str, bytes]:
     """URL → Inhalt eines Releases; SHA256SUMS wird aus `sums_engine` gebildet."""
-    manifest_raw = json.dumps(manifest or {"commit": COMMIT, "version": "0.1.0", "channel": "stable"}).encode()
-    base = f"https://example.invalid/{tag}/"
+    manifest_raw = json.dumps(manifest or {"commit": COMMIT, "version": "0.1.0", "channel": channel}).encode()
+    base = CHANNEL_BASES[channel]
     files = {"ruttla-release.json": manifest_raw}
     if with_engine:
         files[f"ruttla-engine-{TARGET}"] = engine
@@ -36,11 +37,18 @@ def _release(*, manifest: dict | None = None, engine: bytes = ENGINE, sums_engin
     if with_engine:
         sums[f"ruttla-engine-{TARGET}"] = hashlib.sha256(sums_engine).hexdigest()
     files["SHA256SUMS"] = "".join(f"{h}  {n}\n" for n, h in sums.items()).encode()
-    listing = [{"tag_name": tag, "draft": False, "prerelease": prerelease,
-                "assets": [{"name": n, "browser_download_url": base + n} for n in files]}]
-    urls = {base + n: data for n, data in files.items()}
-    urls[RELEASES_API] = json.dumps(listing).encode()
-    return urls
+    return {base + n: data for n, data in files.items()}
+
+
+def _served(urls: dict[str, bytes], requested: list[str] | None = None):
+    """`_get`-Ersatz: unbekannte Adresse = 404 wie bei GitHub."""
+    def get(url: str) -> bytes:
+        if requested is not None:
+            requested.append(url)
+        if url not in urls:
+            raise urllib.error.HTTPError(url, 404, "Not Found", None, None)
+        return urls[url]
+    return get
 
 
 class UpdateCommandTests(unittest.TestCase):
@@ -48,6 +56,7 @@ class UpdateCommandTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.scripts = self._tmp.name
         self.calls: list[list[str]] = []
+        self.requested: list[str] = []
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
@@ -60,7 +69,7 @@ class UpdateCommandTests(unittest.TestCase):
             return subprocess.CompletedProcess(cmd, 0, stdout="ruttla-engine 0.1.0", stderr="")
         out, err = io.StringIO(), io.StringIO()
         with (
-            mock.patch("ruttla.update._get", side_effect=lambda url: urls[url]),
+            mock.patch("ruttla.update._get", side_effect=_served(urls, self.requested)),
             mock.patch("ruttla.update.subprocess.run", side_effect=fake_run),
             mock.patch("ruttla.update.sys.executable", "/python/active"),
             mock.patch("ruttla.update.engine_target", return_value=TARGET),
@@ -116,7 +125,7 @@ class UpdateCommandTests(unittest.TestCase):
     def test_pip_start_failure_is_exit_three(self) -> None:
         urls = _release()
         with (
-            mock.patch("ruttla.update._get", side_effect=lambda url: urls[url]),
+            mock.patch("ruttla.update._get", side_effect=_served(urls)),
             mock.patch("ruttla.update.subprocess.run", side_effect=OSError("missing Python")),
             contextlib.redirect_stdout(io.StringIO()),
             contextlib.redirect_stderr(io.StringIO()) as stderr,
@@ -124,6 +133,26 @@ class UpdateCommandTests(unittest.TestCase):
             result = run_update([])
         self.assertEqual(result, EXIT_CRASH)
         self.assertIn("konnte pip nicht starten", stderr.getvalue())
+
+    def test_no_api_request_only_release_downloads(self) -> None:
+        # Die Releases-API ist ohne Anmeldung auf 60 Abfragen/h je IP begrenzt.
+        code, _, _ = self._run(_release())
+        self.assertEqual(code, EXIT_OK)
+        self.assertTrue(self.requested)
+        for url in self.requested:
+            self.assertTrue(url.startswith(f"https://github.com/{GH_REPO}/releases/"), url)
+
+    def test_auto_falls_back_to_nightly_without_stable(self) -> None:
+        code, out, _ = self._run(_release(channel="nightly"))
+        self.assertEqual(code, EXIT_OK)
+        self.assertIn("nightly", out)
+        self.assertEqual(self.requested[0], CHANNEL_BASES["stable"] + "SHA256SUMS")
+
+    def test_stable_channel_without_stable_release_stops(self) -> None:
+        code, _, err = self._run(_release(channel="nightly"), argv=["--channel", "stable"])
+        self.assertEqual(code, EXIT_CRASH)
+        self.assertIn("Kein Release", err)
+        self.assertEqual(self.calls, [])
 
     def test_unreadable_release_list_is_exit_three(self) -> None:
         with (
@@ -152,22 +181,11 @@ class UpdateCommandTests(unittest.TestCase):
         self.assertIn("ruttla update", stdout.getvalue())
 
 
-class ReleaseSelectionTests(unittest.TestCase):
-    RELEASES = [
-        {"tag_name": "v0.3.0", "draft": True, "prerelease": False},
-        {"tag_name": "nightly", "draft": False, "prerelease": True},
-        {"tag_name": "v0.2.0", "draft": False, "prerelease": False},
-    ]
-
-    def test_auto_prefers_the_newest_published_stable(self) -> None:
-        self.assertEqual(select_release(self.RELEASES, "auto")["tag_name"], "v0.2.0")
-
-    def test_auto_falls_back_to_nightly(self) -> None:
-        self.assertEqual(select_release(self.RELEASES[:2], "auto")["tag_name"], "nightly")
-
-    def test_explicit_channels(self) -> None:
-        self.assertEqual(select_release(self.RELEASES, "nightly")["tag_name"], "nightly")
-        self.assertIsNone(select_release(self.RELEASES[:2], "stable"))
+class ChannelTests(unittest.TestCase):
+    def test_auto_tries_stable_then_nightly(self) -> None:
+        self.assertEqual(channels("auto"), ["stable", "nightly"])
+        self.assertEqual(channels("nightly"), ["nightly"])
+        self.assertTrue(CHANNEL_BASES["stable"].endswith("/releases/latest/download/"))
 
 
 class EngineTargetTests(unittest.TestCase):

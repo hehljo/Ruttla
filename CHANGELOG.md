@@ -9,6 +9,7 @@ when added, changed or deprecated.
 - `ruttla rule test PATH…`: conformance kit for declarative rules (schema, ID clash, fixtures, untested exclusions, runtime budget), each rule loaded in isolation (P10-T009).
 
 ### Fixed
+- `ruttla update`: reads releases via direct download URLs (`releases/latest/download`, `releases/download/nightly`) instead of the GitHub API, which allows 60 unauthenticated requests per hour and IP (`HTTP 403 rate limit exceeded` on a shared CI runner).
 - `ruttla-engine`: evidence and `exclude on = "line"` are computed once per line, not per hit. Many hits on one long line (minified file) were hits × line length — 22 s for 100 KB.
 - `ruttla-engine`: a pattern over the `regex` size limit is reported as too large, no longer as lookaround.
 - `ruttla-engine`: `scope.extensions` and fixture paths with `\`, `:` or NUL are rejected at load. `..\x` and `C:/x` passed the `/`-only check and escape the fixture directory on Windows; an extension like `.py/../x` became a path in the kit's stress files.
