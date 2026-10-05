@@ -24,14 +24,32 @@ pub struct CaseOutcome {
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
+/// Eigenes, neu angelegtes Verzeichnis im Temp-Ordner. `create_dir` (nicht
+/// `_all`) schlägt fehl, wenn der Name schon existiert — ein fremd
+/// vorbereitetes Verzeichnis oder ein Symlink unter demselben Namen wird nie
+/// benutzt oder gelöscht, sondern übersprungen. Unix: nur für uns (0700).
 fn workdir() -> std::io::Result<PathBuf> {
-    let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-    let dir = std::env::temp_dir().join(format!("ruttla-engine-selftest-{}-{n}", std::process::id()));
-    if dir.exists() {
-        std::fs::remove_dir_all(&dir)?;
+    let base = std::env::temp_dir();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0);
+    for _ in 0..64 {
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir = base.join(format!("ruttla-engine-selftest-{}-{nanos:08x}-{n}", std::process::id()));
+        let mut builder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            builder.mode(0o700);
+        }
+        match builder.create(&dir) {
+            Ok(()) => return Ok(dir),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
     }
-    std::fs::create_dir_all(&dir)?;
-    Ok(dir)
+    Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "kein freier Arbeitsordner"))
 }
 
 pub fn run_fixture(manifest: &Manifest, rule: &Rule, fx: &RawFixture) -> CaseOutcome {

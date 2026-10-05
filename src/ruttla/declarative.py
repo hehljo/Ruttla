@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
+import sysconfig
 import tempfile
 import tomllib
 from importlib import resources
@@ -61,19 +61,30 @@ def rules_dir() -> Path:
 
 
 def find_engine() -> Path | None:
-    """RUTTLA_ENGINE_BIN · installed ``ruttla-engine`` · newest build in a checkout."""
+    """RUTTLA_ENGINE_BIN · Skriptordner dieses Interpreters · Build im eigenen Checkout.
+
+    Bewusst KEINE Suche über PATH oder das aktuelle Verzeichnis: Ruttla läuft
+    in fremden Repos, und unter Windows sucht ``shutil.which`` zuerst im
+    aktuellen Verzeichnis — ein ``ruttla-engine.exe`` im Prüfziel würde sonst
+    ausgeführt (ADR-0005: Zielcode wird nie ausgeführt).
+    """
     if _mode == "off":
         return None
     override = os.environ.get("RUTTLA_ENGINE_BIN")
     if override:
         return Path(override) if Path(override).is_file() else None
-    installed = shutil.which("ruttla-engine")
-    if installed:
-        return Path(installed)
-    checkout = Path(__file__).resolve().parents[2] / "engine" / "target"
-    built = [checkout / profile / name
-             for profile in ("release", "debug")
-             for name in ("ruttla-engine", "ruttla-engine.exe")]
+    names = ("ruttla-engine.exe", "ruttla-engine") if os.name == "nt" else ("ruttla-engine",)
+    scripts = sysconfig.get_path("scripts")
+    if scripts:
+        for name in names:
+            installed = Path(scripts) / name
+            if installed.is_file():
+                return installed
+    repo = Path(__file__).resolve().parents[2]
+    if not (repo / "engine" / "Cargo.toml").is_file():
+        return None
+    built = [repo / "engine" / "target" / profile / name
+             for profile in ("release", "debug") for name in names]
     built = [b for b in built if b.is_file()]
     # Das jüngste Build: ein veraltetes Release-Binary misst sonst den alten Stand.
     return max(built, key=lambda b: b.stat().st_mtime) if built else None

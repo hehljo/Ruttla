@@ -138,6 +138,31 @@ class EngineContract(unittest.TestCase):
         self.assertEqual(data["total"], sum(len(r["fixtures"]) for r in read_rules()))
 
 
+class EngineLookup(unittest.TestCase):
+    """The engine is never taken from PATH or the scanned directory."""
+
+    def test_binary_on_path_or_in_cwd_is_ignored(self) -> None:
+        from ruttla.declarative import find_engine
+
+        with tempfile.TemporaryDirectory() as hostile:
+            for name in ("ruttla-engine", "ruttla-engine.exe"):
+                fake = Path(hostile) / name
+                fake.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+                fake.chmod(0o755)
+            old_path, old_cwd = os.environ.get("PATH", ""), os.getcwd()
+            old_bin = os.environ.pop("RUTTLA_ENGINE_BIN", None)
+            os.environ["PATH"] = hostile + os.pathsep + old_path
+            os.chdir(hostile)
+            try:
+                found = find_engine()
+            finally:
+                os.chdir(old_cwd)
+                os.environ["PATH"] = old_path
+                if old_bin is not None:
+                    os.environ["RUTTLA_ENGINE_BIN"] = old_bin
+            self.assertTrue(found is None or Path(hostile) not in found.parents, found)
+
+
 class CliEngineModes(unittest.TestCase):
     """Missing engine: auto = not measured, required = runner error."""
 
