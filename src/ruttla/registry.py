@@ -40,6 +40,8 @@ class Check:
     lifecycle: str = "stable"
     deprecated_in: str | None = None
     replaced_by: str | None = None
+    # True = declarative rule (ruttla-rule/0), executed by ruttla-engine.
+    engine: bool = False
 
     @property
     def pack(self) -> str:

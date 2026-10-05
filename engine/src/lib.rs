@@ -3,5 +3,10 @@
 pub mod detect;
 pub mod glob;
 pub mod inventory;
+pub mod pytext;
 pub mod realpath;
+pub mod rules;
+pub mod runner;
+pub mod selftest;
+pub mod strip;
 pub mod text;

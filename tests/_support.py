@@ -61,9 +61,11 @@ def engine_binary() -> Path | None:
     ``RUTTLA_ENGINE_BIN`` overrides the location; otherwise the debug build
     under ``engine/target`` is used, which ``scripts/engine_gate.py`` builds.
     """
+    if os.environ.get("RUTTLA_ENGINE") == "off":
+        return None
     override = os.environ.get("RUTTLA_ENGINE_BIN")
     if override:
-        return Path(override)
+        return Path(override) if Path(override).is_file() else None
     for profile in ("debug", "release"):
         for name in ("ruttla-engine", "ruttla-engine.exe"):
             candidate = ENGINE_DIR / "target" / profile / name

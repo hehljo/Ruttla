@@ -50,6 +50,7 @@ from .reporting import (
 from .reporting.agent import agent_field as _agent_field
 from .reporting.text import palette as _color
 from .selftest import NONEXISTENT_APIS as _NONEXISTENT_APIS  # noqa: F401
+from .declarative import ENGINE_MODES, EngineError, set_engine_mode
 from .selftest import export_self_tests, run_self_test
 
 FORMATS = ("text", "agent", "json", "sarif", "markdown")
@@ -136,6 +137,9 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
                     help="Begründung, Referenzen und Proben eines Checks zeigen")
     ap.add_argument("--self-test", action="store_true",
                     help="Sabotage-Gegenprobe der Gates")
+    ap.add_argument("--engine", choices=ENGINE_MODES, default=None,
+                    help="Rust-Engine für deklarative Regeln: auto (Vorgabe; fehlt sie, "
+                         "sind diese Regeln nicht gemessen), off, required (fehlt = Exit 3)")
     ap.add_argument("--export-self-tests", metavar="DIR",
                     help="Sabotage-Proben je Check als JSON nach DIR schreiben "
                          "(Orakel für den Engine-Port, Schema ruttla-selftests/1)")
@@ -172,6 +176,8 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         )
         return EXIT_CRASH
 
+    if args.engine:
+        set_engine_mode(args.engine)
     try:
         load_checks()
     except Exception as exc:
@@ -259,6 +265,9 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         )
     except GateInputError as exc:
         _emit_runner_state("input_unreadable", str(exc), EXIT_CRASH, args)
+        return EXIT_CRASH
+    except EngineError as exc:
+        _emit_runner_state("engine_unavailable", str(exc), EXIT_CRASH, args)
         return EXIT_CRASH
     except Exception as exc:
         _emit_runner_state(

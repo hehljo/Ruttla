@@ -3,6 +3,13 @@
 
   engine_diff.py inventory [REPO...]   Dateiinventar vergleichen (P11-T002)
   engine_diff.py detect [REPO...]      Plattformen + Projektwurzeln (P11-T003)
+  engine_diff.py findings [REPO...]    Befunde je Check: Python-Check gegen die
+                                       deklarative Regel gleicher ID (P11-T007)
+
+findings vergleicht genau die Regeln, die es gerade doppelt gibt (Port in
+Arbeit, declarative.SHADOWED). Null verglichene Checks sind rot: dann wurde
+der Python-Check schon gelöscht oder die Regel fehlt — gemessen wird VOR dem
+Löschen.
 
 Ohne REPO werden die Repos des Referenzkorpus genommen
 (~/.config/ruttla/detect_corpus.json, siehe detect_corpus.py).
@@ -136,6 +143,93 @@ def diff(a: dict, b: dict, limit: int = 8) -> list[str]:
     return out
 
 
+def _normalise(check, res) -> dict:
+    return {
+        "status": res.status.value, "reason": res.reason, "units": res.units_examined,
+        # Ohne geprüfte Einheit ist die Einheit bedeutungslos (Pythons
+        # unmeasured() setzt immer "Dateien"); verglichen wird sie nur mit Inhalt.
+        "unit_label": res.unit_label if res.units_examined else None,
+        "findings": [(f.file, f.line, f.message, f.evidence, f.fix,
+                      f.guideline or check.guideline, f.severity.value) for f in res.findings],
+    }
+
+
+def python_findings(root: str, config: Config, check_ids: list[str]) -> dict:
+    from ruttla.engine import validate_result
+    from ruttla.registry import REGISTRY
+
+    ctx = Context(root=root, config=config)
+    out = {}
+    for cid in check_ids:
+        check = REGISTRY[cid]
+        out[cid] = _normalise(check, validate_result(check, check.fn(ctx.scoped(check.platform))))
+    return out
+
+
+def engine_findings(root: str, config: Config, check_ids: list[str]) -> dict:
+    from ruttla.declarative import SHADOWED, run_engine_rules
+
+    results = run_engine_rules(Context(root=root, config=config), check_ids, view="scoped")
+    return {cid: _normalise(SHADOWED[cid], results[cid]) for cid in check_ids}
+
+
+def diff_findings(a: dict, b: dict, limit: int = 6) -> list[str]:
+    out = []
+    for key in ("status", "reason", "units", "unit_label"):
+        if a[key] != b[key]:
+            out.append(f"{key}: python={a[key]!r} rust={b[key]!r}"[:300])
+    fa, fb = a["findings"], b["findings"]
+    if fa != fb:
+        only_a = [f for f in fa if f not in fb]
+        only_b = [f for f in fb if f not in fa]
+        for f in only_a[:limit]:
+            out.append(f"nur Python: {f[0]}:{f[1]} {f[2]!r} | {f[3]!r}"[:300])
+        for f in only_b[:limit]:
+            out.append(f"nur Rust:   {f[0]}:{f[1]} {f[2]!r} | {f[3]!r}"[:300])
+        if not only_a and not only_b:
+            out.append("gleiche Befunde, andere Reihenfolge")
+    return out
+
+
+def run_findings(repos: list[str], only: list[str]) -> int:
+    from ruttla.declarative import SHADOWED
+    from ruttla.engine import load_checks
+
+    load_checks()
+    ids = sorted(cid for cid in SHADOWED if not only or cid in only)
+    if not ids:
+        print("DURCHGEFALLEN: null verglichene Checks — keine Regel hat gerade auch "
+              "einen Python-Check (vor dem Löschen messen).")
+        return EXIT_DIFF
+    diverged: dict[str, int] = {cid: 0 for cid in ids}
+    findings = 0
+    for repo in repos:
+        root = os.path.abspath(repo)
+        try:
+            config = Config.load(root, None)
+        except GateInputError:
+            config = Config()
+        try:
+            a = python_findings(root, config, ids)
+            b = engine_findings(root, config, ids)
+        except GateInputError as exc:
+            print(f"  · {repo}: Eingabe nicht prüfbar ({exc}) — übersprungen")
+            continue
+        for cid in ids:
+            findings += len(a[cid]["findings"])
+            problems = diff_findings(a[cid], b[cid])
+            if problems:
+                diverged[cid] += 1
+                print(f"✗ {cid} @ {repo}")
+                for p in problems:
+                    print(f"    {p}")
+    for cid in ids:
+        mark = "✓" if not diverged[cid] else "✗"
+        print(f"{mark} {cid}: {len(repos) - diverged[cid]}/{len(repos)} Repos identisch")
+    print(f"findings: {len(ids)} Checks verglichen, {findings} Python-Befunde")
+    return EXIT_DIFF if any(diverged.values()) else EXIT_OK
+
+
 def corpus_repos() -> list[str]:
     snap = (Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
             / "ruttla" / "detect_corpus.json")
@@ -148,8 +242,10 @@ def corpus_repos() -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("what", choices=["inventory", "detect"])
+    ap.add_argument("what", choices=["inventory", "detect", "findings"])
     ap.add_argument("repos", nargs="*")
+    ap.add_argument("--check", action="append", default=[],
+                    help="findings: nur diese Check-ID (mehrfach)")
     args = ap.parse_args(argv)
 
     binary = default_engine()
@@ -164,6 +260,10 @@ def main(argv: list[str] | None = None) -> int:
     if missing:
         print(f"NICHT GEMESSEN: {len(missing)} Repo(s) fehlen: {', '.join(missing[:5])}")
         return EXIT_UNMEASURED
+
+    if args.what == "findings":
+        os.environ.setdefault("RUTTLA_ENGINE_BIN", str(binary))
+        return run_findings(repos, args.check)
 
     diverged = 0
     files = 0

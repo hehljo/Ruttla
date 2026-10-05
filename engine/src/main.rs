@@ -8,12 +8,18 @@ use std::process::ExitCode;
 
 use ruttla_engine::detect::{detect, parse_manifest, Manifest, EMBEDDED_MANIFEST};
 use ruttla_engine::inventory::{inventory, InventoryConfig};
+use ruttla_engine::rules::{load_rules, Rule};
+use ruttla_engine::runner::{scan, View};
+use ruttla_engine::selftest::run_selftests;
 use serde_json::json;
 
 const USAGE: &str = "usage: ruttla-engine --version
        ruttla-engine inventory ROOT [OPTIONEN]
        ruttla-engine detect ROOT [--manifest DATEI] [OPTIONEN]
        ruttla-engine check-manifest [DATEI]
+       ruttla-engine check-rules --rules DIR [--manifest DATEI]
+       ruttla-engine scan ROOT --rules DIR [--rule ID]... [--view scoped|unscoped] [--threads N] [--manifest DATEI] [OPTIONEN]
+       ruttla-engine selftest --rules DIR [--rule ID]... [--manifest DATEI]
 OPTIONEN: [--exclude-dir D]... [--exclude-glob G]... [--max-file-bytes N]";
 
 fn usage_error(msg: &str) -> ExitCode {
@@ -22,9 +28,13 @@ fn usage_error(msg: &str) -> ExitCode {
 }
 
 struct Invocation {
-    root: PathBuf,
+    root: Option<PathBuf>,
     cfg: InventoryConfig,
     manifest: Option<PathBuf>,
+    rules: Option<PathBuf>,
+    only: Vec<String>,
+    view: View,
+    threads: usize,
 }
 
 /// Gemeinsame Optionen von Inventar und Erkennung.
@@ -32,11 +42,28 @@ fn parse_inventory_args(args: &[String]) -> Result<Invocation, String> {
     let mut cfg = InventoryConfig::default();
     let mut root: Option<PathBuf> = None;
     let mut manifest: Option<PathBuf> = None;
+    let mut rules: Option<PathBuf> = None;
+    let mut only = Vec::new();
+    let mut view = View::Scoped;
+    let mut threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
     let mut it = args.iter();
     while let Some(a) = it.next() {
         let mut value = |flag: &str| it.next().cloned().ok_or(format!("{flag} braucht einen Wert"));
         match a.as_str() {
             "--manifest" => manifest = Some(PathBuf::from(value("--manifest")?)),
+            "--rules" => rules = Some(PathBuf::from(value("--rules")?)),
+            "--rule" => only.push(value("--rule")?),
+            "--view" => {
+                view = match value("--view")?.as_str() {
+                    "scoped" => View::Scoped,
+                    "unscoped" => View::Unscoped,
+                    v => return Err(format!("--view {v}: scoped oder unscoped")),
+                }
+            }
+            "--threads" => {
+                threads = value("--threads")?.parse().ok().filter(|&n| n > 0)
+                    .ok_or("--threads muss eine positive Ganzzahl sein")?
+            }
             "--exclude-dir" => cfg.exclude_dirs.push(value("--exclude-dir")?),
             "--exclude-glob" => cfg.exclude_globs.push(value("--exclude-glob")?),
             "--max-file-bytes" => {
@@ -49,7 +76,7 @@ fn parse_inventory_args(args: &[String]) -> Result<Invocation, String> {
             s => return Err(format!("überzähliges Argument {s}")),
         }
     }
-    Ok(Invocation { root: root.ok_or("ROOT fehlt")?, cfg, manifest })
+    Ok(Invocation { root, cfg, manifest, rules, only, view, threads })
 }
 
 fn load_manifest(path: Option<&PathBuf>) -> Result<Manifest, String> {
@@ -64,6 +91,35 @@ fn load_manifest(path: Option<&PathBuf>) -> Result<Manifest, String> {
 fn manifest_error(msg: &str) -> ExitCode {
     println!("{}", json!({"error": {"kind": "manifest", "path": "", "message": msg}}));
     ExitCode::from(3)
+}
+
+fn need_root(inv: &Invocation) -> Result<PathBuf, ExitCode> {
+    inv.root.clone().ok_or_else(|| usage_error("ROOT fehlt"))
+}
+
+/// Regeln laden und auf `--rule` einschränken; Fehler gesammelt, Exit 3.
+fn load_selected(inv: &Invocation, manifest: &Manifest) -> Result<Vec<Rule>, ExitCode> {
+    let Some(dir) = &inv.rules else {
+        return Err(usage_error("--rules DIR fehlt"));
+    };
+    let known = manifest.platforms.iter().map(|p| p.name.clone()).collect();
+    let rules = match load_rules(dir, &known) {
+        Ok(r) => r,
+        Err(errors) => {
+            println!("{}", json!({"error": {"kind": "rules", "path": dir.display().to_string(), "message": errors.join("\n")}}));
+            return Err(ExitCode::from(3));
+        }
+    };
+    if inv.only.is_empty() {
+        return Ok(rules);
+    }
+    let unknown: Vec<&String> = inv.only.iter().filter(|id| !rules.iter().any(|r| &r.id == *id)).collect();
+    if !unknown.is_empty() {
+        return Err(usage_error(&format!("unbekannte Regel: {unknown:?}")));
+    }
+    // Reihenfolge wie angefragt — der Aufrufer mischt in seine eigene Ordnung.
+    let mut by_id: std::collections::HashMap<String, Rule> = rules.into_iter().map(|r| (r.id.clone(), r)).collect();
+    Ok(inv.only.iter().filter_map(|id| by_id.remove(id)).collect())
 }
 
 fn main() -> ExitCode {
@@ -82,6 +138,48 @@ fn main() -> ExitCode {
                 Err(e) => manifest_error(&e),
             }
         }
+        Some(cmd @ ("check-rules" | "scan" | "selftest")) => {
+            let inv = match parse_inventory_args(&args[1..]) {
+                Ok(v) => v,
+                Err(e) => return usage_error(&e),
+            };
+            let manifest = match load_manifest(inv.manifest.as_ref()) {
+                Ok(m) => m,
+                Err(e) => return manifest_error(&e),
+            };
+            let rules = match load_selected(&inv, &manifest) {
+                Ok(r) => r,
+                Err(code) => return code,
+            };
+            match cmd {
+                "check-rules" => {
+                    println!("{}", json!({"rules": rules.iter().map(|r| &r.id).collect::<Vec<_>>()}));
+                    ExitCode::SUCCESS
+                }
+                "selftest" => {
+                    let cases = run_selftests(&manifest, &rules);
+                    let passed = cases.iter().filter(|c| c.ok).count();
+                    println!("{}", json!({"cases": cases, "passed": passed, "total": cases.len()}));
+                    if cases.is_empty() || passed != cases.len() { ExitCode::from(1) } else { ExitCode::SUCCESS }
+                }
+                _ => {
+                    let root = match need_root(&inv) {
+                        Ok(r) => r,
+                        Err(code) => return code,
+                    };
+                    match scan(&manifest, &root, &inv.cfg, &rules, inv.view, inv.threads) {
+                        Ok(results) => {
+                            println!("{}", json!({"results": results}));
+                            ExitCode::SUCCESS
+                        }
+                        Err(err) => {
+                            println!("{}", json!({"error": err}));
+                            ExitCode::from(2)
+                        }
+                    }
+                }
+            }
+        }
         Some("detect") => {
             let inv = match parse_inventory_args(&args[1..]) {
                 Ok(v) => v,
@@ -91,8 +189,12 @@ fn main() -> ExitCode {
                 Ok(m) => m,
                 Err(e) => return manifest_error(&e),
             };
-            let result = inventory(&inv.root, &inv.cfg)
-                .and_then(|(files, _)| detect(&manifest, &inv.root, &inv.cfg, &files));
+            let root = match need_root(&inv) {
+                Ok(r) => r,
+                Err(code) => return code,
+            };
+            let result = inventory(&root, &inv.cfg)
+                .and_then(|(files, _)| detect(&manifest, &root, &inv.cfg, &files));
             match result {
                 Ok(d) => {
                     println!("{}", json!({"platforms": d.platforms, "roots": d.roots}));
@@ -109,10 +211,14 @@ fn main() -> ExitCode {
                 Ok(v) => v,
                 Err(e) => return usage_error(&e),
             };
-            if inv.manifest.is_some() {
-                return usage_error("--manifest gilt nur für detect");
+            if inv.manifest.is_some() || inv.rules.is_some() {
+                return usage_error("--manifest/--rules gelten nicht für inventory");
             }
-            match inventory(&inv.root, &inv.cfg) {
+            let root = match need_root(&inv) {
+                Ok(r) => r,
+                Err(code) => return code,
+            };
+            match inventory(&root, &inv.cfg) {
                 Ok((files, coverage)) => {
                     println!("{}", json!({"files": files, "coverage": coverage}));
                     ExitCode::SUCCESS

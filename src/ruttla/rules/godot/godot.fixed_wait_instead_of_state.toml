@@ -1,0 +1,37 @@
+format = "ruttla-rule/0"
+id = "godot.fixed_wait_instead_of_state"
+title = "Feste Wartezeit statt Warten auf einen Zustand"
+platform = "godot"
+severity = "warning"
+guideline = "CLAUDE.md § 'Eine feste Wartezeit misst den Zufall'"
+
+[scope]
+extensions = [".gd"]
+unit_label = "GDScript-Dateien"
+no_files_reason = "Keine GDScript-Dateien gefunden."
+
+[match]
+pattern = 'await\s+get_tree\(\)\.create_timer\s*\(\s*([\d.]+)'
+message = "Feste Wartezeit von {1}s."
+fix = "Auf den Zustand warten (Signal, Bedingung), mit Obergrenze als Endlosschutz — deren Ablauf ist kein Erfolgsfall."
+guideline = "CLAUDE.md § Zustand, Zeit und Nebenläufigkeit"
+
+[[fixtures]]
+name = "feste Wartezeit"
+expect = "fail"
+[fixtures.files]
+"src/a.gd" = """
+extends Node
+func go():
+\tawait get_tree().create_timer(2.0).timeout
+"""
+
+[[fixtures]]
+name = "auf Signal warten"
+expect = "pass"
+[fixtures.files]
+"src/a.gd" = """
+extends Node
+func go():
+\tawait anim.animation_finished
+"""

@@ -1,0 +1,41 @@
+format = "ruttla-rule/0"
+id = "docs.trailing_whitespace"
+title = "Trailing Whitespace in Markdown-Dateien"
+platform = "universal"
+severity = "warning"
+guideline = "GUIDELINES.md § Documentation — git diff --check clean"
+rationale = """
+Findet Zeilen mit überflüssigem Whitespace am Zeilenende in Markdown-Dateien,
+die `git diff --check` fehlschlagen lassen."""
+
+[scope]
+extensions = [".md"]
+unit_label = "Markdown-Dateien"
+# Zeilenweise wie git diff --check: Kommentare gibt es in Markdown nicht.
+skip_comments = false
+
+[match]
+pattern = '(?m)[ \t]+$'
+message = "Trailing Whitespace am Zeilenende (bricht git diff --check)."
+fix = "Leerzeichen am Zeilenende entfernen."
+
+[[fixtures]]
+name = "Trailing Whitespace in Liste"
+expect = "fail"
+expect_finding_contains = "Trailing Whitespace"
+[fixtures.files]
+"docs/test.md" = """
+- [ ] Punkt
+-\u0020\u0020
+- [ ] Weiterer Punkt
+"""
+
+[[fixtures]]
+name = "Saubere Markdown-Datei"
+expect = "pass"
+[fixtures.files]
+"docs/test.md" = """
+- [ ] Punkt
+-
+- [ ] Weiterer Punkt
+"""

@@ -15,6 +15,7 @@ import tempfile
 
 from .config import Config
 from .context import Context
+from .declarative import find_engine
 from .engine import EXIT_FAILED, EXIT_OK, EXIT_UNMEASURED, validate_result
 from .models import SelfTestCase, Status
 from .registry import REGISTRY, Check
@@ -151,7 +152,14 @@ def run_self_test(use_color: bool) -> int:
     without_tests: list[str] = []
 
     required_directions = {Status.PASS, Status.FAIL}
+    # Deklarative Regeln laufen nur in der Engine. Fehlt sie, sind ihre Proben
+    # NICHT GEMESSEN — nie still übersprungen und nie als bestanden gezählt.
+    engine_missing = find_engine() is None
+    not_run = 0
     for check in REGISTRY.values():
+        if check.engine and engine_missing:
+            not_run += len(check.self_tests)
+            continue
         if not check.self_tests:
             without_tests.append(check.id)
             failures.append(f"{check.id}: keine Sabotage-Probe vorhanden.")
@@ -183,7 +191,8 @@ def run_self_test(use_color: bool) -> int:
     # Dateipfad, und der PASS-Fall würde den FAIL-Fall überschreiben — dann
     # gibt es null Findings und damit null fix-Texte zu prüfen. Das Gate wäre
     # grün, ohne etwas gemessen zu haben.
-    cases = [(c, case) for c in REGISTRY.values() for case in c.self_tests]
+    cases = [(c, case) for c in REGISTRY.values() for case in c.self_tests
+             if not (c.engine and engine_missing)]
     for check, case in cases:
         work = os.path.realpath(tempfile.mkdtemp(prefix="ruttla-apicheck-"))
         try:
@@ -240,6 +249,10 @@ def run_self_test(use_color: bool) -> int:
         return EXIT_FAILED
     if total == 0:
         print(f"{red}NICHT GEMESSEN: null Sabotage-Proben gelaufen.{reset}")
+        return EXIT_UNMEASURED
+    if not_run:
+        print(f"{yellow}NICHT GEMESSEN{reset}: {passed}/{total} Proben bestanden, "
+              f"{not_run} Proben deklarativer Regeln ohne ruttla-engine nicht gelaufen.")
         return EXIT_UNMEASURED
     print(f"{green}{bold}BESTANDEN{reset}: {passed}/{total} Sabotage-Proben, "
           f"beide Richtungen je Check.")

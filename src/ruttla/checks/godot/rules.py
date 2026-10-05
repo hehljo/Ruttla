@@ -338,50 +338,6 @@ def check_hot_loop_alloc(ctx: Context) -> CheckResult:
 
 
 @register(
-    "godot.fragile_node_path",
-    "Zerbrechlicher Knotenpfad statt Signal oder exportierter Referenz",
-    platform=PLATFORM,
-    severity=Severity.WARNING,
-    guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § 4",
-    self_tests=[
-        SelfTestCase(
-            name="Aufwaertspfad",
-            files={"src/a.gd": "extends Node\nfunc go():\n\tvar n = get_node(\"../../Manager\")\n"},
-            expect=Status.FAIL,
-        ),
-        SelfTestCase(
-            name="exportierter Pfad",
-            files={"src/a.gd": "extends Node\n@export var manager_path: NodePath\nfunc go():\n\tvar n = get_node(manager_path)\n"},
-            expect=Status.PASS,
-        ),
-    ],
-)
-def check_node_paths(ctx: Context) -> CheckResult:
-    """get_node("../../Sibling") koppelt an die Baumstruktur — jede Umstellung
-    der Szene bricht ihn, und zwar erst zur Laufzeit."""
-    title = "Zerbrechlicher Knotenpfad statt Signal oder exportierter Referenz"
-    files = _gd(ctx)
-    if not files:
-        return unmeasured("godot.fragile_node_path", title,
-                          "Keine GDScript-Dateien gefunden.", PLATFORM)
-    pat = re.compile(r"(get_node\s*\(\s*[\"']|\$)(\.\./[^\"')\s]*)")
-    findings: list[Finding] = []
-    for sf in files:
-        for line_no, m, raw in iter_matches(sf, pat):
-            findings.append(Finding(
-                check_id="godot.fragile_node_path", severity=Severity.WARNING,
-                message=f"Aufwärtspfad '{snippet(m.group(2), 40)}' koppelt an die "
-                        "Baumstruktur.",
-                file=sf.rel, line=line_no, evidence=snippet(raw),
-                fix="Über ein Signal nach oben kommunizieren oder den Knoten als "
-                    "@export NodePath hereingeben.",
-                guideline="CODE_QUALITY_GUIDELINES_GAMEDEV.md § 4",
-            ))
-    return result_for("godot.fragile_node_path", title, findings, len(files),
-                      "GDScript-Dateien", PLATFORM)
-
-
-@register(
     "godot.balance_value_in_code",
     "Balancewert steht als Konstante im Code statt in Daten",
     platform=PLATFORM,
@@ -501,48 +457,6 @@ def check_typing(ctx: Context) -> CheckResult:
                           "Keine untypisierten Deklarationen gefunden.", PLATFORM)
     return result_for("godot.untyped_declaration", title, findings, measured,
                       "Deklarationen", PLATFORM)
-
-
-@register(
-    "godot.fixed_wait_instead_of_state",
-    "Feste Wartezeit statt Warten auf einen Zustand",
-    platform=PLATFORM,
-    severity=Severity.WARNING,
-    guideline="CLAUDE.md § 'Eine feste Wartezeit misst den Zufall'",
-    self_tests=[
-        SelfTestCase(
-            name="feste Wartezeit",
-            files={"src/a.gd": "extends Node\nfunc go():\n\tawait get_tree().create_timer(2.0).timeout\n"},
-            expect=Status.FAIL,
-        ),
-        SelfTestCase(
-            name="auf Signal warten",
-            files={"src/a.gd": "extends Node\nfunc go():\n\tawait anim.animation_finished\n"},
-            expect=Status.PASS,
-        ),
-    ],
-)
-def check_fixed_wait(ctx: Context) -> CheckResult:
-    title = "Feste Wartezeit statt Warten auf einen Zustand"
-    files = _gd(ctx)
-    if not files:
-        return unmeasured("godot.fixed_wait_instead_of_state", title,
-                          "Keine GDScript-Dateien gefunden.", PLATFORM)
-    pat = re.compile(r"await\s+get_tree\(\)\.create_timer\s*\(\s*([\d.]+)")
-    findings: list[Finding] = []
-    for sf in files:
-        for line_no, m, raw in iter_matches(sf, pat):
-            findings.append(Finding(
-                check_id="godot.fixed_wait_instead_of_state",
-                severity=Severity.WARNING,
-                message=f"Feste Wartezeit von {m.group(1)}s.",
-                file=sf.rel, line=line_no, evidence=snippet(raw),
-                fix="Auf den Zustand warten (Signal, Bedingung), mit Obergrenze "
-                    "als Endlosschutz — deren Ablauf ist kein Erfolgsfall.",
-                guideline="CLAUDE.md § Zustand, Zeit und Nebenläufigkeit",
-            ))
-    return result_for("godot.fixed_wait_instead_of_state", title, findings,
-                      len(files), "GDScript-Dateien", PLATFORM)
 
 
 @register(

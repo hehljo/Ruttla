@@ -1,0 +1,40 @@
+format = "ruttla-rule/0"
+id = "godot.fragile_node_path"
+title = "Zerbrechlicher Knotenpfad statt Signal oder exportierter Referenz"
+platform = "godot"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_GAMEDEV.md § 4"
+rationale = """
+get_node(\"../../Sibling\") koppelt an die Baumstruktur — jede Umstellung
+der Szene bricht ihn, und zwar erst zur Laufzeit."""
+
+[scope]
+extensions = [".gd"]
+unit_label = "GDScript-Dateien"
+no_files_reason = "Keine GDScript-Dateien gefunden."
+
+[match]
+pattern = '''(get_node\s*\(\s*["']|\$)(\.\./[^"')\s]*)'''
+message = "Aufwärtspfad '{2:40}' koppelt an die Baumstruktur."
+fix = "Über ein Signal nach oben kommunizieren oder den Knoten als @export NodePath hereingeben."
+
+[[fixtures]]
+name = "Aufwaertspfad"
+expect = "fail"
+[fixtures.files]
+"src/a.gd" = """
+extends Node
+func go():
+\tvar n = get_node(\"../../Manager\")
+"""
+
+[[fixtures]]
+name = "exportierter Pfad"
+expect = "pass"
+[fixtures.files]
+"src/a.gd" = """
+extends Node
+@export var manager_path: NodePath
+func go():
+\tvar n = get_node(manager_path)
+"""

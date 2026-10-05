@@ -47,6 +47,13 @@ jobs:
         run: |
           curl -fsSL -o "$RUNNER_TEMP/sarif-schema.json" "$SARIF_SCHEMA_URL"
           echo "RUTTLA_SARIF_SCHEMA=$RUNNER_TEMP/sarif-schema.json" >> "$GITHUB_ENV"
+      - name: Build the Rust engine (declarative rules, ADR-0011)
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo +stable build --locked --manifest-path engine/Cargo.toml
+          # Engine-dependent tests must fail, not skip, when the binary is missing.
+          echo "RUTTLA_ENGINE_REQUIRED=1" >> "$GITHUB_ENV"
       - name: Unit, contract, golden, provenance and fuzz tests
         run: python -m unittest discover -s tests -v
       - name: Sabotage self-test (broken and healthy probe per rule)
@@ -62,6 +69,13 @@ jobs:
         with:
           python-version: "3.15"
           allow-prereleases: true
+      - name: Build the Rust engine (declarative rules, ADR-0011)
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo +stable build --locked --manifest-path engine/Cargo.toml
+          # Engine-dependent tests must fail, not skip, when the binary is missing.
+          echo "RUTTLA_ENGINE_REQUIRED=1" >> "$GITHUB_ENV"
       - run: python -m unittest discover -s tests
       - run: python master_gate.py --self-test --no-color
 
@@ -86,6 +100,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: Build the Rust engine (declarative rules, ADR-0011)
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo +stable build --locked --manifest-path engine/Cargo.toml
+          # Engine-dependent tests must fail, not skip, when the binary is missing.
+          echo "RUTTLA_ENGINE_REQUIRED=1" >> "$GITHUB_ENV"
       - name: Strict self-scan
         shell: bash
         run: |
@@ -128,6 +149,14 @@ jobs:
           if [ -x "$RUNNER_TEMP/smoke/bin/python" ]; then PY="$RUNNER_TEMP/smoke/bin/python"; else PY="$RUNNER_TEMP/smoke/Scripts/python.exe"; fi
           "$PY" -m pip install dist/*.whl
           echo "SMOKE_PY=$PY" >> "$GITHUB_ENV"
+      - name: Build the Rust engine for the smoke test (not in the wheel yet, P11-T009)
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo +stable build --locked --manifest-path engine/Cargo.toml
+          bin="$GITHUB_WORKSPACE/engine/target/debug/ruttla-engine"
+          [ -f "$bin.exe" ] && bin="$bin.exe"
+          echo "RUTTLA_ENGINE_BIN=$bin" >> "$GITHUB_ENV"
       - name: Smoke test from outside the checkout
         shell: bash
         working-directory: ${{ runner.temp }}
@@ -183,6 +212,13 @@ jobs:
         with:
           python-version: "3.13"
       - run: python -m pip install coverage jsonschema
+      - name: Build the Rust engine (declarative rules, ADR-0011)
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo +stable build --locked --manifest-path engine/Cargo.toml
+          # Engine-dependent tests must fail, not skip, when the binary is missing.
+          echo "RUTTLA_ENGINE_REQUIRED=1" >> "$GITHUB_ENV"
       - name: Measure (subprocess CLI runs included)
         run: |
           coverage run -m unittest discover -s tests

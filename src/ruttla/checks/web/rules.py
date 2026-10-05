@@ -19,74 +19,12 @@ import re
 
 from ruttla.core import (
     Context, CheckResult, Finding, Severity, Status, SelfTestCase,
-    register, unmeasured, result_for, iter_matches, snippet, strip_comments,
+    register, unmeasured, result_for, snippet, strip_comments,
 )
 
 PLATFORM = "web"
 WEB_CODE = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue", ".svelte")
 WEB_STYLE = (".css", ".scss", ".sass", ".less")
-
-
-@register(
-    "web.secret_reaches_browser",
-    "API-Schlüssel erreicht den Browser",
-    platform=PLATFORM,
-    severity=Severity.ERROR,
-    guideline="CODE_QUALITY_GUIDELINES_WEB.md § 5b Regel 1",
-    safe_by_default=True,
-    self_tests=[
-        SelfTestCase(
-            name="Gemini-Key im Client",
-            files={
-                "package.json": '{"name":"app","dependencies":{"vite":"^5"}}',
-                "src/ai.ts": "const key = import.meta.env.VITE_GEMINI_API_KEY;\n",
-            },
-            expect=Status.FAIL,
-        ),
-        SelfTestCase(
-            name="Aufruf über die eigene Funktion",
-            files={
-                "package.json": '{"name":"app","dependencies":{"vite":"^5"}}',
-                "src/ai.ts": "const r = await fetch('/api/generate', { method: 'POST' });\n",
-            },
-            expect=Status.PASS,
-        ),
-    ],
-)
-def check_client_secret(ctx: Context) -> CheckResult:
-    """VITE_/NEXT_PUBLIC_/REACT_APP_-Variablen landen im ausgelieferten Bundle.
-
-    Gemessen wird der NAME der Variablen — wer einen KI-Schlüssel über ein
-    client-sichtbares Präfix bezieht, hat ihn veröffentlicht, ganz gleich wie
-    die Umgebung konfiguriert ist.
-    """
-    title = "API-Schlüssel erreicht den Browser"
-    code = ctx.files(*WEB_CODE)
-    if not code:
-        return unmeasured("web.secret_reaches_browser", title,
-                          "Keine Web-Quelldateien gefunden.", PLATFORM)
-    pat = re.compile(
-        r"\b(?:import\.meta\.env|process\.env)\.("
-        r"(?:VITE_|NEXT_PUBLIC_|REACT_APP_|PUBLIC_|NUXT_PUBLIC_|EXPO_PUBLIC_)"
-        r"\w*(?:API_?KEY|SECRET|TOKEN|PASSWORD|SERVICE_ROLE|PRIVATE)\w*)"
-    )
-    findings: list[Finding] = []
-    for sf in code:
-        for line_no, m, raw in iter_matches(sf, pat):
-            name = m.group(1)
-            # Der Supabase-anon-Key DARF öffentlich sein (RLS sichert ab).
-            if re.search(r"(?i)anon", name):
-                continue
-            findings.append(Finding(
-                check_id="web.secret_reaches_browser", severity=Severity.ERROR,
-                message=f"'{name}' ist client-sichtbar und trägt ein Geheimnis im Namen.",
-                file=sf.rel, line=line_no, evidence=snippet(raw),
-                fix="Den Aufruf über eine eigene Serverfunktion leiten. Der Key "
-                    "erreicht den Browser nie — als Header, nicht im Query-String.",
-                guideline="CODE_QUALITY_GUIDELINES_WEB.md § 5b",
-            ))
-    return result_for("web.secret_reaches_browser", title, findings, len(code),
-                      "Web-Dateien", PLATFORM)
 
 
 @register(
@@ -655,58 +593,6 @@ def check_css_tokens(ctx: Context) -> CheckResult:
         ))
     return result_for("web.undefined_css_token", title, findings, len(used),
                       "Token-Nutzungen", PLATFORM)
-
-
-@register(
-    "web.hardcoded_endpoint",
-    "Adresse steht fest im Code statt in einer Endpunktliste",
-    platform=PLATFORM,
-    severity=Severity.WARNING,
-    guideline="CODE_QUALITY_GUIDELINES_WEB.md § -0",
-    self_tests=[
-        SelfTestCase(
-            name="feste Adresse",
-            files={"src/api.ts": "const r = await fetch('https://api.meinedomain.de/v1/items');\n"},
-            expect=Status.FAIL,
-        ),
-        SelfTestCase(
-            name="aus der Endpunktliste",
-            files={"src/api.ts": "import { ENDPOINTS } from './config';\nconst r = await fetch(ENDPOINTS.items);\n"},
-            expect=Status.PASS,
-        ),
-    ],
-)
-def check_endpoints(ctx: Context) -> CheckResult:
-    title = "Adresse steht fest im Code statt in einer Endpunktliste"
-    code = ctx.files(*WEB_CODE)
-    if not code:
-        return unmeasured("web.hardcoded_endpoint", title,
-                          "Keine Web-Quelldateien gefunden.", PLATFORM)
-    pat = re.compile(r"[\"'`](https?://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)[^\"'`\s]{6,})[\"'`]")
-    # Dokumentations-, Schema- und Standardadressen sind keine Endpunkte.
-    ignore = re.compile(
-        r"(?i)(w3\.org|schema\.org|json-schema|xmlns|example\.(com|org)|"
-        r"github\.com|npmjs|mozilla\.org|creativecommons|purl\.org|"
-        r"fonts\.googleapis|fonts\.gstatic|\.svg$|\.png$|\.md$)"
-    )
-    findings: list[Finding] = []
-    for sf in code:
-        if re.search(r"(?i)(config|constants|endpoints|env)\.(ts|js)$", sf.rel):
-            continue
-        for line_no, m, raw in iter_matches(sf, pat):
-            url = m.group(1)
-            if ignore.search(url):
-                continue
-            findings.append(Finding(
-                check_id="web.hardcoded_endpoint", severity=Severity.WARNING,
-                message=f"Feste Adresse '{snippet(url, 60)}' im Code.",
-                file=sf.rel, line=line_no, evidence=snippet(raw),
-                fix="In die Endpunktliste (config.ts) legen — eine Liste, alles "
-                    "andere abgeleitet.",
-                guideline="CODE_QUALITY_GUIDELINES_WEB.md § -0",
-            ))
-    return result_for("web.hardcoded_endpoint", title, findings, len(code),
-                      "Web-Dateien", PLATFORM)
 
 
 @register(

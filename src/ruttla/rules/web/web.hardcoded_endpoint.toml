@@ -1,0 +1,49 @@
+format = "ruttla-rule/0"
+id = "web.hardcoded_endpoint"
+title = "Adresse steht fest im Code statt in einer Endpunktliste"
+platform = "web"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_WEB.md § -0"
+
+[scope]
+extensions = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue", ".svelte"]
+unit_label = "Web-Dateien"
+no_files_reason = "Keine Web-Quelldateien gefunden."
+
+[match]
+# Das Python-Original schloss lokale Hosts per Lookahead aus; hier ist es ein
+# Ausschluss auf Gruppe 1 (ADR-0011: kein Lookaround).
+pattern = '''["'`](https?://[^"'`\s]{6,})["'`]'''
+message = "Feste Adresse '{1:60}' im Code."
+fix = "In die Endpunktliste (config.ts) legen — eine Liste, alles andere abgeleitet."
+
+[[match.exclude]]
+group = 1
+pattern = '^https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0)'
+
+# Dokumentations-, Schema- und Standardadressen sind keine Endpunkte.
+[[match.exclude]]
+group = 1
+pattern = '(?i)(w3\.org|schema\.org|json-schema|xmlns|example\.(com|org)|github\.com|npmjs|mozilla\.org|creativecommons|purl\.org|fonts\.googleapis|fonts\.gstatic|\.svg$|\.png$|\.md$)'
+
+# Die Endpunktliste selbst darf Adressen tragen; die Datei zählt als geprüft.
+[[match.exclude]]
+on = "path"
+pattern = '(?i)(config|constants|endpoints|env)\.(ts|js)$'
+
+[[fixtures]]
+name = "feste Adresse"
+expect = "fail"
+[fixtures.files]
+"src/api.ts" = """
+const r = await fetch('https://api.meinedomain.de/v1/items');
+"""
+
+[[fixtures]]
+name = "aus der Endpunktliste"
+expect = "pass"
+[fixtures.files]
+"src/api.ts" = """
+import { ENDPOINTS } from './config';
+const r = await fetch(ENDPOINTS.items);
+"""

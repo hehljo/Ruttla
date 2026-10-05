@@ -24,6 +24,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from _support import require_engine
+
 REPO = Path(__file__).resolve().parents[1]
 FIXTURES = REPO / "tests" / "fixtures" / "packs"
 GOLDEN = REPO / "tests" / "golden" / "legacy_projection.json"
@@ -85,6 +87,9 @@ class GoldenBaselineTests(unittest.TestCase):
     entry = [sys.executable, str(REPO / "master_gate.py")]
 
     def test_fixture_projection_matches_frozen_baseline(self) -> None:
+        # The baseline includes declarative rules: without the engine they
+        # would be "unmeasured" — not measured, not a regression.
+        require_engine(self)
         actual = {name: scan(tree, self.entry) for name, tree in trees()}
         if os.environ.get("RUTTLA_UPDATE_GOLDEN") == "1":
             GOLDEN.write_text(

@@ -11,10 +11,11 @@ import os
 import tempfile
 import unittest
 
-from _support import REPO, ensure_checks_loaded
+from _support import REPO, ensure_checks_loaded, require_engine
 
 ensure_checks_loaded()
 
+from ruttla.declarative import find_engine  # noqa: E402
 from ruttla.models import Status  # noqa: E402
 from ruttla.registry import REGISTRY  # noqa: E402
 from ruttla.selftest import (  # noqa: E402
@@ -77,6 +78,8 @@ class SelfTestExport(unittest.TestCase):
     def test_reimport_reproduces_every_outcome(self) -> None:
         loaded = load_exported_self_tests(self.out)
         self.assertEqual(set(loaded), set(REGISTRY))
+        if find_engine() is None and any(c.engine for c in REGISTRY.values()):
+            require_engine(self)  # skips (not measured) or fails under RUTTLA_ENGINE_REQUIRED
         ran = 0
         problems = []
         for cid, cases in loaded.items():

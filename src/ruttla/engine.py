@@ -137,6 +137,12 @@ def load_checks(checks_dir: str | None = None) -> None:
         _load_directory(checks_dir)
     else:
         _load_official()
+        from .declarative import EngineError, load_declarative
+
+        try:
+            load_declarative()
+        except EngineError as exc:
+            raise PluginLoadError(str(exc)) from exc
     if not REGISTRY:
         raise PluginLoadError("Null Checks registriert — der Runner prüft nichts.")
 
@@ -187,8 +193,11 @@ def selector_matches(pattern: str, check_id: str) -> bool:
 
 def run_checks(ctx: Context, *, only_platform: str | None,
                only_checks: list[str], changed: list[str] | None) -> list[CheckResult]:
+    from .declarative import EngineError, find_engine, engine_mode, run_engine_rules
+
     results: list[CheckResult] = []
     platforms = ctx.platforms()
+    selected: list[tuple[Check, Severity]] = []
     for check in REGISTRY.values():
         if only_platform and check.platform != only_platform:
             continue
@@ -196,11 +205,30 @@ def run_checks(ctx: Context, *, only_platform: str | None,
             continue
         if not only_platform and not only_checks and check.platform not in platforms:
             continue
+        severity = ctx.config.severity_for(check.id, check.default_severity)
+        if severity is None:
+            continue  # im Profil abgeschaltet
+        selected.append((check, severity))
+
+    # Deklarative Regeln: EIN Engine-Lauf für alle, jede Datei einmal gelesen.
+    engine_ids = [c.id for c, _ in selected if c.engine]
+    engine_results: dict[str, CheckResult] = {}
+    engine_crash: str | None = None
+    if engine_ids and engine_mode() == "required" and find_engine() is None:
+        raise EngineError("ruttla-engine fehlt, aber --engine required gesetzt.")
+    try:
+        engine_results = run_engine_rules(ctx.unscoped(), engine_ids, view="scoped")
+    except Exception:
+        engine_crash = "Engine-Lauf abgestürzt:\n" + traceback.format_exc(limit=4)
+
+    for check, severity in selected:
         try:
-            severity = ctx.config.severity_for(check.id, check.default_severity)
-            if severity is None:
-                continue  # im Profil abgeschaltet
-            res = validate_result(check, check.fn(ctx.scoped(check.platform)))
+            if check.engine:
+                if engine_crash is not None:
+                    raise RuntimeError(engine_crash)
+                res = validate_result(check, engine_results.get(check.id))
+            else:
+                res = validate_result(check, check.fn(ctx.scoped(check.platform)))
         except Exception:
             res = _crashed_check(
                 check, "Check abgestürzt:\n" + traceback.format_exc(limit=4)
