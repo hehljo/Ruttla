@@ -279,7 +279,7 @@ def download(name: str, version: str, expected_sha: str) -> tuple[bytes, bytes]:
 # ---------------------------------------------------------------------------
 
 def read_lock(root: Path) -> dict[str, dict[str, str]]:
-    path = root / LOCKFILE
+    path = _inside(root, LOCKFILE)
     if not path.is_file():
         return {}
     try:
@@ -298,7 +298,7 @@ def read_lock(root: Path) -> dict[str, dict[str, str]]:
 
 
 def write_lock(root: Path, pkgs: dict[str, dict[str, str]]) -> None:
-    path = root / LOCKFILE
+    path = _inside(root, LOCKFILE)
     if not pkgs:
         path.unlink(missing_ok=True)
         return
@@ -307,16 +307,29 @@ def write_lock(root: Path, pkgs: dict[str, dict[str, str]]) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def _store(root: Path, name: str) -> Path:
-    return root / STORE / name
+def _inside(root: Path, *parts: str) -> Path:
+    """Pfad im Projekt, ohne symbolischen Link oder Junction auf dem Weg.
+    Sonst schreibt ``add``/``sync`` über einen Link im Prüfziel außerhalb des
+    Projekts, und ``remove`` löscht dort."""
+    path = root
+    for part in parts:
+        path = path / part
+        if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
+            raise HubError(f"{path} ist ein symbolischer Link — abgebrochen")
+    if not path.resolve().is_relative_to(root.resolve()):
+        raise HubError(f"{path} liegt außerhalb von {root}")
+    return path
+
+
+def _store(root: Path, name: str, *file: str) -> Path:
+    return _inside(root, *STORE.parts, name, *file)
 
 
 def _install(root: Path, raw: bytes, bundle: bytes) -> None:
     pkg = parse_package(raw)
-    store = _store(root, pkg["name"])
-    store.mkdir(parents=True, exist_ok=True)
-    (store / (PACKAGE_FILE + BUNDLE_SUFFIX)).write_bytes(bundle)
-    (store / PACKAGE_FILE).write_bytes(raw)
+    _store(root, pkg["name"]).mkdir(parents=True, exist_ok=True)
+    _store(root, pkg["name"], PACKAGE_FILE + BUNDLE_SUFFIX).write_bytes(bundle)
+    _store(root, pkg["name"], PACKAGE_FILE).write_bytes(raw)
 
 
 def _official_ids() -> set[str]:
@@ -354,7 +367,7 @@ def sync(root: Path) -> list[str]:
     """Stellt genau den Stand des Lockfiles her — lädt nur, was fehlt oder abweicht."""
     out = []
     for name, entry in sorted(read_lock(root).items()):
-        local = _store(root, name) / PACKAGE_FILE
+        local = _store(root, name, PACKAGE_FILE)
         if local.is_file() and sha256(local.read_bytes()) == entry["sha256"]:
             out.append(f"{name} {entry['version']}: aktuell")
             continue
@@ -368,9 +381,10 @@ def remove(root: Path, name: str) -> str:
     lock = read_lock(root)
     if name not in lock or not NAME_RE.match(name):
         raise HubError(f"{name!r} ist nicht installiert")
+    store = _store(root, name)  # Link-Prüfung vor jeder Änderung
     del lock[name]
     write_lock(root, lock)
-    shutil.rmtree(_store(root, name), ignore_errors=True)
+    shutil.rmtree(store, ignore_errors=True)
     return f"{name} entfernt"
 
 
@@ -391,7 +405,7 @@ def register_locked(root: Path) -> int:
     atexit.register(shutil.rmtree, work, True)
     checks = []
     for name, entry in sorted(lock.items()):
-        local = _store(root, name) / PACKAGE_FILE
+        local = _store(root, name, PACKAGE_FILE)
         if not local.is_file():
             raise HubError(f"Hub-Paket {name} fehlt in {STORE.as_posix()}/ — `ruttla hub sync` ausführen")
         raw = local.read_bytes()

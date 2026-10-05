@@ -220,6 +220,45 @@ class AddSyncTest(TempCase):
         self.assertFalse((self.tmp / hub.STORE / "demo").exists())
 
 
+class SymlinkTest(TempCase):
+    """Ein Link im Prüfziel darf add/sync/remove nicht aus dem Projekt führen."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        ensure_checks_loaded()
+        self.project = self.tmp / "projekt"
+        self.outside = self.tmp / "draussen"
+        self.project.mkdir()
+        (self.outside / "hub" / "demo").mkdir(parents=True)
+        (self.outside / "hub" / "demo" / "wichtig.txt").write_text("bleibt", encoding="utf-8")
+        try:
+            (self.project / ".ruttla").symlink_to(self.outside, target_is_directory=True)
+        except OSError:
+            self.skipTest("symbolische Links hier nicht anlegbar — nicht gemessen")
+
+    def test_add_through_link_aborts(self) -> None:
+        with mock.patch.object(hub, "_fetch", FakeHub(package())), \
+                mock.patch.object(hub, "verify_signature", lambda r, b: None):
+            with self.assertRaisesRegex(hub.HubError, "symbolischer Link"):
+                hub.add(self.project, "demo")
+        self.assertFalse((self.outside / "hub" / "demo" / hub.PACKAGE_FILE).exists())
+
+    def test_remove_through_link_keeps_outside(self) -> None:
+        hub.write_lock(self.project, {"demo": {"version": "1.0.0", "sha256": "0" * 64}})
+        with self.assertRaisesRegex(hub.HubError, "symbolischer Link"):
+            hub.remove(self.project, "demo")
+        self.assertTrue((self.outside / "hub" / "demo" / "wichtig.txt").exists())
+
+    def test_linked_lockfile_aborts(self) -> None:
+        target = self.outside / "fremd.json"
+        target.write_text("{}", encoding="utf-8")
+        (self.project / ".ruttla").unlink()
+        (self.project / hub.LOCKFILE).symlink_to(target)
+        with self.assertRaisesRegex(hub.HubError, "symbolischer Link"):
+            hub.write_lock(self.project, {"demo": {"version": "1.0.0", "sha256": "0" * 64}})
+        self.assertEqual(target.read_text(encoding="utf-8"), "{}")
+
+
 class SignatureTest(unittest.TestCase):
     def test_without_sigstore_nothing_is_installed(self) -> None:
         with mock.patch.dict(sys.modules, {"sigstore": None, "sigstore.errors": None,
