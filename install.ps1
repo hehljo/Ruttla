@@ -36,7 +36,9 @@ $VenvPython = Join-Path $Venv 'Scripts\python.exe'
 $Ruttla = Join-Path $Venv 'Scripts\ruttla.exe'
 Invoke-Checked $VenvPython @('-m', 'pip', 'install', '--quiet', '--upgrade', 'pip')
 Invoke-Checked $VenvPython @('-m', 'pip', 'install', '--quiet', $Bootstrap)
-Invoke-Checked $Ruttla @('update', '--channel', $Channel)
+# Ueber python -m statt ruttla.exe: pip ersetzt sonst die laufende ruttla.exe,
+# und Windows sperrt sie (WinError 32, belegt im Release-Lauf vom 2026-10-05).
+Invoke-Checked $VenvPython @('-m', 'ruttla', 'update', '--channel', $Channel)
 
 $Scripts = Join-Path $Venv 'Scripts'
 $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')

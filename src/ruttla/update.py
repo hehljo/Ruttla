@@ -157,8 +157,10 @@ def _pip_install(requirement: str) -> None:
     except OSError as exc:
         raise UpdateError(f"Ruttla-Update konnte pip nicht starten: {exc}") from exc
     if result.returncode != 0:
+        hint = ("Unter Windows sperrt die laufende ruttla.exe ihre eigene Datei (WinError 32) — "
+                f"dann `{sys.executable} -m ruttla update`." if os.name == "nt" else "")
         raise UpdateError(f"Ruttla-Update fehlgeschlagen (pip Exit {result.returncode}). "
-                          "Prüf die pip-Meldung oben und deine Python-Umgebung.")
+                          f"Prüf die pip-Meldung oben und deine Python-Umgebung. {hint}".rstrip())
 
 
 def install_engine(data: bytes, filename: str, scripts_dir: str) -> str:
