@@ -168,6 +168,14 @@ class Kit(unittest.TestCase):
                 others = {k: v for k, v in steps.items() if k != step and v == REJECTED}
                 self.assertEqual(others, {}, report)
 
+    def test_crlf_rule_file_is_accepted(self) -> None:
+        # Windows-Checkout/Editor: CRLF muss die Isolation unverändert überstehen.
+        path = self.tmp / "crlf" / f"{HEALTHY['id']}.toml"
+        path.parent.mkdir()
+        path.write_bytes(dump_toml(HEALTHY).replace("\n", "\r\n").encode("utf-8"))
+        code, data = _kit(path, cwd=self.tmp)
+        self.assertEqual(code, 0, data)
+
     def test_duplicate_id_inside_a_package(self) -> None:
         self._write(self.tmp / "paket" / "a", HEALTHY)
         self._write(self.tmp / "paket" / "b", HEALTHY)

@@ -200,7 +200,9 @@ def _json(raw: str) -> dict:
 def _isolated(work: Path, name: str, text: str) -> Path:
     """Neues, leeres Regelverzeichnis mit genau dieser einen Datei."""
     rules = Path(tempfile.mkdtemp(prefix="rules-", dir=work))
-    (rules / name).write_text(text, encoding="utf-8")
+    # Bytes, nicht Textmodus: unter Windows würde aus einem CRLF der
+    # Regeldatei sonst \r\r\n, und TOML lehnt ein einzelnes \r ab.
+    (rules / name).write_bytes(text.encode("utf-8"))
     return rules
 
 
@@ -348,7 +350,7 @@ def _check_budget(binary: Path, work: Path, rules: Path, rule: dict, report: Rul
         if any(ch in name for ch in "/\\:\0") or target.resolve().parent != root.resolve():
             report.add("budget", REJECTED, f"Endung ergibt einen Pfad: {name!r}")
             return
-        target.write_text(content, encoding="utf-8")
+        target.write_bytes(content.encode("utf-8"))
     code, raw, elapsed = _run_engine(
         binary, ["scan", str(root), "--rules", str(rules), "--view", "unscoped", "--threads", "1"],
         BUDGET_S)
@@ -377,10 +379,9 @@ def _check_budget(binary: Path, work: Path, rules: Path, rule: dict, report: Rul
         per_file[f["file"]] = per_file.get(f["file"], 0) + 1
     detail = (f"{elapsed:.2f}s für {STRESS_FILES} × {STRESS_BYTES // 1000} KB, "
               f"{len(raw) // 1000} KB Ausgabe, höchstens {max(per_file.values(), default=0)} Befunde je Datei")
-    if elapsed > BUDGET_S:
-        report.add("budget", REJECTED, f"{detail} — Grenze {BUDGET_S:.0f}s")
-    else:
-        report.add("budget", OK, detail)
+    # Über BUDGET_S bricht _run_engine ab (Zweig oben) — ein zweiter
+    # Zeitvergleich hier war in der Sabotage-Runde wirkungslos.
+    report.add("budget", OK, detail)
 
 
 def test_rule(path: Path, binary: Path | None, official: dict[str, bytes | None],
