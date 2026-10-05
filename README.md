@@ -52,6 +52,36 @@ ruttla --self-test                     # shake the gates themselves
 
 From a checkout without installing: `python3 master_gate.py …` (identical).
 
+## One command, detection included
+
+`ruttla .` needs no configuration. It detects the platforms from marker files
+(`src/ruttla/platforms.toml`, e.g. `*.xcodeproj`, `package.json`,
+`project.godot`, `*.csproj`) **per subproject**: in a monorepo an iOS app in
+`ios/` and a web app in `web/` each get their own rule pack, and no rule sees
+the files of another platform's subproject. Platforms without a rule pack are
+listed in the report (`platforms_without_pack`) instead of silently passing.
+`[project] platform` in `.ruttla.toml` forces a pack on in addition.
+
+## Rule engine (Rust)
+
+New rules are data: one TOML file per rule under `src/ruttla/rules/`
+([docs/RULE_FORMAT.md](docs/RULE_FORMAT.md)), executed by `ruttla-engine`
+(Rust, linear-time `regex` crate, files in parallel). Rules that need parsing
+or state across files remain Python checks.
+
+A pip install from GitHub does **not** build the engine yet (prebuilt wheels
+are on the roadmap). Without it the declarative rules are reported as
+*unmeasured*, never as green. Build it once (Rust ≥ 1.85):
+
+```bash
+cargo build --release --locked --manifest-path engine/Cargo.toml
+export RUTTLA_ENGINE_BIN="$PWD/engine/target/release/ruttla-engine"   # for a pip install elsewhere
+```
+
+A checkout finds its own build without the variable. The engine is never
+looked up on `PATH` or in the scanned directory. `--engine required` turns a
+missing engine into a runner error (exit 3) — use it in CI.
+
 ## Updating
 
 Run `ruttla update` to install the current GitHub `main` version into the active Python environment. This explicit command uses pip and requires network access; ordinary scans remain offline. It does not pull or modify a source checkout.
@@ -105,8 +135,9 @@ The legacy name `.qualitygate.toml` is still read; both files at once is an erro
 
 - **Four honest states:** pass, fail, unmeasured (with a reason), error. "Zero
   files checked" is never green.
-- **Self-tested rules:** 90 rules, 206 probes; every rule must FAIL on its
-  broken probe and PASS on its healthy probe (`ruttla --self-test`).
+- **Self-tested rules:** every rule must FAIL on its broken probe and PASS on
+  its healthy probe (`ruttla --self-test`); current counts per pack in the
+  generated [docs/RULES.md](docs/RULES.md).
 - **Evidence-backed catalog:** rules come from real failures, see
   [docs/RULES.md](docs/RULES.md), [docs/GUIDELINES.md](docs/GUIDELINES.md) and
   [LESSONS_LEARNED.md](LESSONS_LEARNED.md).
@@ -115,7 +146,8 @@ The legacy name `.qualitygate.toml` is still read; both files at once is an erro
 - **Agent-native output:** stable check IDs, compact agent format, JSON, SARIF.
 
 Packs: universal (brand, i18n, secrets, gates, docs, media, protocol), apple
-(incl. App Store release), web, python services, raspberry, godot, unreal.
+(incl. App Store release), web, python services, raspberry, godot, unreal,
+dotnet (WPF/Avalonia).
 
 ## Coexistence with other tools
 
@@ -137,4 +169,5 @@ only from the installed package (ADR-0005).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) — a new rule needs a real failure, a
 broken and a healthy probe, a false-positive analysis and a fix hint that only
-names APIs that exist. Security: [SECURITY.md](SECURITY.md). License: Apache-2.0.
+names APIs that exist. Write it as a TOML rule ([docs/RULE_FORMAT.md](docs/RULE_FORMAT.md))
+unless it cannot be expressed as a pattern. Security: [SECURITY.md](SECURITY.md). License: Apache-2.0.

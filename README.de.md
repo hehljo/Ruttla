@@ -69,6 +69,37 @@ python -m pip install -e .
 
 Bei einer editierbaren Installation (`pip install -e .`) stattdessen den Klon mit `git pull` aktualisieren.
 
+## Ein Befehl, Erkennung inklusive
+
+`ruttla .` braucht keine Konfiguration. Die Plattformen werden an
+Markerdateien erkannt (`src/ruttla/platforms.toml`, z. B. `*.xcodeproj`,
+`package.json`, `project.godot`, `*.csproj`), und zwar **je Teilprojekt**: In
+einem Monorepo bekommt eine iOS-App in `ios/` und eine Web-App in `web/` je ihr
+eigenes Regelpaket, und keine Regel sieht die Dateien eines Teilprojekts einer
+anderen Plattform. Plattformen ohne Regelpaket stehen im Bericht
+(`platforms_without_pack`), statt still als bestanden durchzugehen.
+`[project] platform` in `.ruttla.toml` schaltet ein Paket zusätzlich ein.
+
+## Regel-Engine (Rust)
+
+Neue Regeln sind Daten: eine TOML-Datei je Regel unter `src/ruttla/rules/`
+([docs/RULE_FORMAT.md](docs/RULE_FORMAT.md)), ausgeführt von `ruttla-engine`
+(Rust, linearzeitige `regex`-Crate, Dateien parallel). Regeln, die parsen
+oder Zustand über mehrere Dateien brauchen, bleiben Python-Checks.
+
+Eine pip-Installation von GitHub baut die Engine **noch nicht** mit (fertige
+Wheels stehen auf der Roadmap). Ohne Engine melden die deklarativen Regeln
+*nicht gemessen*, nie grün. Einmal bauen (Rust ≥ 1.85):
+
+```bash
+cargo build --release --locked --manifest-path engine/Cargo.toml
+export RUTTLA_ENGINE_BIN="$PWD/engine/target/release/ruttla-engine"   # für eine pip-Installation anderswo
+```
+
+Ein Checkout findet sein eigenes Build ohne Variable. Auf `PATH` oder im
+geprüften Ordner wird die Engine nie gesucht. `--engine required` macht eine
+fehlende Engine zum Runner-Fehler (Exit 3) — so gehört es in die CI.
+
 ## Aufruf
 
 ```bash
@@ -81,7 +112,7 @@ ruttla . --changed-only origin/main                   # nur Geändertes
 ruttla . --platform apple                             # nur eine Plattform
 ruttla . --check 'secrets.*'                          # nur diese Checks
 ruttla --list                                         # alle Checks zeigen
-ruttla --explain <rule_id>                            # Doku & Begründung der Regel
+ruttla --explain secrets.hardcoded_credential         # Doku & Begründung der Regel
 ruttla --self-test                                    # Sabotage-Gegenprobe
 ```
 
@@ -209,8 +240,16 @@ ungeprüfte Zusagen.
 ## Einen neuen Check ergänzen
 
 Ein Build-Fehler, der einmal aufgetreten ist, gehört ab dann tokenfrei
-abgefangen — das ist der Zweck dieses Repos, siehe `CLAUDE.md`. In
-`checks/<plattform>.py`:
+abgefangen — das ist der Zweck dieses Repos, siehe `CLAUDE.md`.
+
+**Zuerst als deklarative Regel:** eine TOML-Datei
+`src/ruttla/rules/<plattform>/<id>.toml` mit Muster, Meldung und mindestens
+einer `fail`- und einer `pass`-Fixture — Aufbau, Zeilenmodus (`per_line`) und
+Port-Ablauf in [docs/RULE_FORMAT.md](docs/RULE_FORMAT.md). Prüfen mit
+`engine/target/release/ruttla-engine selftest --rules src/ruttla/rules --rule ID`.
+
+**Nur wenn die Regel kein Muster ist** (Parsen, Zustand über mehrere Dateien,
+Lookaround) als Python-Check in `checks/<plattform>.py`:
 
 ```python
 @register(
