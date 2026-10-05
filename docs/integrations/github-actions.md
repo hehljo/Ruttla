@@ -24,8 +24,8 @@ jobs:
       contents: read
       security-events: write   # only needed for the SARIF upload step
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Install Ruttla

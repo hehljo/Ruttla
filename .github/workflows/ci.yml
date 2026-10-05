@@ -36,8 +36,8 @@ jobs:
           - { os: macos-latest, python: "3.13" }
           - { os: macos-latest, python: "3.14" }
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: Install test-only tools (the runtime has no dependencies)
@@ -64,8 +64,8 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.15"
           allow-prereleases: true
@@ -82,8 +82,8 @@ jobs:
   lint-and-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - run: python -m pip install ruff
@@ -96,8 +96,8 @@ jobs:
     name: dogfood (ruttla scans itself, strict)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Build the Rust engine (declarative rules, ADR-0011)
@@ -118,7 +118,7 @@ jobs:
           cat scan.txt
           echo "EXIT: $status"
           exit "$status"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dogfood-sarif
@@ -133,8 +133,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Build wheel and sdist
@@ -172,7 +172,7 @@ jobs:
           set -e
           echo "broken EXIT: $broken, healthy EXIT: $healthy"
           test "$broken" -eq 1 && test "$healthy" -eq 0
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.os == 'ubuntu-latest'
         with:
           name: dist
@@ -192,8 +192,8 @@ jobs:
           # MSRV = engine/Cargo.toml rust-version (measured, see comment there).
           - { os: ubuntu-latest, rust: "1.85" }
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Install Rust ${{ matrix.rust }}
@@ -207,8 +207,8 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - run: python -m pip install coverage jsonschema
@@ -231,7 +231,7 @@ jobs:
           # platform noise. Raise it, never lower it (docs/TESTING.md).
           coverage report --fail-under=86 | tail -1
           coverage xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage.xml
