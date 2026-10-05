@@ -31,8 +31,8 @@ ergänzen" — sie war Text zum Lesen, kein Schritt zum Durchlaufen.
 |---|---|
 | 1 | Ursache belegen — API nachschlagen, nicht aus dem Gedächtnis urteilen (`context7`, `WebSearch` mit Jahreszahl) |
 | 2 | Prüfen, ob ein **bestehender** Check den Fall hätte fangen müssen und warum er es nicht tat |
-| 3 | Check schreiben oder korrigieren, mit beiden Sabotage-Richtungen |
-| 4 | `--self-test` **ohne Pipe**, Status sofort lesen |
+| 3 | Check schreiben oder korrigieren, mit beiden Sabotage-Richtungen — **neu als deklarative Regel** (`src/ruttla/rules/<plattform>/<id>.toml`, `docs/RULE_FORMAT.md`); Python nur, wenn die Regel kein Muster ist |
+| 4 | `--self-test` und `ruttla-engine selftest` **ohne Pipe**, Status sofort lesen |
 | 5 | Gegen den **echten** Fehlerzustand messen (rekonstruiert im Scratchpad) und gegen den gefixten |
 | 6 | Erst jetzt, und nur wenn gewünscht, den Fix im Projekt |
 
