@@ -55,8 +55,13 @@ Durchlaufen ist. Dieses Paket macht die maschinell prüfbaren davon ausführbar.
 ## Installation
 
 ```bash
-python -m pip install "ruttla @ git+https://github.com/hehljo/Ruttla@main"
+curl -fsSL https://raw.githubusercontent.com/hehljo/Ruttla/main/install.sh | sh   # Linux, macOS
 ```
+
+Windows (PowerShell): `irm https://raw.githubusercontent.com/hehljo/Ruttla/main/install.ps1 | iex`.
+Das Skript legt eine eigene Python-Umgebung an (Python ≥ 3.11 nötig) und
+installiert Paket **und** passende Rust-Engine aus dem letzten GitHub-Release,
+geprüft gegen `SHA256SUMS`.
 
 Lokal im geklonten Repository:
 ```bash
@@ -65,7 +70,7 @@ python -m pip install -e .
 
 ## Update
 
-`ruttla update` installiert den aktuellen GitHub-Stand von `main` in die aktive Python-Umgebung. Der ausdrücklich gestartete Befehl nutzt pip und braucht Netz; normale Scans bleiben offline. Ein lokaler Quellcode-Klon wird dabei nicht verändert.
+`ruttla update` installiert Paket und passende Engine aus dem letzten GitHub-Release in die aktive Python-Umgebung — beide aus demselben Commit, die Engine geprüft gegen `SHA256SUMS`. Ohne getaggtes Release nimmt es `nightly`, gebaut aus dem letzten grünen CI-Lauf auf `main` (`--channel stable|nightly` wählt fest). Der ausdrücklich gestartete Befehl nutzt pip und braucht Netz; normale Scans bleiben offline. Ein lokaler Quellcode-Klon wird dabei nicht verändert.
 
 Bei einer editierbaren Installation (`pip install -e .`) stattdessen den Klon mit `git pull` aktualisieren.
 
@@ -87,9 +92,10 @@ Neue Regeln sind Daten: eine TOML-Datei je Regel unter `src/ruttla/rules/`
 (Rust, linearzeitige `regex`-Crate, Dateien parallel). Regeln, die parsen
 oder Zustand über mehrere Dateien brauchen, bleiben Python-Checks.
 
-Eine pip-Installation von GitHub baut die Engine **noch nicht** mit (fertige
-Wheels stehen auf der Roadmap). Ohne Engine melden die deklarativen Regeln
-*nicht gemessen*, nie grün. Einmal bauen (Rust ≥ 1.85):
+Installationsskript und `ruttla update` legen eine fertige Engine neben das
+`ruttla`-Skript (Linux x86_64/arm64, macOS arm64/x86_64, Windows x86_64). Ohne
+Engine melden die deklarativen Regeln *nicht gemessen*, nie grün. Auf anderen
+Plattformen selbst bauen (Rust ≥ 1.85):
 
 ```bash
 cargo build --release --locked --manifest-path engine/Cargo.toml

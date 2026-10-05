@@ -1,0 +1,152 @@
+name: Release
+
+# Engine-Binaries und Python-Stand gehören zusammen: das Python-Paket bringt
+# die Regeln mit, die Engine muss genau dieses Regelformat lesen. Deshalb
+# trägt jedes Release `ruttla-release.json` mit dem Commit, aus dem beides
+# stammt; `ruttla update` installiert Paket und Engine aus diesem Commit.
+#
+#   Tag v*            → Release mit diesem Tag
+#   CI grün auf main  → Vorabversion `nightly`, auf den geprüften Commit gesetzt
+on:
+  push:
+    tags: ["v*"]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_type == 'tag' && github.ref_name || 'nightly' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # workflow_run filtert nur den Branchnamen: ein Fork-PR von einem Branch
+    # namens main träfe ihn auch. Veröffentlicht wird nur ein Push im eigenen Repo.
+    if: >-
+      github.event_name != 'workflow_run' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository)
+    name: engine (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: ubuntu-latest,    target: x86_64-unknown-linux-musl,  musl: true }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, musl: true }
+          - { os: macos-latest,     target: aarch64-apple-darwin }
+          - { os: macos-latest,     target: x86_64-apple-darwin }
+          - { os: windows-latest,   target: x86_64-pc-windows-msvc,     exe: .exe }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: musl toolchain
+        if: matrix.musl
+        run: sudo apt-get update -q && sudo apt-get install -y -q musl-tools
+      - name: Build
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+          cargo +stable build --release --locked --manifest-path engine/Cargo.toml --target ${{ matrix.target }}
+          mkdir dist
+          cp "engine/target/${{ matrix.target }}/release/ruttla-engine${{ matrix.exe }}" \
+             "dist/ruttla-engine-${{ matrix.target }}${{ matrix.exe }}"
+      - name: Smoke test (native targets)
+        if: matrix.target != 'x86_64-apple-darwin'
+        shell: bash
+        run: |
+          "dist/ruttla-engine-${{ matrix.target }}${{ matrix.exe }}" --version
+          "dist/ruttla-engine-${{ matrix.target }}${{ matrix.exe }}" selftest --rules src/ruttla/rules > /dev/null
+      - uses: actions/upload-artifact@v7
+        with:
+          name: engine-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Manifest and checksums
+        shell: bash
+        run: |
+          version=$(python3 -c 'import re,pathlib; print(re.search(r"__version__ = \"([^\"]+)\"", pathlib.Path("src/ruttla/__init__.py").read_text()).group(1))')
+          channel=${{ github.ref_type == 'tag' && 'stable' || 'nightly' }}
+          printf '{"commit": "%s", "version": "%s", "channel": "%s"}\n' "$SHA" "$version" "$channel" > dist/ruttla-release.json
+          (cd dist && sha256sum ruttla-engine-* ruttla-release.json > SHA256SUMS)
+          cat dist/SHA256SUMS
+      - name: Publish tagged release
+        if: github.ref_type == 'tag'
+        run: gh release create "$TAG" dist/* --verify-tag --title "$TAG" --generate-notes
+      - name: Publish nightly
+        if: github.ref_type != 'tag'
+        run: |
+          git push --force origin "$SHA:refs/tags/nightly"
+          if gh release view nightly > /dev/null 2>&1; then
+            gh release upload nightly dist/* --clobber
+            gh release edit nightly --prerelease --target "$SHA"
+          else
+            gh release create nightly dist/* --prerelease --title "nightly (main)" \
+              --notes "Automatisch aus dem letzten grünen CI-Lauf auf main. Commit und Version: ruttla-release.json."
+          fi
+
+  # Ende-zu-Ende wie beim Nutzer: Installationsskript aus diesem Commit, Paket
+  # und Engine aus dem eben veröffentlichten Release, dann ein Scan, der ohne
+  # Engine abbrechen würde (--engine required → Exit 3).
+  install-smoke:
+    needs: publish
+    name: install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    env:
+      RUTTLA_CHANNEL: ${{ github.ref_type == 'tag' && 'stable' || 'nightly' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: install.sh
+        if: runner.os != 'Windows'
+        run: |
+          sh install.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: install.ps1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./install.ps1
+          Add-Content $env:GITHUB_PATH (Join-Path $env:LOCALAPPDATA 'ruttla\venv\Scripts')
+      - name: Scan with required engine
+        shell: bash
+        run: |
+          mkdir -p smoke && printf -- '- Punkt \n' > smoke/notes.md
+          set +e; out=$(ruttla smoke --engine required --format agent 2>&1); status=$?; set -e
+          echo "$out"
+          test "$status" -ne 3
+          echo "$out" | grep -q 'docs.trailing_whitespace'
+          if echo "$out" | grep -q '^UNMEASURED.docs.trailing_whitespace'; then echo "Engine nicht gemessen"; exit 1; fi

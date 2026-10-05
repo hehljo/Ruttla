@@ -43,6 +43,8 @@ OWNER_ALLOWED = {
     "README.de.md",
     "docs/integrations/github-actions.md",
     "src/ruttla/update.py",
+    "install.sh",
+    "install.ps1",
 }
 
 SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "build", "dist", "target", ".ruff_cache"}

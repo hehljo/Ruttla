@@ -39,7 +39,7 @@ Coding agents (Claude Code, Cursor, OpenAI Codex, GitHub Copilot, Aider, Windsur
 ## 30-second start
 
 ```bash
-python -m pip install "ruttla @ git+https://github.com/hehljo/Ruttla@main"  # until PyPI
+curl -fsSL https://raw.githubusercontent.com/hehljo/Ruttla/main/install.sh | sh   # Linux, macOS
 ruttla path/to/project                 # human-readable report
 ruttla . --format agent                # one line per finding, for scripts and agents
 ruttla . --format json                 # full report (schemas/report.schema.json)
@@ -51,6 +51,11 @@ ruttla --self-test                     # shake the gates themselves
 ```
 
 From a checkout without installing: `python3 master_gate.py …` (identical).
+
+Windows (PowerShell): `irm https://raw.githubusercontent.com/hehljo/Ruttla/main/install.ps1 | iex`.
+The installer creates its own Python environment (Python ≥ 3.11 required) and
+installs the package **and** the matching Rust engine from the latest GitHub
+release, checked against `SHA256SUMS`.
 
 ## One command, detection included
 
@@ -69,9 +74,10 @@ New rules are data: one TOML file per rule under `src/ruttla/rules/`
 (Rust, linear-time `regex` crate, files in parallel). Rules that need parsing
 or state across files remain Python checks.
 
-A pip install from GitHub does **not** build the engine yet (prebuilt wheels
-are on the roadmap). Without it the declarative rules are reported as
-*unmeasured*, never as green. Build it once (Rust ≥ 1.85):
+The installer and `ruttla update` put a prebuilt engine next to the `ruttla`
+script (Linux x86_64/arm64, macOS arm64/x86_64, Windows x86_64). Without an
+engine the declarative rules are reported as *unmeasured*, never as green. On
+other platforms build it yourself (Rust ≥ 1.85):
 
 ```bash
 cargo build --release --locked --manifest-path engine/Cargo.toml
@@ -84,7 +90,7 @@ missing engine into a runner error (exit 3) — use it in CI.
 
 ## Updating
 
-Run `ruttla update` to install the current GitHub `main` version into the active Python environment. This explicit command uses pip and requires network access; ordinary scans remain offline. It does not pull or modify a source checkout.
+Run `ruttla update` to install the package and the matching engine from the latest GitHub release into the active Python environment — both from the same commit, the engine checked against `SHA256SUMS`. Without a tagged release it takes `nightly`, built from the last green CI run on `main` (`--channel stable|nightly` to choose). This explicit command uses pip and requires network access; ordinary scans remain offline. It does not pull or modify a source checkout.
 
 For an editable clone (`pip install -e .`), update the checkout with `git pull` instead.
 
