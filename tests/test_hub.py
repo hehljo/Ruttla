@@ -457,3 +457,196 @@ class NamespaceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def named(name: str, **overrides) -> dict:
+    """Gültiges Paket unter anderem Namen — die Regel-ID zieht mit."""
+    return package(name=name, rules={f"universal/hub.{name}.todo_marker.toml":
+                                     RULE.replace("hub.demo.", f"hub.{name}.")}, **overrides)
+
+
+class StoreGuardTest(TempCase):
+    """Ein lokal verändertes Paket wird nie still überschrieben oder gelöscht."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        ensure_checks_loaded()
+        self.fake = FakeHub(package())
+        with mock.patch.object(hub, "_fetch", self.fake), \
+                mock.patch.object(hub, "verify_signature", lambda raw, bundle: None):
+            hub.add(self.tmp, "demo")
+        self.stored = self.tmp / hub.STORE / "demo" / hub.PACKAGE_FILE
+        self.edited = self.stored.read_bytes().replace(b"Demo-Paket", b"Demo-Paket, von Hand")
+        self.stored.write_bytes(self.edited)
+
+    def _call(self, fn, *args, **kwargs):
+        requested: list[str] = []
+        fetch = lambda name: requested.append(name) or self.fake(name)  # noqa: E731
+        with mock.patch.object(hub, "_fetch", fetch), \
+                mock.patch.object(hub, "verify_signature", lambda raw, bundle: None):
+            return fn(self.tmp, *args, **kwargs), requested
+
+    def _backup(self) -> Path:
+        return self.tmp / hub.BACKUP / f"demo-{hub.sha256(self.edited)[:12]}.json"
+
+    def test_sync_refuses_before_any_download(self) -> None:
+        with self.assertRaisesRegex(hub.HubError, "lokal verändert, nicht überschrieben: demo"):
+            self._call(hub.sync)
+        self.assertEqual(self.stored.read_bytes(), self.edited)
+
+    def test_sync_names_every_modified_package(self) -> None:
+        raw = hub.canonical(named("zwei"))
+        store = self.tmp / hub.STORE / "zwei"
+        store.mkdir(parents=True)
+        (store / hub.PACKAGE_FILE).write_bytes(raw + b" ")
+        lock = hub.read_lock(self.tmp)
+        lock["zwei"] = {"version": "1.0.0", "sha256": hub.sha256(raw)}
+        hub.write_lock(self.tmp, lock)
+        with self.assertRaisesRegex(hub.HubError, "demo, zwei"):
+            self._call(hub.sync)
+
+    def test_sync_force_backs_up_then_restores(self) -> None:
+        out, _ = self._call(hub.sync, force=True)
+        self.assertEqual(self._backup().read_bytes(), self.edited)
+        self.assertEqual(self.stored.read_bytes(), hub.canonical(package()))
+        self.assertIn("gesichert", out[0])
+
+    def test_add_refuses_then_force_backs_up(self) -> None:
+        with self.assertRaisesRegex(hub.HubError, "lokal verändert"):
+            self._call(hub.add, "demo")
+        self.assertEqual(self.stored.read_bytes(), self.edited)
+        self._call(hub.add, "demo", force=True)
+        self.assertEqual(self._backup().read_bytes(), self.edited)
+        self.assertEqual(self.stored.read_bytes(), hub.canonical(package()))
+
+    def test_remove_refuses_then_force_backs_up(self) -> None:
+        with self.assertRaisesRegex(hub.HubError, "lokal verändert"):
+            hub.remove(self.tmp, "demo")
+        self.assertEqual(self.stored.read_bytes(), self.edited)
+        self.assertIn("demo", hub.read_lock(self.tmp))
+        hub.remove(self.tmp, "demo", force=True)
+        self.assertEqual(self._backup().read_bytes(), self.edited)
+        self.assertFalse(self.stored.exists())
+
+    def test_unmodified_store_needs_no_force(self) -> None:
+        self.stored.write_bytes(hub.canonical(package()))
+        out, requested = self._call(hub.sync)
+        self.assertEqual((out, requested), (["demo 1.0.0: aktuell"], []))
+        self.assertFalse((self.tmp / hub.BACKUP).exists())
+
+
+class LocalPackageTest(TempCase):
+    """Eigene Pakete unter .ruttla/packages/ laufen im Scan und überleben add/sync/remove."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        (self.tmp / "run.sh").write_text("echo TODO-HUB\n", encoding="utf-8")
+        self.src = write_source(self.tmp / hub.LOCAL_PACKAGES, named("eigen"))
+
+    def _scan(self, engine: Path) -> subprocess.CompletedProcess[str]:
+        env = dict(os.environ, PYTHONPATH=str(SRC), RUTTLA_ENGINE_BIN=str(engine))
+        return subprocess.run([sys.executable, "-m", "ruttla", str(self.tmp), "--check", "hub.*",
+                               "--format", "json"], env=env, text=True, encoding="utf-8",
+                              capture_output=True, timeout=300)
+
+    def test_local_rule_runs_in_scan(self) -> None:
+        proc = self._scan(require_engine(self))
+        self.assertEqual(proc.returncode, EXIT_OK, proc.stdout[-2000:] + proc.stderr[-2000:])
+        result = {r["check_id"]: r for r in json.loads(proc.stdout)["results"]}["hub.eigen.todo_marker"]
+        self.assertEqual(result["status"], "fail")
+
+    def test_broken_local_package_aborts_scan(self) -> None:
+        engine = require_engine(self)
+        (self.src / "package.toml").write_text('name = "eigen"\n', encoding="utf-8")
+        proc = self._scan(engine)
+        self.assertEqual(proc.returncode, EXIT_CRASH, proc.stdout[-2000:])
+        self.assertIn("eigen", proc.stdout + proc.stderr)
+
+    def test_same_name_installed_and_local_aborts(self) -> None:
+        raw = hub.canonical(named("eigen"))
+        hub.write_lock(self.tmp, {"eigen": {"version": "1.0.0", "sha256": hub.sha256(raw)}})
+        with self.assertRaisesRegex(hub.HubError, "installiert und unter"):
+            hub.register_locked(self.tmp)
+
+    def test_hub_commands_leave_local_packages_alone(self) -> None:
+        before = {p: p.read_bytes() for p in self.src.rglob("*") if p.is_file()}
+        ensure_checks_loaded()
+        with mock.patch.object(hub, "_fetch", FakeHub(package())), \
+                mock.patch.object(hub, "verify_signature", lambda raw, bundle: None):
+            hub.add(self.tmp, "demo")
+            hub.sync(self.tmp, force=True)
+            hub.remove(self.tmp, "demo", force=True)
+        self.assertEqual({p: p.read_bytes() for p in self.src.rglob("*") if p.is_file()}, before)
+
+    def test_symlink_in_package_rejected(self) -> None:
+        secret = self.tmp / "geheim.toml"
+        secret.write_text("x = 1\n", encoding="utf-8")
+        (self.src / "rules" / "universal" / "hub.eigen.leck.toml").symlink_to(secret)
+        with self.assertRaisesRegex(hub.HubError, "symbolischer Link"):
+            hub.read_source(self.src)
+
+
+OWNER = hub.HUB_REPO.split("/")[0]
+
+
+class SubmitTest(TempCase):
+    """Einreichen nur mit --yes, nur nach bestandener Prüfung, nie als Versionsänderung."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        ensure_checks_loaded()
+        self.engine = require_engine(self)
+        self.calls: list[list[str]] = []
+        self.copied: list[str] = []
+
+    def _submit(self, pkg: dict, *, yes: bool, login: str = OWNER) -> list[str]:
+        write_source(self.tmp / hub.LOCAL_PACKAGES, pkg)
+
+        def sh(cmd: list[str], cwd: Path | None = None) -> str:
+            self.calls.append(cmd)
+            if cmd[:3] == ["gh", "repo", "clone"]:
+                (Path(cmd[4]) / "packages").mkdir(parents=True)
+            if cmd[:2] == ["git", "add"]:
+                dest = Path(cwd) / "packages" / pkg["name"]
+                self.copied = sorted(p.relative_to(dest).as_posix() for p in dest.rglob("*") if p.is_file())
+            return {"api": login, "pr": "https://github.com/x/pull/1"}.get(cmd[1], "")
+
+        env = mock.patch.dict(os.environ, {"RUTTLA_ENGINE_BIN": str(self.engine)})
+        with env, mock.patch.object(hub, "_fetch", FakeHub(package())), mock.patch.object(hub, "_sh", sh):
+            return hub.submit(self.tmp, pkg["name"], yes)
+
+    def test_without_yes_nothing_is_sent(self) -> None:
+        out = self._submit(package(version="1.1.0"), yes=False)
+        self.assertEqual(self.calls, [])
+        self.assertIn("Nichts gesendet", out[-1])
+
+    def test_owner_pushes_branch_and_opens_pr(self) -> None:
+        out = self._submit(package(version="1.1.0"), yes=True)
+        self.assertNotIn(["gh", "repo", "fork", "--remote", "--remote-name", "fork"], self.calls)
+        self.assertIn(["git", "push", "-u", "origin", "paket/demo-1.1.0"], self.calls)
+        pr = next(c for c in self.calls if c[:3] == ["gh", "pr", "create"])
+        self.assertIn(f"{OWNER}:paket/demo-1.1.0", pr)
+        self.assertEqual(self.copied, ["package.toml", "rules/universal/hub.demo.todo_marker.toml"])
+        self.assertTrue(any("PR angelegt" in line for line in out))
+
+    def test_contributor_goes_through_fork(self) -> None:
+        self._submit(named("fremd"), yes=True, login="jemand")
+        self.assertIn(["gh", "repo", "fork", "--remote", "--remote-name", "fork"], self.calls)
+        self.assertIn(["git", "push", "-u", "fork", "paket/fremd-1.0.0"], self.calls)
+
+    def test_changed_content_under_published_version_rejected(self) -> None:
+        with self.assertRaisesRegex(hub.HubError, "Version erhöhen"):
+            self._submit(package(description="anders"), yes=True)
+        self.assertEqual(self.calls, [])
+
+    def test_identical_to_published_is_a_no_op(self) -> None:
+        out = self._submit(package(), yes=True)
+        self.assertIn("nichts einzureichen", out[0])
+        self.assertEqual(self.calls, [])
+
+    def test_failing_admission_sends_nothing(self) -> None:
+        pkg = package(version="1.1.0")
+        pkg["rules"] = {"universal/hub.demo.todo_marker.toml": RULE.replace('expect = "pass"', 'expect = "fail"')}
+        with self.assertRaisesRegex(hub.HubError, "Aufnahmeprüfung"):
+            self._submit(pkg, yes=True)
+        self.assertEqual(self.calls, [])

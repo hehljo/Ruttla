@@ -19,5 +19,14 @@ Maintains the key trust boundary: target repository is data, not executable code
 ## Consequences
 Plugin installation is an explicit trust act. Declarative local rules can be considered separately later.
 
+## Amendment 2026-10-05 — declarative rules from the target
+
+Declarative rules (`ruttla-rule/0`, data only) may come from the scanned
+repository: hub packages pinned in `ruttla-hub.lock` (hash-checked, signed
+when installed) and the project's own packages under `.ruttla/packages/`.
+Both are validated like a hub submission, confined to the `hub.<name>.`
+namespace, executed by the linear-time engine and can only add findings.
+Executable Python plugins from the target remain forbidden.
+
 ## Validation
 Security tests proving local target `.py` files cannot register/execute checks.

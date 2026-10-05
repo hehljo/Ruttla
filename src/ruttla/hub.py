@@ -32,6 +32,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import tomllib
@@ -45,6 +46,10 @@ INDEX_FORMAT = "ruttla-hub-index/0"
 LOCK_FORMAT = "ruttla-hub-lock/0"
 LOCKFILE = "ruttla-hub.lock"
 STORE = Path(".ruttla") / "hub"
+# Eigene Pakete des Projekts in Quellform wie im Index-Repo; add/sync/remove
+# fassen sie nie an, ``hub submit`` reicht sie als PR beim Hub ein.
+LOCAL_PACKAGES = Path(".ruttla") / "packages"
+BACKUP = Path(".ruttla") / "backup"
 PACKAGE_FILE = "package.json"
 BUNDLE_SUFFIX = ".sigstore.json"
 
@@ -162,6 +167,10 @@ def parse_package(raw: bytes) -> dict:
 def read_source(directory: Path) -> dict:
     """Quellform im Index-Repo: ``package.toml`` + ``rules/<plattform>/<id>.toml``."""
     meta_path = directory / "package.toml"
+    # Ein Link würde fremde Dateien als Regeltext einlesen — und mit dem Paket veröffentlichen.
+    links = [p for p in [meta_path, *directory.rglob("*")] if p.is_symlink()]
+    if links:
+        raise HubError(f"{links[0]}: symbolischer Link im Paket — abgelehnt")
     try:
         meta = tomllib.loads(meta_path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as exc:
@@ -368,7 +377,29 @@ def _collisions(pkg: dict, taken: set[str]) -> list[str]:
     return sorted(i for i in ids if i in taken)
 
 
-def add(root: Path, name: str) -> str:
+def _guard_store(root: Path, name: str, accepted: set[str], force: bool) -> str | None:
+    """Ein Paket in der Ablage, dessen Bytes keinem geprüften Stand entsprechen,
+    wird nie still überschrieben oder gelöscht: ohne ``force`` Abbruch, mit
+    ``force`` erst eine Sicherung unter ``.ruttla/backup/``."""
+    local = _store(root, name, PACKAGE_FILE)
+    if not local.is_file():
+        return None
+    raw = local.read_bytes()
+    digest = sha256(raw)
+    if digest in accepted:
+        return None
+    if not force:
+        raise HubError(
+            f"{local.relative_to(root).as_posix()} ist lokal verändert — nicht überschrieben. Eigene Regeln "
+            f"gehören nach {LOCAL_PACKAGES.as_posix()}/<name>/ (Einreichen: `ruttla hub submit`). "
+            f"--force sichert die Datei nach {BACKUP.as_posix()}/ und fährt fort.")
+    dest = _inside(root, *BACKUP.parts, f"{name}-{digest[:12]}.json")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(raw)
+    return f"{name}: lokale Änderung gesichert nach {dest.relative_to(root).as_posix()}"
+
+
+def add(root: Path, name: str, force: bool = False) -> str:
     index = fetch_index()
     entry = index["packages"].get(name)
     if entry is None:
@@ -381,16 +412,36 @@ def add(root: Path, name: str) -> str:
     if clash:
         raise HubError(f"ID-Kollision mit offiziellen Checks: {', '.join(clash)}")
     lock = read_lock(root)
+    accepted = {expected} | ({lock[name]["sha256"]} if name in lock else set())
+    saved = _guard_store(root, name, accepted, force)
     _install(root, raw, bundle)
     lock[name] = {"version": version, "sha256": expected}
     write_lock(root, lock)
-    return f"{name} {version} installiert ({expected[:12]}…), signiert von {SIGNER_IDENTITY}"
+    done = f"{name} {version} installiert ({expected[:12]}…), signiert von {SIGNER_IDENTITY}"
+    return f"{saved}\n{done}" if saved else done
 
 
-def sync(root: Path) -> list[str]:
-    """Stellt genau den Stand des Lockfiles her — lädt nur, was fehlt oder abweicht."""
+def sync(root: Path, force: bool = False) -> list[str]:
+    """Stellt genau den Stand des Lockfiles her — lädt nur, was fehlt oder abweicht.
+    Lokal veränderte Pakete werden vorab alle gemeldet, bevor irgendetwas geladen wird."""
+    lock = read_lock(root)
+    if not force:
+        modified = []
+        for name, entry in sorted(lock.items()):
+            try:
+                _guard_store(root, name, {entry["sha256"]}, force=False)
+            except HubError:
+                modified.append(name)
+        if modified:
+            raise HubError(
+                f"lokal verändert, nicht überschrieben: {', '.join(modified)}. Eigene Regeln gehören nach "
+                f"{LOCAL_PACKAGES.as_posix()}/<name>/ (Einreichen: `ruttla hub submit`). "
+                f"--force sichert die Dateien nach {BACKUP.as_posix()}/ und stellt den Lockfile-Stand her.")
     out = []
-    for name, entry in sorted(read_lock(root).items()):
+    for name, entry in sorted(lock.items()):
+        saved = _guard_store(root, name, {entry["sha256"]}, force=True)
+        if saved:
+            out.append(saved)
         local = _store(root, name, PACKAGE_FILE)
         if local.is_file() and sha256(local.read_bytes()) == entry["sha256"]:
             out.append(f"{name} {entry['version']}: aktuell")
@@ -401,33 +452,65 @@ def sync(root: Path) -> list[str]:
     return out
 
 
-def remove(root: Path, name: str) -> str:
+def remove(root: Path, name: str, force: bool = False) -> str:
     lock = read_lock(root)
     if name not in lock or not NAME_RE.match(name):
         raise HubError(f"{name!r} ist nicht installiert")
     store = _store(root, name)  # Link-Prüfung vor jeder Änderung
+    saved = _guard_store(root, name, {lock[name]["sha256"]}, force)
     del lock[name]
     write_lock(root, lock)
     shutil.rmtree(store, ignore_errors=True)
-    return f"{name} entfernt"
+    return f"{saved}\n{name} entfernt" if saved else f"{name} entfernt"
 
 
 # ---------------------------------------------------------------------------
 # Scan: installierte Pakete registrieren (offline)
 # ---------------------------------------------------------------------------
 
+def local_packages(root: Path) -> list[dict]:
+    """Eigene Pakete unter ``.ruttla/packages/<name>/``, geprüft wie eine Einreichung."""
+    base = _inside(root, *LOCAL_PACKAGES.parts)
+    if not base.is_dir():
+        return []
+    pkgs = []
+    for d in sorted(base.iterdir()):
+        if not d.is_dir() and not d.is_symlink():
+            continue
+        pkg = read_source(_inside(root, *LOCAL_PACKAGES.parts, d.name))
+        if d.name != pkg["name"]:
+            raise HubError(f"{d.relative_to(root).as_posix()}: Verzeichnisname ≠ name {pkg['name']!r}")
+        pkgs.append(pkg)
+    return pkgs
+
+
 def register_locked(root: Path) -> int:
-    """Registriert die Regeln aller Pakete im Lockfile; Abweichung = HubError.
-    Kein Netz: was nicht lokal und unverändert vorliegt, bricht den Scan ab."""
+    """Registriert die Regeln aller Pakete im Lockfile und der eigenen Pakete
+    unter ``.ruttla/packages/``; Abweichung = HubError. Kein Netz: was nicht
+    lokal und unverändert vorliegt, bricht den Scan ab."""
     from .declarative import EXTRA_RULE_DIRS, make_check
     from .registry import REGISTRY
 
     lock = read_lock(root)
-    if not lock:
+    own = local_packages(root)
+    if not lock and not own:
         return 0
+    both = sorted(set(lock) & {pkg["name"] for pkg in own})
+    if both:
+        raise HubError(f"{', '.join(both)}: installiert und unter {LOCAL_PACKAGES.as_posix()}/ — "
+                       "eine Fassung entfernen (`ruttla hub remove`) oder die eigene umbenennen")
     work = Path(tempfile.mkdtemp(prefix="ruttla-hub-"))
     atexit.register(shutil.rmtree, work, True)
     checks = []
+    for pkg in own:
+        clash = _collisions(pkg, set(REGISTRY))
+        if clash:
+            raise HubError(f"Eigenes Paket {pkg['name']}: ID-Kollision mit {', '.join(clash)}")
+        materialize(pkg, work)
+        for text in pkg["rules"].values():
+            rule = tomllib.loads(text)
+            rule["tags"] = [*rule.get("tags", []), f"local:{pkg['name']}"]
+            checks.append(make_check(rule))
     for name, entry in sorted(lock.items()):
         local = _store(root, name, PACKAGE_FILE)
         if not local.is_file():
@@ -561,6 +644,80 @@ def build_index(packages: Path, out: Path, previous: dict | None) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Einreichen: eigenes Paket als PR an den Hub
+# ---------------------------------------------------------------------------
+
+def _sh(cmd: list[str], cwd: Path | None = None) -> str:
+    try:
+        result = subprocess.run(cmd, cwd=cwd, check=False, capture_output=True, text=True)
+    except OSError as exc:
+        raise HubError(f"{cmd[0]} nicht startbar: {exc} — `hub submit` braucht git und gh (GitHub CLI)") from exc
+    if result.returncode != 0:
+        raise HubError(f"`{' '.join(cmd[:3])} …` fehlgeschlagen: {result.stderr.strip()[-400:]}")
+    return result.stdout.strip()
+
+
+def submit(root: Path, name: str, yes: bool) -> list[str]:
+    """Prüft ``.ruttla/packages/<name>/`` und reicht es als PR beim Hub ein.
+    Ohne ``yes`` nur der Plan — eine Veröffentlichung passiert nie nebenbei.
+    Der Falsch-Positiv-Lauf über den Gesund-Korpus läuft in der Hub-CI."""
+    src = _inside(root, *LOCAL_PACKAGES.parts, name)
+    if not src.is_dir():
+        raise HubError(f"{src.relative_to(root).as_posix()}/ fehlt — eigenes Paket dort anlegen "
+                       "(package.toml + rules/<plattform>/hub.<name>.<regel>.toml)")
+    code, lines = check_source(src, [])
+    if code in (EXIT_FAILED, EXIT_CRASH):
+        raise HubError("Paket besteht die Aufnahmeprüfung nicht:\n" + "\n".join(lines))
+    pkg = read_source(src)
+    if src.name != pkg["name"]:
+        raise HubError(f"Verzeichnisname {src.name!r} ≠ name {pkg['name']!r}")
+    version, digest = pkg["version"], sha256(canonical(pkg))
+    published = fetch_index()["packages"].get(name)
+    if entry_ok(published):
+        if published["version"] == version and published["sha256"] == digest:
+            return [f"{name} {version} ist mit genau diesem Inhalt schon im Hub — nichts einzureichen"]
+        if version_key(version) <= version_key(published["version"]):
+            raise HubError(f"{name}: im Hub ist {published['version']} veröffentlicht — "
+                           "Version erhöhen, eine veröffentlichte Version ändert sich nie")
+    files = ["package.toml", *(f"rules/{rel}" for rel in sorted(pkg["rules"]))]
+    plan = [*lines,
+            "Falsch-Positiv-Lauf über den Gesund-Korpus: in der Hub-CI, vor dem Merge",
+            f"Einreichung: {name} {version} als PR an {HUB_REPO} (packages/{name}/):",
+            *(f"  {f}" for f in files)]
+    if not yes:
+        return [*plan, "Nichts gesendet. Mit --yes wird der PR öffentlich angelegt."]
+
+    login = _sh(["gh", "api", "user", "--jq", ".login"])
+    owner = HUB_REPO.split("/")[0]
+    branch = f"paket/{name}-{version}"
+    with tempfile.TemporaryDirectory(prefix="ruttla-hub-submit-") as tmp:
+        clone = Path(tmp) / "hub"
+        _sh(["gh", "repo", "clone", HUB_REPO, str(clone), "--", "--depth=1"])
+        _sh(["git", "checkout", "-b", branch], cwd=clone)
+        dest = clone / "packages" / name
+        if dest.exists():
+            shutil.rmtree(dest)
+        for rel in files:
+            (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src / rel, dest / rel)
+        _sh(["git", "add", "--", f"packages/{name}"], cwd=clone)
+        _sh(["git", "commit", "-m", f"{name} {version}: {pkg['description']}"], cwd=clone)
+        remote = "origin"
+        if login != owner:
+            _sh(["gh", "repo", "fork", "--remote", "--remote-name", "fork"], cwd=clone)
+            remote = "fork"
+        _sh(["git", "push", "-u", remote, branch], cwd=clone)
+        body = "\n".join([pkg["description"], "", "Belege:", *(f"- {e}" for e in pkg["evidence"]),
+                          "", "Lokale Prüfung (`ruttla hub submit`):", "```", *lines, "```"])
+        url = _sh(["gh", "pr", "create", "--repo", HUB_REPO, "--base", "main",
+                   "--head", f"{login}:{branch}", "--title", f"{name} {version}", "--body", body],
+                  cwd=clone)
+    return [*plan, f"PR angelegt: {url}",
+            "Nach Review und Merge signiert die Hub-CI das Paket; dann `ruttla hub add "
+            f"{name}` und {LOCAL_PACKAGES.as_posix()}/{name}/ entfernen."]
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -572,17 +729,24 @@ class HubArgumentParser(argparse.ArgumentParser):
 
 def build_parser(prog: str) -> HubArgumentParser:
     parser = HubArgumentParser(prog=f"{prog} hub", description=(
-        "Regelpakete aus dem Gate-Hub. Netz nur in search/add/sync; Scans bleiben offline."))
+        "Regelpakete aus dem Gate-Hub. Netz nur in search/add/sync/submit; Scans bleiben offline."))
     sub = parser.add_subparsers(dest="cmd", required=True, parser_class=HubArgumentParser)
     s = sub.add_parser("search", help="Index durchsuchen")
     s.add_argument("text", nargs="?", default="")
+    force_help = f"lokal veränderte Pakete nach {BACKUP.as_posix()}/ sichern und fortfahren"
     for cmd, helptext in (("add", "Paket installieren (Signatur + Hash, Lockfile)"),
                           ("remove", "Paket entfernen")):
         p = sub.add_parser(cmd, help=helptext)
         p.add_argument("name")
         p.add_argument("--root", default=".")
+        p.add_argument("--force", action="store_true", help=force_help)
     p = sub.add_parser("sync", help="Stand des Lockfiles herstellen")
     p.add_argument("--root", default=".")
+    p.add_argument("--force", action="store_true", help=force_help)
+    p = sub.add_parser("submit", help=f"eigenes Paket aus {LOCAL_PACKAGES.as_posix()}/ als PR einreichen")
+    p.add_argument("name")
+    p.add_argument("--root", default=".")
+    p.add_argument("--yes", action="store_true", help="PR wirklich anlegen (sonst nur der Plan)")
     p = sub.add_parser("check", help="Aufnahmeprüfung eines Paketverzeichnisses (Index-CI)")
     p.add_argument("package", type=Path)
     p.add_argument("--corpus", type=Path, action="append", default=[], help="Gesund-Korpus (mehrfach)")
@@ -625,11 +789,13 @@ def run_hub_command(argv: list[str], prog: str = "ruttla") -> int:
         if not root.is_dir():
             raise HubError(f"Kein Verzeichnis: {root}")
         if args.cmd == "add":
-            print(add(root, args.name))
+            print(add(root, args.name, args.force))
         elif args.cmd == "remove":
-            print(remove(root, args.name))
+            print(remove(root, args.name, args.force))
+        elif args.cmd == "submit":
+            print("\n".join(submit(root, args.name, args.yes)))
         else:
-            print("\n".join(sync(root)) or f"{LOCKFILE}: keine Pakete")
+            print("\n".join(sync(root, args.force)) or f"{LOCKFILE}: keine Pakete")
         return EXIT_OK
     except HubError as exc:
         print(f"RUNNER_ERROR\thub\t{exc}", file=sys.stderr)

@@ -88,15 +88,23 @@ export RUTTLA_ENGINE_BIN="$PWD/engine/target/release/ruttla-engine"   # for a pi
 shared: isolated load, fixtures, an untested-exclusion probe, ID clashes and
 a runtime budget ([docs/RULE_FORMAT.md](docs/RULE_FORMAT.md)).
 
+Rule packages from the community hub ([hehljo/ruttla-hub](https://github.com/hehljo/ruttla-hub))
+are signed data, pinned in `ruttla-hub.lock` and loaded offline:
+`ruttla hub search`, `ruttla hub add NAME`, `ruttla hub sync`. Your own rules go
+to `.ruttla/packages/NAME/` in the project — they run in every scan, no hub
+command or update overwrites them, and `ruttla hub submit NAME --yes` opens the
+PR that makes them available to everyone
+([docs/RULE_FORMAT.md](docs/RULE_FORMAT.md#hub-packages-ruttla-hub-p10-t010)).
+
 A checkout finds its own build without the variable. The engine is never
 looked up on `PATH` or in the scanned directory. `--engine required` turns a
 missing engine into a runner error (exit 3) — use it in CI.
 
 ## Updating
 
-Run `ruttla update` to install the package and the matching engine from the latest GitHub release into the active Python environment — both from the same commit, the engine checked against `SHA256SUMS`. Without a tagged release it takes `nightly`, built from the last green CI run on `main` (`--channel stable|nightly` to choose). This explicit command uses pip and requires network access; ordinary scans remain offline. It does not pull or modify a source checkout.
+Run `ruttla update` to install the package and the matching engine from the latest GitHub release into the active Python environment — both from the same commit, the engine checked against `SHA256SUMS`. Without a tagged release it takes `nightly`, built from the last green CI run on `main` (`--channel stable|nightly` to choose). This explicit command uses pip and requires network access; ordinary scans remain offline. It replaces only the installed package and engine — project files (`.ruttla.toml`, `ruttla-hub.lock`, `.ruttla/`) stay untouched.
 
-For an editable clone (`pip install -e .`), update the checkout with `git pull` instead.
+Before any download it stops on an editable clone (`pip install -e .` — update the checkout with `git pull` instead) and on a system Python marked externally managed (PEP 668 — install Ruttla in a venv or with pipx). The engine is verified before pip runs, so a rejected engine never leaves a half update.
 
 ## Exit codes
 
@@ -172,8 +180,11 @@ Known limitation: rule messages are currently German.
 ## Privacy and trust
 
 Offline, no telemetry. The scan target is untrusted data: nothing from it is
-imported or executed, and symlinks may not leave the scan root. Rules load
-only from the installed package (ADR-0005).
+imported or executed, and symlinks may not leave the scan root. Executable
+checks load only from the installed package; from the target Ruttla reads
+declarative rules only — hub packages whose hash matches `ruttla-hub.lock` and
+the project's own packages under `.ruttla/packages/` — which can only add
+findings (ADR-0005).
 
 ## Contributing
 

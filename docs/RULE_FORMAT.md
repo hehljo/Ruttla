@@ -95,14 +95,31 @@ duplicate ID across `--rules` directories.
 | Command | Network | Effect |
 |---|---|---|
 | `ruttla hub search [TEXT]` | yes | list the index |
-| `ruttla hub add NAME` | yes | download, check sha256 against the index, verify the Sigstore bundle (identity: the index repo's `publish.yml` on `main`), write `.ruttla/hub/NAME/package.json` and `ruttla-hub.lock` |
-| `ruttla hub sync` | only for missing/changed packages | restore exactly the locked versions, same checks |
-| `ruttla hub remove NAME` | no | drop from lock and store |
+| `ruttla hub add NAME [--force]` | yes | download, check sha256 against the index, verify the Sigstore bundle (identity: the index repo's `publish.yml` on `main`), write `.ruttla/hub/NAME/package.json` and `ruttla-hub.lock` |
+| `ruttla hub sync [--force]` | only for missing/changed packages | restore exactly the locked versions, same checks |
+| `ruttla hub remove NAME [--force]` | no | drop from lock and store |
+| `ruttla hub submit NAME [--yes]` | yes | admission check of `.ruttla/packages/NAME/` (format · kit), version check against the index; with `--yes` a PR to the index repo via `git` + `gh` (owner: branch, everyone else: fork). Without `--yes` only the plan — nothing is sent |
 | `ruttla hub check DIR --corpus DIR…` | no | admission (index CI): format · conformance kit · false-positive scan over the healthy corpus (threshold 0; a rule that examines no corpus file is *not measured*) |
 | `ruttla hub build PACKAGES OUT [--previous index.json]` | no | canonical package files + `index.json`; a published version with different content aborts, so does a version older than the published one |
 
 `add`/`sync` need `sigstore` (`pip install 'ruttla[hub]'`); without it they
-abort — nothing is installed unverified. A scan loads locked packages offline
+abort — nothing is installed unverified.
+
+**Nothing is overwritten silently.** `.ruttla/hub/` is a verified cache, not
+a place to edit. If a stored package no longer matches the lockfile (or the
+version being installed), `add`, `sync` and `remove` abort and name every
+modified package; `--force` first copies it to
+`.ruttla/backup/NAME-<sha12>.json`, then continues.
+
+**Own rules** live in the project under `.ruttla/packages/NAME/`, in exactly
+the index repo's source form (`package.toml` + `rules/<platform>/hub.NAME.<rule>.toml`).
+A scan loads them offline next to the locked packages (tag `local:NAME`); an
+invalid package is a runner error (exit 3), never skipped. `add`/`sync`/`remove`
+and `ruttla update` never touch them. A name that is both installed and local
+aborts the scan — one source per package. `ruttla hub submit NAME --yes` turns
+the package into a PR; after review and merge the index CI runs the
+false-positive scan, signs it, and everyone gets it with `ruttla hub add NAME`
+— then delete the local copy. A scan loads locked packages offline
 and only when the stored bytes match the lockfile hash; a mismatch or a missing
 package is a runner error (exit 3, `hub_lock_mismatch`). `.ruttla/` is excluded
 from scans. The lockfile guards against corruption and hand edits, not against
