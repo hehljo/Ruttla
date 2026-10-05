@@ -17,5 +17,5 @@ fn unknown_arguments_are_a_usage_error() {
         .arg("--nope")
         .output()
         .expect("engine binary runs");
-    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(out.status.code(), Some(3));
 }

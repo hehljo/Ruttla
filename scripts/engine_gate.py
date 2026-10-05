@@ -2,7 +2,10 @@
 """Umgebungs- und Testgate der Rust-Engine (ADR-0011, P11-T001) — tokenfrei.
 
 Prüft, ob die Toolchain die gemessene ``rust-version`` aus engine/Cargo.toml
-erreicht, und lässt dann ``cargo test --locked`` laufen.
+erreicht, lässt dann ``cargo test --locked`` laufen und danach die
+Python-Differenztests (``tests/test_engine_*.py``) gegen das gebaute Binary —
+mit ``RUTTLA_ENGINE_REQUIRED=1``, damit ein fehlendes Binary dort rot wird
+statt als übersprungener Test durchzurutschen.
 
 Exit 0 = bestanden · 1 = durchgefallen · 2 = nicht gemessen (Toolchain fehlt
 oder ist älter als die MSRV). ``--require`` macht aus "nicht gemessen" ein
@@ -106,6 +109,34 @@ def run_cargo_tests() -> tuple[int, str]:
     return EXIT_OK, f"cargo test: {passed} Tests bestanden"
 
 
+def run_differential_tests() -> tuple[int, str]:
+    binary = ENGINE / "target" / "debug" / ("ruttla-engine.exe" if os.name == "nt" else "ruttla-engine")
+    if not binary.is_file():
+        return EXIT_FAILED, f"Engine-Binary fehlt nach cargo test: {binary}"
+    env = dict(os.environ, RUTTLA_ENGINE_REQUIRED="1", RUTTLA_ENGINE_BIN=str(binary))
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as log:
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_engine_*.py"],
+                cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=CARGO_TIMEOUT_S,
+            )
+            code = proc.returncode
+        except subprocess.TimeoutExpired:
+            code = None
+        log.seek(0)
+        out = log.read()
+    if code is None:
+        return EXIT_FAILED, f"Differenztests nach {CARGO_TIMEOUT_S}s abgebrochen"
+    ran = re.search(r"^Ran (\d+) tests?", out, re.M)
+    count = int(ran.group(1)) if ran else 0
+    if code != 0:
+        tail = "\n".join(out.splitlines()[-30:])
+        return EXIT_FAILED, f"Differenztests fehlgeschlagen (Exit {code}):\n{tail}"
+    if count == 0:
+        return EXIT_FAILED, "Differenztests: null Tests gelaufen"
+    return EXIT_OK, f"Differenztests: {count} Tests bestanden"
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--require", action="store_true",
@@ -119,9 +150,13 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_FAILED if args.require else code
     print(f"engine-gate: Toolchain {why}")
 
-    code, why = run_cargo_tests()
-    print(f"engine-gate: {'BESTANDEN' if code == EXIT_OK else 'DURCHGEFALLEN'}: {why}")
-    return code
+    # Beide Stufen laufen immer; eine rote erste Stufe verdeckt die zweite nicht.
+    worst = EXIT_OK
+    for step in (run_cargo_tests, run_differential_tests):
+        code, why = step()
+        print(f"engine-gate: {'BESTANDEN' if code == EXIT_OK else 'DURCHGEFALLEN'}: {why}")
+        worst = max(worst, code)
+    return worst
 
 
 if __name__ == "__main__":

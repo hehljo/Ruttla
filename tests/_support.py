@@ -50,3 +50,37 @@ def make_tree(files: dict[str, str | bytes]) -> tempfile.TemporaryDirectory:
         else:
             path.write_text(content, encoding="utf-8", newline="\n")
     return tmp
+
+
+ENGINE_DIR = REPO / "engine"
+
+
+def engine_binary() -> Path | None:
+    """The built Rust engine (ADR-0011), or None.
+
+    ``RUTTLA_ENGINE_BIN`` overrides the location; otherwise the debug build
+    under ``engine/target`` is used, which ``scripts/engine_gate.py`` builds.
+    """
+    override = os.environ.get("RUTTLA_ENGINE_BIN")
+    if override:
+        return Path(override)
+    for profile in ("debug", "release"):
+        for name in ("ruttla-engine", "ruttla-engine.exe"):
+            candidate = ENGINE_DIR / "target" / profile / name
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def require_engine(case) -> Path:
+    """Skip without an engine — unless RUTTLA_ENGINE_REQUIRED=1 (engine gate, CI).
+
+    A skipped differential test is *not measured*; the engine gate sets the
+    variable so that a missing binary fails instead of hiding as a skip.
+    """
+    binary = engine_binary()
+    if binary is None:
+        if os.environ.get("RUTTLA_ENGINE_REQUIRED") == "1":
+            case.fail("ruttla-engine nicht gebaut, aber RUTTLA_ENGINE_REQUIRED=1")
+        case.skipTest("ruttla-engine not built (cargo build in engine/) — not measured")
+    return binary
