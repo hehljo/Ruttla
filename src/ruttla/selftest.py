@@ -64,6 +64,8 @@ def run_case(check: Check, case: SelfTestCase) -> str | None:
                     for f in res.findings
                 )
                 okay = case.expect_finding_contains in blob
+            if okay and case.expect_findings is not None and len(res.findings) != case.expect_findings:
+                return f"{len(res.findings)} Befunde, erwartet {case.expect_findings}"
             if okay:
                 return None
             extra = f" (reason: {res.reason})" if res.reason else ""

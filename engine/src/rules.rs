@@ -82,6 +82,11 @@ struct RawMatch {
     /// Leitlinie im Befund, falls sie von der Katalog-`guideline` abweicht.
     #[serde(default)]
     guideline: Option<String>,
+    /// `true`: das Muster läuft je `splitlines`-Zeile, höchstens ein Treffer
+    /// je Zeile — Port eines Python-Checks mit `pattern.search(zeile)`.
+    /// `false`: über die ganze Datei, alle Treffer (`iter_matches`).
+    #[serde(default)]
+    per_line: bool,
 }
 
 /// Ausschluss: ein Treffer wird verworfen, wenn `pattern` auf das Ziel passt.
@@ -122,6 +127,9 @@ pub struct RawFixture {
     pub expect: String,
     #[serde(default)]
     pub expect_finding_contains: Option<String>,
+    /// Genaue Befundzahl; misst z. B. "zwei Treffer in einer Zeile → einer".
+    #[serde(default)]
+    pub expect_findings: Option<usize>,
     pub files: BTreeMap<String, String>,
 }
 
@@ -144,6 +152,7 @@ pub struct Rule {
     pub unit_label: String,
     pub no_files_reason: String,
     pub skip_comments: bool,
+    pub per_line: bool,
     pub include_rule_files: bool,
     pub require_text: Option<String>,
     pub pattern: Regex,
@@ -249,6 +258,11 @@ pub fn parse_rule(text: &str, source: &Path, known_platforms: &HashSet<String>) 
     if pattern.is_match("") {
         return Err("match.pattern passt auf den leeren Text — jede Datei wäre ein Befund".into());
     }
+    // Der Vorfilter läuft mit `(?m)` über die ganze Datei; `\A`/`\z` hießen
+    // dort Dateigrenze, im Einzellauf Zeilengrenze — er würde Treffer verlieren.
+    if raw.match_.per_line && (raw.match_.pattern.contains("\\A") || raw.match_.pattern.contains("\\z")) {
+        return Err("match.pattern: mit per_line = true Zeilengrenzen als ^ und $ schreiben, nicht \\A/\\z".into());
+    }
     let groups = pattern.captures_len() - 1;
     let message = parse_message(&raw.match_.message, groups)?;
     let mut exclude = Vec::new();
@@ -276,6 +290,12 @@ pub fn parse_rule(text: &str, source: &Path, known_platforms: &HashSet<String>) 
         if fx.files.keys().any(|k| k.starts_with('/') || k.split('/').any(|s| s == ".." || s.is_empty())) {
             return Err(format!("fixture {:?}: Dateipfad verlässt das Fixture", fx.name));
         }
+        match (fx.expect_findings, fx.expect.as_str()) {
+            (Some(0), "fail") | (Some(1..), "pass" | "unmeasured" | "error") => {
+                return Err(format!("fixture {:?}: expect_findings widerspricht expect", fx.name));
+            }
+            _ => {}
+        }
         directions.insert(fx.expect.as_str());
     }
     if !(directions.contains("fail") && directions.contains("pass")) {
@@ -294,6 +314,7 @@ pub fn parse_rule(text: &str, source: &Path, known_platforms: &HashSet<String>) 
         extensions: raw.scope.extensions,
         unit_label,
         skip_comments: raw.scope.skip_comments,
+        per_line: raw.match_.per_line,
         include_rule_files: raw.scope.include_rule_files,
         require_text: raw.scope.require_text,
         pattern,
@@ -440,5 +461,20 @@ files = { "a.gd" = "ok\n" }
         assert!(parse(&GOOD.replace("severity = \"warning\"", "severity = \"warning\"\ncolour = 1")).is_err());
         assert!(parse(&GOOD.replace("platform = \"godot\"", "platform = \"cobol\"")).is_err());
         assert!(parse_rule(GOOD, Path::new("other.toml"), &platforms()).is_err());
+    }
+
+    #[test]
+    fn per_line_rejects_text_anchors() {
+        let per_line = GOOD.replace("[match]\n", "[match]\nper_line = true\n");
+        assert!(parse(&per_line).expect("loads").per_line);
+        let err = parse(&per_line.replace(r"wait\((\d+)\)", r"\Await\((\d+)\)")).unwrap_err();
+        assert!(err.contains("per_line"), "{err}");
+    }
+
+    #[test]
+    fn expect_findings_must_agree_with_expect() {
+        assert!(parse(&GOOD.replace("expect = \"fail\"", "expect = \"fail\"\nexpect_findings = 1")).is_ok());
+        assert!(parse(&GOOD.replace("expect = \"fail\"", "expect = \"fail\"\nexpect_findings = 0")).is_err());
+        assert!(parse(&GOOD.replace("expect = \"pass\"", "expect = \"pass\"\nexpect_findings = 2")).is_err());
     }
 }

@@ -99,7 +99,8 @@ def _missing_reason() -> str:
 
 def _cases(rule: dict) -> list[SelfTestCase]:
     return [SelfTestCase(name=f["name"], files=dict(f["files"]), expect=Status(f["expect"]),
-                         expect_finding_contains=f.get("expect_finding_contains"))
+                         expect_finding_contains=f.get("expect_finding_contains"),
+                         expect_findings=f.get("expect_findings"))
             for f in rule.get("fixtures", [])]
 
 

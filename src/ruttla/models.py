@@ -113,3 +113,5 @@ class SelfTestCase:
     expect: Status
     # Wenn gesetzt: dieser Befund muss unter den Findings sein.
     expect_finding_contains: str | None = None
+    # Wenn gesetzt: genau so viele Befunde (deklarative Regeln, `expect_findings`).
+    expect_findings: int | None = None

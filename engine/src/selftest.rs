@@ -97,6 +97,12 @@ pub fn run_fixture(manifest: &Manifest, rule: &Rule, fx: &RawFixture) -> CaseOut
                         outcome.detail = Some(format!("kein Befund enthält {needle:?}"));
                     }
                 }
+                if let Some(n) = fx.expect_findings {
+                    if ok && res.findings.len() != n {
+                        ok = false;
+                        outcome.detail = Some(format!("{} Befunde, erwartet {n}", res.findings.len()));
+                    }
+                }
             } else if let Some(r) = res.reason {
                 outcome.detail = Some(format!("reason: {r}"));
             }

@@ -22,7 +22,7 @@ from ruttla.core import (
     strip_comments,
 )
 
-from ._common import MARKUP_EXTS, SOURCE_EXTS
+from ._common import SOURCE_EXTS
 
 
 @register(
@@ -74,62 +74,6 @@ def check_display_anchor(ctx: Context) -> CheckResult:
                 guideline="CLAUDE.md § Anker",
             ))
     return result_for("quality.display_text_as_anchor", title, findings, units)
-
-
-@register(
-    "quality.assistant_trace",
-    "Spur eines KI-Assistenten im Quelltext",
-    severity=Severity.WARNING,
-    guideline="CLAUDE.md § Kommunikationsstil — keine Claude-Erwähnungen in Code/Git",
-    self_tests=[
-        SelfTestCase(
-            name="Generierungshinweis im Kommentar",
-            files={"src/a.ts": "// Generated with Claude Code\nexport const a = 1;\n"},
-            expect=Status.FAIL,
-        ),
-        SelfTestCase(
-            name="Legitime API-Nutzung",
-            files={"src/a.ts": 'import Anthropic from "@anthropic-ai/sdk";\nconst c = new Anthropic();\n'},
-            expect=Status.PASS,
-        ),
-    ],
-)
-def check_assistant_traces(ctx: Context) -> CheckResult:
-    """Unterscheidet SPUR von NUTZUNG.
-
-    Ein Import des Anthropic-SDK oder ein Modellname in einem API-Aufruf ist
-    legitimer Code, keine Spur — wer schon das Lesen verbietet, verbietet auch
-    legitimes Weiterreichen.
-    """
-    title = "Spur eines KI-Assistenten im Quelltext"
-    trace = re.compile(
-        r"(?i)("
-        r"generated\s+(with|by)\s+(claude|chatgpt|codex|copilot|gemini|cursor)"
-        r"|(erstellt|generiert)\s+(mit|von)\s+(claude|chatgpt|codex|copilot|gemini)"
-        r"|co-?authored-?by:\s*(claude|chatgpt|codex|copilot)"
-        r"|🤖\s*generated"
-        r"|\b(claude|chatgpt|codex)\s+(hat|sagt|meint|schlägt vor|suggests|says)"
-        r"|as\s+an\s+ai\s+(language\s+)?model"
-        r"|\bTODO\s*[:\-]?\s*(claude|chatgpt|codex)"
-        r")"
-    )
-    findings: list[Finding] = []
-    units = 0
-    for sf in ctx.files(*SOURCE_EXTS, *MARKUP_EXTS, ".css", ".scss", ".sh"):
-        units += 1
-        for idx, raw in enumerate(sf.lines, start=1):
-            m = trace.search(raw)
-            if not m:
-                continue
-            findings.append(Finding(
-                check_id="quality.assistant_trace",
-                severity=Severity.WARNING,
-                message="Hinweis auf einen KI-Assistenten im Quelltext.",
-                file=sf.rel, line=idx, evidence=snippet(raw),
-                fix="Zeile neutral formulieren oder entfernen.",
-                guideline="CLAUDE.md § Kommunikationsstil",
-            ))
-    return result_for("quality.assistant_trace", title, findings, units)
 
 
 @register(

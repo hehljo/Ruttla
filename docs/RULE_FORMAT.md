@@ -21,11 +21,12 @@ is *not measured* — never green (`--engine auto|off|required`).
 | `[scope] include_rule_files` | no | Default `false`: files that define checks/tests are skipped, as in `ctx.files()` |
 | `[scope] require_text` | no | Literal; files without it are not examined (and not counted) |
 | `[match] pattern` | yes | `regex`-crate syntax. Lookaround and backreferences are rejected at load; a pattern matching the empty text too |
+| `[match] per_line` | no | Default `false`: one pass over the whole file, every hit (Python `iter_matches`/`finditer`). `true`: the pattern runs on each `str.splitlines()` line, at most one hit per line (Python `for line in sf.lines: pat.search(line)`); lines are counted at every `splitlines` separator, not only `\n`. `\A`/`\z` are rejected — write `^`/`$` |
 | `[match] message` | yes | `{N}` = group N, `{N:L}` = `snippet(group, L)`, `{{`/`}}` = literal braces. Unknown groups are rejected |
 | `[match] fix` | no | Naming an API (`Name(`, `Type.member(` or backticks) requires `references` |
 | `[match] guideline` | no | Guideline in the finding, if it differs from the catalogue one |
 | `[[match.exclude]]` | no | Drop a hit: `on = "match"` (default; `group = N` selects a group), `"line"` (trimmed raw line) or `"path"` (relative path; the file still counts as examined) |
-| `[[fixtures]]` | yes | `name`, `expect` (`pass`/`fail`/`unmeasured`/`error`), optional `expect_finding_contains`, `[fixtures.files]` path → content. At least one `fail` **and** one `pass` |
+| `[[fixtures]]` | yes | `name`, `expect` (`pass`/`fail`/`unmeasured`/`error`), optional `expect_finding_contains`, optional `expect_findings` (exact number of findings), `[fixtures.files]` path → content. At least one `fail` **and** one `pass` |
 
 Findings carry `file`, `line` (of the match start), `evidence` =
 `snippet(trimmed raw line)`, `message`, `fix`, `guideline`. Status: no
@@ -39,7 +40,12 @@ of some finding.
 1. `python3 scripts/port_rule.py CHECK_ID` — skeleton with all metadata and
    the check's self-test probes as fixtures (unchanged: they are the oracle).
 2. Fill `[scope]` and `[match]` from the Python source quoted in the
-   skeleton, then delete that comment block. Lookaround becomes an
+   skeleton, then delete that comment block. `per_line` follows the loop
+   shape of the source, never the pattern: a per-line `search` ported as a
+   whole-file pattern lets `\s` cross line breaks, reports two hits on one
+   line and misses lines split at `\f`/`\v`/U+2028 — a corpus without those
+   cases still says "identical". Such ports get fixtures for all three, with
+   `expect_findings`. Lookaround becomes an
    `exclude` entry or stays in Python (then the check is not portable in v0).
 3. `engine/target/debug/ruttla-engine selftest --rules src/ruttla/rules --rule CHECK_ID`
    → every fixture `ok`.

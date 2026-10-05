@@ -7,15 +7,18 @@ pub fn is_py_space(c: char) -> bool {
     c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
 }
 
+/// Zeilentrenner von `str.splitlines`.
+pub fn is_line_break(c: char) -> bool {
+    matches!(c, '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{1c}' | '\u{1d}' | '\u{1e}' | '\u{85}' | '\u{2028}' | '\u{2029}')
+}
+
 /// `str.splitlines()` (ohne keepends).
 pub fn splitlines(text: &str) -> Vec<&str> {
     let mut out = Vec::new();
     let mut start = 0;
     let mut iter = text.char_indices().peekable();
     while let Some((i, c)) = iter.next() {
-        let is_break = matches!(c, '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{1c}' | '\u{1d}' | '\u{1e}'
-            | '\u{85}' | '\u{2028}' | '\u{2029}');
-        if !is_break {
+        if !is_line_break(c) {
             continue;
         }
         out.push(&text[start..i]);

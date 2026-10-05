@@ -1,0 +1,83 @@
+format = "ruttla-rule/0"
+id = "brand.manual_derivation_comment"
+title = "Kommentar kündigt eine von Hand nachgebaute Ableitung an"
+platform = "universal"
+severity = "warning"
+guideline = "CLAUDE.md § Grundsatz A — 'Der Kommentar ist die Warnung, dass die Kopplung fehlt'"
+rationale = """
+Wo im Code steht \"muss mitgeändert werden\", ist eine Ableitung von Hand
+nachgebaut. Genau dort muss der Generator schreiben, nicht der Mensch."""
+
+[scope]
+extensions = [
+    ".swift", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".cs",
+    ".gd", ".kt", ".java", ".go", ".rs", ".vue", ".svelte",
+    ".html", ".xaml", ".xml", ".tscn",
+    ".css", ".scss",
+]
+unit_label = "Dateien"
+# Hier wollen wir GERADE die Kommentare sehen.
+skip_comments = false
+
+[match]
+# Je Zeile wie im Python-Original: Zeile getrimmt (`str.strip` kennt auch
+# \x1f), muss mit einem Kommentarzeichen beginnen, dann `pat.search`.
+per_line = true
+pattern = '(?i)^[\s\x1f]*(?://|#|/\*|\*|<!--).*?(muss(\s+\w+){0,3}\s+(hier\s+)?mit(geändert|gepflegt|gezogen)?\b|hier\s+(auch\s+)?(mit)?ändern|keep\s+in\s+sync|must\s+match|remember\s+to\s+update|synchron\s+halten|gleichzeitig\s+ändern|dann\s+(auch\s+)?hier\s+anpassen)'
+message = "Kommentar verlangt manuelles Mitpflegen — die Kopplung fehlt."
+fix = "Den Wert generieren oder aus der Quelle ableiten, statt ihn zu tippen. Und prüfen, dass der Verbraucher ihn benutzt."
+guideline = "CLAUDE.md § Grundsatz A"
+
+[[fixtures]]
+name = "Kopplungskommentar vorhanden"
+expect = "fail"
+[fixtures.files]
+"src/gen.ts" = """
+// ändert sich der Zuschnitt dort, muss er hier mit
+const R = 4.25;
+"""
+
+[[fixtures]]
+name = "Normaler Kommentar"
+expect = "pass"
+[fixtures.files]
+"src/gen.ts" = """
+// Seitenverhältnis aus der Vorlage berechnet
+const R = ratioFromTemplate();
+"""
+
+[[fixtures]]
+name = "Zwei Treffer in einer Zeile sind ein Befund"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"src/gen.ts" = """
+// muss mitgeändert werden, hier auch mitändern
+const R = 4.25;
+"""
+
+[[fixtures]]
+name = "Blockkommentar über zwei Zeilen ist kein Treffer"
+expect = "pass"
+[fixtures.files]
+"src/gen.ts" = """
+/* Dieser Wert muss
+   hier mitgeändert werden */
+const R = 4.25;
+"""
+
+[[fixtures]]
+name = "Kommentar hinter einem Formfeed ist eine eigene Zeile"
+expect = "fail"
+expect_findings = 1
+# Evidenz aus der richtigen Zeile: Zeilen werden an jedem Trenner gezählt.
+expect_finding_contains = "muss hier mitgeändert"
+[fixtures.files]
+"src/gen.ts" = "const x = 1;\f// muss hier mitgeändert werden\n"
+
+[[fixtures]]
+name = "Geschuetztes Leerzeichen vor dem Kommentar"
+expect = "fail"
+expect_finding_contains = "Kommentar verlangt manuelles Mitpflegen"
+[fixtures.files]
+"src/gen.ts" = "\u00a0// ändert sich der Zuschnitt dort, muss er hier mit\nconst R = 4.25;\n"

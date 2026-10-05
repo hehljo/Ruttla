@@ -56,6 +56,16 @@ def toml_str(text: str) -> str:
     return '"' + body + '"'
 
 
+def per_line_hint(source: str) -> str:
+    """Die Schleifenform der Quelle entscheidet `per_line`, nicht das Muster.
+    Unklar bleibt ein ungültiger TOML-Wert — die Engine verweigert das Laden."""
+    if "iter_matches(" in source or ".finditer(" in source:
+        return "per_line = false  # Quelle: Treffer über die ganze Datei"
+    if ".lines" in source and (".search(" in source or ".match(" in source):
+        return "per_line = true  # Quelle: search je Zeile, höchstens ein Treffer je Zeile"
+    return "per_line = TODO  # ganze Datei (false) oder je Zeile (true)?"
+
+
 def skeleton(check_id: str) -> str:
     c = REGISTRY[check_id]
     lines = [
@@ -87,6 +97,7 @@ def skeleton(check_id: str) -> str:
         'unit_label = "TODO"',
         "",
         "[match]",
+        per_line_hint(inspect.getsource(c.fn)),
         "pattern = ''  # TODO — leer lässt die Engine das Laden verweigern",
         'message = "TODO"',
         "",

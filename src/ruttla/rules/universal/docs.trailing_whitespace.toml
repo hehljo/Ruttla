@@ -15,7 +15,9 @@ unit_label = "Markdown-Dateien"
 skip_comments = false
 
 [match]
-pattern = '(?m)[ \t]+$'
+# Je Zeile wie im Python-Original (`trailing_re.search(zeile)` über `sf.lines`).
+per_line = true
+pattern = '[ \t]+$'
 message = "Trailing Whitespace am Zeilenende (bricht git diff --check)."
 fix = "Leerzeichen am Zeilenende entfernen."
 
@@ -39,3 +41,16 @@ expect = "pass"
 -
 - [ ] Weiterer Punkt
 """
+
+[[fixtures]]
+name = "Leerzeichen vor einem Formfeed beendet eine Zeile"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"docs/test.md" = "- [ ] Punkt \f- [ ] Weiterer Punkt\n"
+
+[[fixtures]]
+name = "Geschuetztes Leerzeichen am Zeilenende"
+expect = "pass"
+[fixtures.files]
+"docs/test.md" = "- [ ] Punkt\u00a0\n"

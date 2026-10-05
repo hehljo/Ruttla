@@ -1,0 +1,76 @@
+format = "ruttla-rule/0"
+id = "quality.assistant_trace"
+title = "Spur eines KI-Assistenten im Quelltext"
+platform = "universal"
+severity = "warning"
+guideline = "CLAUDE.md § Kommunikationsstil — keine Claude-Erwähnungen in Code/Git"
+rationale = """
+Unterscheidet SPUR von NUTZUNG.
+
+Ein Import des Anthropic-SDK oder ein Modellname in einem API-Aufruf ist
+legitimer Code, keine Spur — wer schon das Lesen verbietet, verbietet auch
+legitimes Weiterreichen."""
+
+[scope]
+extensions = [
+    ".swift", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".cs",
+    ".gd", ".kt", ".java", ".go", ".rs", ".vue", ".svelte",
+    ".html", ".xaml", ".xml", ".tscn",
+    ".css", ".scss", ".sh",
+]
+unit_label = "Dateien"
+skip_comments = false
+
+[match]
+# Je Zeile wie im Python-Original (`trace.search(zeile)` über `sf.lines`).
+per_line = true
+pattern = '(?i)(generated\s+(with|by)\s+(claude|chatgpt|codex|copilot|gemini|cursor)|(erstellt|generiert)\s+(mit|von)\s+(claude|chatgpt|codex|copilot|gemini)|co-?authored-?by:\s*(claude|chatgpt|codex|copilot)|🤖\s*generated|\b(claude|chatgpt|codex)\s+(hat|sagt|meint|schlägt vor|suggests|says)|as\s+an\s+ai\s+(language\s+)?model|\bTODO\s*[:\-]?\s*(claude|chatgpt|codex))'
+message = "Hinweis auf einen KI-Assistenten im Quelltext."
+fix = "Zeile neutral formulieren oder entfernen."
+guideline = "CLAUDE.md § Kommunikationsstil"
+
+[[fixtures]]
+name = "Generierungshinweis im Kommentar"
+expect = "fail"
+[fixtures.files]
+"src/a.ts" = """
+// Generated with Claude Code
+export const a = 1;
+"""
+
+[[fixtures]]
+name = "Legitime API-Nutzung"
+expect = "pass"
+[fixtures.files]
+"src/a.ts" = """
+import Anthropic from "@anthropic-ai/sdk";
+const c = new Anthropic();
+"""
+
+[[fixtures]]
+name = "Zwei Treffer in einer Zeile sind ein Befund"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"src/a.ts" = """
+// Generated with Claude Code and co-authored-by: claude
+export const a = 1;
+"""
+
+[[fixtures]]
+name = "Hinweis über einen Zeilenumbruch ist kein Treffer"
+expect = "pass"
+[fixtures.files]
+"index.html" = """
+<p>Generated with
+Claude Code</p>
+"""
+
+[[fixtures]]
+name = "Treffer hinter einem Formfeed ist eine eigene Zeile"
+expect = "fail"
+expect_findings = 1
+# Evidenz aus der richtigen Zeile: Zeilen werden an jedem Trenner gezählt.
+expect_finding_contains = "Generated with Claude Code"
+[fixtures.files]
+"src/a.ts" = "const x = 1;\f// Generated with Claude Code\n"

@@ -3,6 +3,7 @@
 //! (`RegexSet` als Vorfilter), Dateien parallel. Das Ergebnis hängt nicht von
 //! der Thread-Zahl ab: die Befunde werden in Inventar-Reihenfolge gemischt.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -11,7 +12,7 @@ use serde::Serialize;
 
 use crate::detect::{claimed_files, find_roots, Manifest};
 use crate::inventory::{inventory, InputError, InventoryConfig, SourceFile};
-use crate::pytext::{snippet, splitlines, strip};
+use crate::pytext::{is_line_break, snippet, splitlines, strip};
 use crate::rules::{ExcludeOn, Piece, Rule};
 use crate::strip::strip_comments;
 use crate::text::{is_rule_definition, read_text};
@@ -76,7 +77,19 @@ fn render(pieces: &[Piece], caps: &regex::Captures) -> String {
 fn match_file(rule: &Rule, file: &SourceFile, prep: &Prepared) -> Vec<Finding> {
     let haystack = if rule.skip_comments { prep.stripped.as_deref().unwrap_or(&prep.text) } else { &prep.text };
     let lines = splitlines(&prep.text);
+    let raw_line = |line_no: usize| lines.get(line_no - 1).map(|l| strip(l)).unwrap_or("");
     let mut out = Vec::new();
+    if rule.per_line {
+        // Wie `pattern.search(zeile)` je `splitlines`-Zeile: kein Treffer über
+        // einen Trenner hinweg, höchstens einer je Zeile, gezählt an allen
+        // Trennern (auch \f, \v, U+2028 …), nicht nur an \n.
+        for (idx, line) in splitlines(haystack).into_iter().enumerate() {
+            if let Some(caps) = rule.pattern.captures(line) {
+                out.extend(finding(rule, file, &caps, idx + 1, raw_line(idx + 1)));
+            }
+        }
+        return out;
+    }
     let mut newlines = 0usize;
     let mut counted_to = 0usize;
     for caps in rule.pattern.captures_iter(haystack) {
@@ -84,27 +97,42 @@ fn match_file(rule: &Rule, file: &SourceFile, prep: &Prepared) -> Vec<Finding> {
         newlines += haystack.as_bytes()[counted_to..m.start()].iter().filter(|&&b| b == b'\n').count();
         counted_to = m.start();
         let line_no = newlines + 1;
-        let raw = lines.get(line_no - 1).map(|l| strip(l)).unwrap_or("");
-        let excluded = rule.exclude.iter().any(|ex| match ex.on {
-            ExcludeOn::Group(g) => caps.get(g).is_some_and(|c| ex.pattern.is_match(c.as_str())),
-            ExcludeOn::Line => ex.pattern.is_match(raw),
-            ExcludeOn::Path => ex.pattern.is_match(&file.rel),
-        });
-        if excluded {
-            continue;
-        }
-        out.push(Finding {
-            check_id: rule.id.clone(),
-            severity: rule.severity.clone(),
-            message: render(&rule.message, &caps),
-            file: file.rel.clone(),
-            line: line_no,
-            evidence: snippet(raw, 120),
-            fix: rule.fix.clone(),
-            guideline: (!rule.guideline.is_empty()).then(|| rule.guideline.clone()),
-        });
+        out.extend(finding(rule, file, &caps, line_no, raw_line(line_no)));
     }
     out
+}
+
+/// Ein Treffer als Befund, oder None, wenn ein `exclude` ihn verwirft.
+fn finding(rule: &Rule, file: &SourceFile, caps: &regex::Captures, line_no: usize, raw: &str) -> Option<Finding> {
+    let excluded = rule.exclude.iter().any(|ex| match ex.on {
+        ExcludeOn::Group(g) => caps.get(g).is_some_and(|c| ex.pattern.is_match(c.as_str())),
+        ExcludeOn::Line => ex.pattern.is_match(raw),
+        ExcludeOn::Path => ex.pattern.is_match(&file.rel),
+    });
+    if excluded {
+        return None;
+    }
+    Some(Finding {
+        check_id: rule.id.clone(),
+        severity: rule.severity.clone(),
+        message: render(&rule.message, caps),
+        file: file.rel.clone(),
+        line: line_no,
+        evidence: snippet(raw, 120),
+        fix: rule.fix.clone(),
+        guideline: (!rule.guideline.is_empty()).then(|| rule.guideline.clone()),
+    })
+}
+
+/// Vorfilter-Sicht für Zeilenregeln: jeder `splitlines`-Trenner wird `\n`,
+/// damit `(?m)^`/`$` an denselben Stellen greifen wie im Lauf je Zeile. Der
+/// Vorfilter darf zu viel melden (`\s` über einen Umbruch), nie zu wenig.
+fn line_view(text: &str) -> Cow<'_, str> {
+    if text.contains(|c: char| is_line_break(c) && c != '\n') {
+        Cow::Owned(text.chars().map(|c| if is_line_break(c) { '\n' } else { c }).collect())
+    } else {
+        Cow::Borrowed(text)
+    }
 }
 
 /// Ergebnis je Datei und Regelindex: None = Datei nicht im Prüfbereich der Regel.
@@ -122,7 +150,7 @@ fn in_view(rule: &Rule, view: View, file: &SourceFile, owners: &HashMap<String, 
 
 fn process_file(
     rules: &[Rule],
-    sets: &[(RegexSet, Vec<usize>, bool)],
+    sets: &[(RegexSet, Vec<usize>, bool, bool)],
     view: View,
     owners: &HashMap<String, String>,
     file: &SourceFile,
@@ -146,12 +174,13 @@ fn process_file(
     // Ein Durchgang je Vorverarbeitung: das RegexSet sagt, welche Regeln
     // überhaupt treffen; nur für diese laufen die Einzelmuster.
     let mut hit = vec![false; rules.len()];
-    for (set, members, stripped) in sets {
-        let hay = if *stripped { prep.stripped.as_deref().unwrap_or(&prep.text) } else { &prep.text };
+    for (set, members, stripped, per_line) in sets {
         if !members.iter().any(|i| wanted.contains(i)) {
             continue;
         }
-        for k in set.matches(hay).iter() {
+        let hay = if *stripped { prep.stripped.as_deref().unwrap_or(&prep.text) } else { &prep.text };
+        let hay = if *per_line { line_view(hay) } else { Cow::Borrowed(hay) };
+        for k in set.matches(&hay).iter() {
             hit[members[k]] = true;
         }
     }
@@ -178,11 +207,15 @@ pub fn run_rules(
     threads: usize,
 ) -> Result<Vec<RuleResult>, InputError> {
     let mut sets = Vec::new();
-    for stripped in [true, false] {
-        let members: Vec<usize> = (0..rules.len()).filter(|&i| rules[i].skip_comments == stripped).collect();
+    for (stripped, per_line) in [(true, false), (false, false), (true, true), (false, true)] {
+        let members: Vec<usize> = (0..rules.len())
+            .filter(|&i| rules[i].skip_comments == stripped && rules[i].per_line == per_line)
+            .collect();
         if !members.is_empty() {
-            let set = RegexSet::new(members.iter().map(|&i| rules[i].pattern.as_str())).expect("patterns compiled before");
-            sets.push((set, members, stripped));
+            let prefix = if per_line { "(?m)" } else { "" };
+            let set = RegexSet::new(members.iter().map(|&i| format!("{prefix}{}", rules[i].pattern.as_str())))
+                .expect("patterns compiled before");
+            sets.push((set, members, stripped, per_line));
         }
     }
     let threads = threads.max(1).min(files.len().max(1));
