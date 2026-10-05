@@ -58,7 +58,11 @@ class EngineInventoryParity(unittest.TestCase):
                     ".hidden", "..x", ".a.b", "file.", "Makefile", "z/y/x/w.rs", "_/1.txt"):
             _write(self.root, rel)
         out = self.assertSame()
-        self.assertEqual(out["coverage"]["files_scanned"], 13)
+        # Groß-/kleinschreibungsfreie Dateisysteme (macOS, Windows) legen
+        # b.py und B.py als eine Datei an — gezählt wird, was wirklich da ist.
+        on_disk = sum(1 for p in self.root.rglob("*") if p.is_file())
+        self.assertEqual(out["coverage"]["files_scanned"], on_disk)
+        self.assertGreaterEqual(on_disk, 12)
 
     def test_excluded_directories_and_agent_files(self) -> None:
         for rel in ("node_modules/x.js", "build/y.py", "sub/build/z.py", "Assets.xcassets/c.json",

@@ -110,14 +110,49 @@ pub fn realpath(path: &Path) -> PathBuf {
 
 #[cfg(not(unix))]
 pub fn realpath(path: &Path) -> PathBuf {
-    // Windows: ntpath.realpath löst über das Dateisystem auf; ohne Ziel
-    // bleibt der Pfad, wie er ist.
-    std::fs::canonicalize(path)
-        .map(|p| {
-            let s = p.to_string_lossy();
-            PathBuf::from(s.strip_prefix(r"\\?\").unwrap_or(&s).to_string())
-        })
-        .unwrap_or_else(|_| path.to_path_buf())
+    // Windows wie die Python-Seite (discovery.inventory): ntpath.realpath
+    // folgt einem Link ohne Ziel selbst (`_readlink_deep`, Zyklus endet am
+    // ersten Wiederkehrer); das Verzeichnis des Ergebnisses wird danach
+    // aufgelöst, damit Kurz- und Langnamen (RUNNER~1) gleich vergleichen.
+    if let Ok(p) = std::fs::canonicalize(path) {
+        return verbatim_stripped(p);
+    }
+    let mut cur = path.to_path_buf();
+    let mut seen = std::collections::HashSet::new();
+    while seen.insert(cur.to_string_lossy().to_lowercase()) {
+        let Ok(target) = std::fs::read_link(&cur) else { break };
+        cur = if target.is_absolute() { target } else { cur.parent().map(|d| d.join(&target)).unwrap_or(target) };
+    }
+    canonical_prefix(&cur)
+}
+
+/// Längsten existierenden Vorfahren auflösen, den Rest unverändert anhängen.
+#[cfg(not(unix))]
+fn canonical_prefix(path: &Path) -> PathBuf {
+    let mut tail = Vec::new();
+    let mut head = path.to_path_buf();
+    loop {
+        if let Ok(p) = std::fs::canonicalize(&head) {
+            let mut out = verbatim_stripped(p);
+            for part in tail.iter().rev() {
+                out.push(part);
+            }
+            return out;
+        }
+        match (head.file_name().map(|n| n.to_os_string()), head.parent().map(Path::to_path_buf)) {
+            (Some(name), Some(parent)) => {
+                tail.push(name);
+                head = parent;
+            }
+            _ => return path.to_path_buf(),
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn verbatim_stripped(p: PathBuf) -> PathBuf {
+    let s = p.to_string_lossy();
+    PathBuf::from(s.strip_prefix(r"\\?\").unwrap_or(&s).to_string())
 }
 
 #[cfg(all(test, unix))]

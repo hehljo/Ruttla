@@ -484,13 +484,11 @@ def check_mobile_button_touch_target(ctx: Context) -> CheckResult:
         if not owners or not projects[max(owners, key=len)]:
             continue
         current_btn = None
-        current_btn_line = 0
         for idx, line in enumerate(tf.lines, start=1):
             if line.startswith("[node"):
                 m_btn = node_btn_pat.search(line)
                 if m_btn:
                     current_btn = m_btn.group(1)
-                    current_btn_line = idx
                 else:
                     current_btn = None
 

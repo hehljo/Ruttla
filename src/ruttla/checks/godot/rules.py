@@ -877,7 +877,6 @@ def check_unsupported_emoji_in_ui(ctx: Context) -> CheckResult:
     if not files:
         return unmeasured("godot.unsupported_emoji_in_ui", title, "Keine Szenen- oder GDScript-Dateien gefunden.", PLATFORM)
 
-    emoji_pat = re.compile(r"([\U0001F300-\U0001FAFF]|[\u2600-\u27BF])")
     ui_text_pat = re.compile(r'(?:text\s*=\s*"|\.text\s*=\s*).*?([\U0001F300-\U0001FAFF]|[\u2600-\u27BF])')
 
     findings: list[Finding] = []

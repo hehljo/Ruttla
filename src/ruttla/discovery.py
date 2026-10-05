@@ -266,6 +266,15 @@ def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
                 coverage.excluded_by_config += 1
                 continue
             resolved = os.path.realpath(full)
+            dangling = os.path.islink(full) and not os.path.exists(full)
+            if dangling:
+                # Windows: ntpath.realpath gibt bei einem Link ohne Ziel den
+                # gespeicherten Zieltext zurück, ohne dessen Verzeichnis
+                # aufzulösen (Kurzname RUNNER~1 statt Langname) — der Link läge
+                # dann scheinbar außerhalb. Das Verzeichnis nachträglich
+                # auflösen; auf POSIX ist es schon aufgelöst, also ohne Wirkung.
+                resolved = os.path.join(os.path.realpath(os.path.dirname(resolved)),
+                                        os.path.basename(resolved))
             try:
                 inside = os.path.commonpath((root_real, resolved)) == root_real
             except ValueError:
@@ -274,7 +283,7 @@ def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
                 raise GateInputError(
                     f"Eingabepfad verlässt die Prüfwurzel: {rel}"
                 )
-            if os.path.islink(full) and not os.path.exists(full):
+            if dangling:
                 # Erst nach der Wurzelprüfung: ein Link nach außen bleibt ein Abbruch,
                 # auch wenn sein Ziel fehlt. Ein Link ohne erreichbares Ziel (gelöscht, zyklisch) hat keinen
                 # Inhalt — er ist eine Lücke, kein unlesbarer Inhalt. Früher
