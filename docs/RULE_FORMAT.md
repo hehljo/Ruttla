@@ -99,7 +99,7 @@ duplicate ID across `--rules` directories.
 | `ruttla hub sync` | only for missing/changed packages | restore exactly the locked versions, same checks |
 | `ruttla hub remove NAME` | no | drop from lock and store |
 | `ruttla hub check DIR --corpus DIR…` | no | admission (index CI): format · conformance kit · false-positive scan over the healthy corpus (threshold 0; a rule that examines no corpus file is *not measured*) |
-| `ruttla hub build PACKAGES OUT [--previous index.json]` | no | canonical package files + `index.json`; a published version with different content aborts |
+| `ruttla hub build PACKAGES OUT [--previous index.json]` | no | canonical package files + `index.json`; a published version with different content aborts, so does a version older than the published one |
 
 `add`/`sync` need `sigstore` (`pip install 'ruttla[hub]'`); without it they
 abort — nothing is installed unverified. A scan loads locked packages offline

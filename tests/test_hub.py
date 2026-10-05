@@ -8,6 +8,8 @@ echte Signatur prüft der Ende-zu-Ende-Lauf gegen das Index-Repo.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import re
@@ -161,6 +163,35 @@ class BuildIndexTest(TempCase):
         with self.assertRaisesRegex(hub.HubError, "Version erhöhen"):
             hub.build_index(self.tmp / "src", self.tmp / "out", prev)
 
+    def test_older_version_than_published_aborts(self) -> None:
+        write_source(self.tmp / "src", package())
+        prev = {"packages": {"demo": {"version": "1.2.0", "sha256": "0" * 64,
+                                      "versions": {"1.2.0": "0" * 64}}}}
+        with self.assertRaisesRegex(hub.HubError, "älter als die veröffentlichte 1.2.0"):
+            hub.build_index(self.tmp / "src", self.tmp / "out", prev)
+        # 1.10.0 ist neuer als 1.9.0 — numerisch verglichen, nicht als Text.
+        write_source(self.tmp / "src2", package(version="1.10.0"))
+        prev["packages"]["demo"].update(version="1.9.0", versions={"1.9.0": "0" * 64})
+        self.assertEqual(hub.build_index(self.tmp / "src2", self.tmp / "out", prev), ["demo-1.10.0.json"])
+
+    def test_malformed_previous_index_aborts(self) -> None:
+        write_source(self.tmp / "src", package())
+        for prev in ([], {"packages": []}, {"packages": {"demo": "x"}},
+                     {"packages": {"demo": {"version": "../x", "sha256": "0" * 64}}}):
+            with self.assertRaisesRegex(hub.HubError, "bisheriger Index"):
+                hub.build_index(self.tmp / "src", self.tmp / "out", prev)
+
+    def test_unreadable_previous_file_is_runner_error(self) -> None:
+        write_source(self.tmp / "src", package())
+        bad = self.tmp / "prev.json"
+        bad.write_text("{kaputt", encoding="utf-8")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code = hub.run_hub_command(["build", str(self.tmp / "src"), str(self.tmp / "out"),
+                                        "--previous", str(bad)])
+        self.assertEqual(code, EXIT_CRASH)
+        self.assertIn("nicht lesbar", err.getvalue())
+
     def test_same_content_same_version_is_fine(self) -> None:
         write_source(self.tmp / "src", package())
         digest = hub.sha256(hub.canonical(package()))
@@ -192,6 +223,35 @@ class AddSyncTest(TempCase):
                 hub.add(self.tmp, "demo")
         self.assertFalse((self.tmp / hub.LOCKFILE).exists())
         self.assertFalse((self.tmp / hub.STORE).exists())
+
+    def test_invalid_index_entry_rejected_before_download(self) -> None:
+        fake = FakeHub(package())
+        index = json.loads(fake.assets[hub.INDEX_FILE])
+        index["packages"]["demo"]["version"] = "../../evil"
+        fake.assets[hub.INDEX_FILE] = json.dumps(index).encode()
+        requested: list[str] = []
+        with self.assertRaisesRegex(hub.HubError, "Index-Eintrag 'demo' ungültig"):
+            self._add(lambda name: requested.append(name) or fake(name))
+        self.assertEqual(requested, [hub.INDEX_FILE])
+        self.assertFalse((self.tmp / hub.LOCKFILE).exists())
+
+    def test_lock_with_invalid_version_rejected(self) -> None:
+        (self.tmp / hub.LOCKFILE).write_text(json.dumps({"format": hub.LOCK_FORMAT, "packages": {
+            "demo": {"version": "../../evil", "sha256": "0" * 64}}}), encoding="utf-8")
+        with self.assertRaisesRegex(hub.HubError, "Eintrag 'demo' ungültig"):
+            hub.read_lock(self.tmp)
+
+    def test_search_skips_malformed_entries(self) -> None:
+        fake = FakeHub(package())
+        index = json.loads(fake.assets[hub.INDEX_FILE])
+        index["packages"]["kaputt"] = "kein Objekt"
+        fake.assets[hub.INDEX_FILE] = json.dumps(index).encode()
+        out = io.StringIO()
+        with mock.patch.object(hub, "_fetch", fake), contextlib.redirect_stdout(out):
+            code = hub.run_hub_command(["search"])
+        self.assertEqual(code, EXIT_OK)
+        self.assertIn("demo 1.0.0", out.getvalue())
+        self.assertNotIn("kaputt", out.getvalue())
 
     def test_manipulated_download_rejected(self) -> None:
         with self.assertRaisesRegex(hub.HubError, "Hash"):
@@ -265,6 +325,15 @@ class SignatureTest(unittest.TestCase):
                                            "sigstore.models": None, "sigstore.verify": None}):
             with self.assertRaisesRegex(hub.HubError, "pip install"):
                 hub.verify_signature(b"x", b"{}")
+
+    def test_install_hint_respects_pep668(self) -> None:
+        plain = hub.sigstore_install_hint("/venv/bin/python", externally_managed=False)
+        self.assertIn("/venv/bin/python -m pip install 'sigstore", plain)
+        self.assertNotIn("--break-system-packages", plain)
+        managed = hub.sigstore_install_hint("/usr/bin/python3", externally_managed=True)
+        self.assertIn("PEP 668", managed)
+        self.assertIn("venv", managed)
+        self.assertIn("/usr/bin/python3 -m pip install --break-system-packages 'sigstore", managed)
 
     def test_garbage_bundle_rejected(self) -> None:
         try:

@@ -38,7 +38,7 @@ import tomllib
 from pathlib import Path
 
 from .engine import EXIT_CRASH, EXIT_FAILED, EXIT_OK, EXIT_UNMEASURED
-from .update import REPO
+from .update import REPO, externally_managed
 
 PACKAGE_FORMAT = "ruttla-hub-package/0"
 INDEX_FORMAT = "ruttla-hub-index/0"
@@ -196,6 +196,19 @@ def materialize(pkg: dict, dest: Path) -> None:
 # Signatur
 # ---------------------------------------------------------------------------
 
+def sigstore_install_hint(executable: str, externally_managed: bool) -> str:
+    """Installationshinweis, der auf diesem Python auch tatsächlich durchläuft."""
+    plain = f"  {executable} -m pip install '{SIGSTORE_REQUIREMENT}'"
+    if not externally_managed:
+        return plain
+    return (
+        f"  {executable} ist systemverwaltet (PEP 668) — pip lehnt die Installation dort ab.\n"
+        "  Entweder ruttla in einer venv mit dem Extra installieren (pip install 'ruttla[hub]'),\n"
+        f"  oder bewusst ins System: {executable} -m pip install --break-system-packages "
+        f"'{SIGSTORE_REQUIREMENT}'"
+    )
+
+
 def verify_signature(raw: bytes, bundle_raw: bytes | None) -> None:
     """Sigstore-Nachrichtensignatur des Index-Workflows; jede Abweichung bricht ab."""
     if bundle_raw is None:
@@ -207,7 +220,7 @@ def verify_signature(raw: bytes, bundle_raw: bytes | None) -> None:
     except ImportError as exc:
         raise HubError(
             "Signaturprüfung braucht sigstore — ohne Prüfung wird nichts installiert:\n"
-            f"  {sys.executable} -m pip install '{SIGSTORE_REQUIREMENT}'"
+            + sigstore_install_hint(sys.executable, externally_managed())
         ) from exc
     try:
         bundle = Bundle.from_json(bundle_raw)
@@ -253,6 +266,17 @@ def fetch_index() -> dict:
     return index
 
 
+def entry_ok(entry: object) -> bool:
+    """Index- oder Lockfile-Eintrag: gültige Version und sha256 — beide landen in URL und Vergleich."""
+    return (isinstance(entry, dict)
+            and isinstance(entry.get("version"), str) and bool(VERSION_RE.match(entry["version"]))
+            and isinstance(entry.get("sha256"), str) and bool(re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])))
+
+
+def version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
 def package_file(name: str, version: str) -> str:
     return f"{name}-{version}.json"
 
@@ -290,9 +314,7 @@ def read_lock(root: Path) -> dict[str, dict[str, str]]:
     if not isinstance(data, dict) or data.get("format") != LOCK_FORMAT or not isinstance(pkgs, dict):
         raise HubError(f"{LOCKFILE}: kein {LOCK_FORMAT}")
     for name, entry in pkgs.items():
-        if (not NAME_RE.match(name) or not isinstance(entry, dict)
-                or not isinstance(entry.get("version"), str)
-                or not re.fullmatch(r"[0-9a-f]{64}", str(entry.get("sha256")))):
+        if not NAME_RE.match(name) or not entry_ok(entry):
             raise HubError(f"{LOCKFILE}: Eintrag {name!r} ungültig")
     return pkgs
 
@@ -349,9 +371,11 @@ def _collisions(pkg: dict, taken: set[str]) -> list[str]:
 def add(root: Path, name: str) -> str:
     index = fetch_index()
     entry = index["packages"].get(name)
-    if not isinstance(entry, dict):
+    if entry is None:
         raise HubError(f"Paket {name!r} steht nicht im Index")
-    version, expected = str(entry.get("version")), str(entry.get("sha256"))
+    if not entry_ok(entry):
+        raise HubError(f"Index-Eintrag {name!r} ungültig (version/sha256)")
+    version, expected = entry["version"], entry["sha256"]
     raw, bundle = download(name, version, expected)
     clash = _collisions(parse_package(raw), _official_ids())
     if clash:
@@ -499,7 +523,11 @@ def build_index(packages: Path, out: Path, previous: dict | None) -> list[str]:
     """Kanonische Paketdateien + ``index.json``. Eine veröffentlichte Version
     ist unveränderlich: gleicher Name und gleiche Version mit anderem Inhalt
     bricht ab (sonst würde jedes Lockfile mit dieser Version rot)."""
-    prev = (previous or {}).get("packages", {})
+    prev = {} if previous is None else previous.get("packages") if isinstance(previous, dict) else None
+    if not isinstance(prev, dict) or not all(isinstance(e, dict) and entry_ok(e)
+                                             and isinstance(e.get("versions", {}), dict)
+                                             for e in prev.values()):
+        raise HubError(f"bisheriger Index hat nicht das Format {INDEX_FORMAT}")
     out.mkdir(parents=True, exist_ok=True)
     index: dict[str, dict] = {}
     for name, entry in prev.items():
@@ -515,6 +543,10 @@ def build_index(packages: Path, out: Path, previous: dict | None) -> list[str]:
         raw = canonical(pkg)
         digest = sha256(raw)
         entry = index.setdefault(pkg["name"], {"versions": {}})
+        latest = entry.get("version")
+        if latest is not None and version_key(pkg["version"]) < version_key(latest):
+            raise HubError(f"{pkg['name']} {pkg['version']} ist älter als die veröffentlichte {latest} "
+                           "— ein Rückbau ist eine neue, höhere Version")
         known = entry["versions"].get(pkg["version"])
         if known is not None and known != digest:
             raise HubError(f"{pkg['name']} {pkg['version']} ist schon mit anderem Inhalt veröffentlicht "
@@ -568,7 +600,8 @@ def run_hub_command(argv: list[str], prog: str = "ruttla") -> int:
             pkgs = fetch_index()["packages"]
             needle = args.text.lower()
             hits = [(n, e) for n, e in sorted(pkgs.items())
-                    if needle in n or needle in str(e.get("description", "")).lower()]
+                    if isinstance(e, dict)
+                    and (needle in n or needle in str(e.get("description", "")).lower())]
             for n, e in hits:
                 print(f"{n} {e.get('version')}\t{e.get('description', '')}")
             return EXIT_OK if hits else EXIT_FAILED
@@ -581,7 +614,10 @@ def run_hub_command(argv: list[str], prog: str = "ruttla") -> int:
         if args.cmd == "build":
             previous = None
             if args.previous is not None:
-                previous = json.loads(args.previous.read_text(encoding="utf-8"))
+                try:
+                    previous = json.loads(args.previous.read_text(encoding="utf-8"))
+                except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    raise HubError(f"{args.previous}: nicht lesbar: {exc}") from exc
             for f in build_index(args.packages, args.out, previous):
                 print(f)
             return EXIT_OK

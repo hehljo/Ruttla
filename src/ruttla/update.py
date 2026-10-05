@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import os
 import platform
@@ -22,6 +23,7 @@ import sysconfig
 import tempfile
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 from .engine import EXIT_CRASH, EXIT_OK
 
@@ -111,6 +113,38 @@ def _verified(name: str, data: bytes, sums: dict[str, str]) -> bytes:
     return data
 
 
+def externally_managed() -> bool:
+    """PEP 668: System-Python außerhalb einer venv, dessen pip Installationen ablehnt."""
+    if sys.prefix != sys.base_prefix:
+        return False
+    return (Path(sysconfig.get_path("stdlib")) / "EXTERNALLY-MANAGED").is_file()
+
+
+def editable_install() -> bool:
+    """Läuft Ruttla aus einem Checkout (``pip install -e``)? Dann gehört dort ``git pull`` hin."""
+    try:
+        raw = importlib.metadata.distribution("ruttla").read_text("direct_url.json")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+    try:
+        info = json.loads(raw or "{}")
+    except ValueError:
+        return False
+    return isinstance(info, dict) and bool((info.get("dir_info") or {}).get("editable"))
+
+
+def environment_problem() -> str | None:
+    """Was ``pip install`` in dieser Umgebung verhindert oder zerstören würde — vor jedem Download."""
+    if editable_install():
+        return ("Ruttla läuft aus einem Checkout (pip install -e). Ein Update würde ihn durch eine "
+                "Archivkopie ersetzen — stattdessen im Checkout `git pull` und die Engine mit "
+                "`cargo build --release --manifest-path engine/Cargo.toml` neu bauen.")
+    if externally_managed():
+        return (f"{sys.executable} ist systemverwaltet (PEP 668) — pip lehnt die Installation dort ab. "
+                "Ruttla in einer venv oder mit pipx installieren und das Update dort ausführen.")
+    return None
+
+
 def package_requirement(ref: str) -> str:
     """Archiv statt git+URL: pip braucht dafür kein installiertes git."""
     return f"ruttla @ https://github.com/{REPO}/archive/{ref}.tar.gz"
@@ -145,6 +179,9 @@ def install_engine(data: bytes, filename: str, scripts_dir: str) -> str:
 
 
 def _update(channel: str) -> None:
+    problem = environment_problem()
+    if problem is not None:
+        raise UpdateError(problem)
     for name in channels(channel):
         base = CHANNEL_BASES[name]
         raw_sums = _fetch(base + CHECKSUMS)
@@ -152,30 +189,41 @@ def _update(channel: str) -> None:
             break
     else:
         raise UpdateError(f"Kein Release im Kanal {channel!r} gefunden.")
-    sums = parse_checksums(raw_sums.decode("utf-8"))
+    try:
+        sums = parse_checksums(raw_sums.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise UpdateError(f"{CHECKSUMS} ist kein Text — Update abgebrochen.") from exc
     raw_manifest = _fetch(base + MANIFEST)
     if raw_manifest is None:
         raise UpdateError(f"Release {name} ohne {MANIFEST} — Update abgebrochen.")
-    manifest = json.loads(_verified(MANIFEST, raw_manifest, sums))
+    try:
+        manifest = json.loads(_verified(MANIFEST, raw_manifest, sums))
+    except ValueError as exc:
+        raise UpdateError(f"{MANIFEST} ist kein gültiges JSON — Update abgebrochen.") from exc
+    if not isinstance(manifest, dict):
+        raise UpdateError(f"{MANIFEST} ist kein JSON-Objekt — Update abgebrochen.")
     commit = str(manifest.get("commit", ""))
     if len(commit) != 40 or any(c not in "0123456789abcdef" for c in commit):
         raise UpdateError(f"{MANIFEST}: kein gültiger Commit ({commit!r}) — Update abgebrochen.")
-
-    print(f"Aktualisiere Ruttla auf {name} ({manifest.get('version')}, {commit[:7]}) …")
-    _pip_install(package_requirement(commit))
 
     target = engine_target()
     exe = ".exe" if os.name == "nt" else ""
     asset = f"ruttla-engine-{target}{exe}" if target else None
     # Was das Release enthält, sagt SHA256SUMS — ohne Eintrag keine Anfrage.
     data = _fetch(base + asset) if asset is not None and asset in sums else None
+    # Engine vor pip prüfen: eine abgelehnte Engine darf kein halbes Update hinterlassen.
+    if data is not None:
+        data = _verified(asset, data, sums)
+
+    print(f"Aktualisiere Ruttla auf {name} ({manifest.get('version')}, {commit[:7]}) …")
+    _pip_install(package_requirement(commit))
+
     if data is None:
         print(f"Für {platform.system()}/{platform.machine()} gibt es keine fertige Engine. Die "
               "deklarativen Regeln bleiben 'nicht gemessen', bis du sie selbst baust "
               "(cargo build --release --manifest-path engine/Cargo.toml, dann RUTTLA_ENGINE_BIN).",
               file=sys.stderr)
         return
-    data = _verified(asset, data, sums)
     path = install_engine(data, f"ruttla-engine{exe}", sysconfig.get_path("scripts"))
     check = subprocess.run([path, "--version"], check=False, capture_output=True, text=True)
     if check.returncode != 0:

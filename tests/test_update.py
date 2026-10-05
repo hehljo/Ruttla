@@ -57,6 +57,12 @@ class UpdateCommandTests(unittest.TestCase):
         self.scripts = self._tmp.name
         self.calls: list[list[str]] = []
         self.requested: list[str] = []
+        # Der Entwicklungs-Checkout ist selbst editierbar installiert — die
+        # Umgebungsprüfung gehört hier zum Testfall, nicht zur Maschine.
+        for name in ("editable_install", "externally_managed"):
+            patcher = mock.patch(f"ruttla.update.{name}", return_value=False)
+            setattr(self, name, patcher.start())
+            self.addCleanup(patcher.stop)
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
@@ -103,6 +109,34 @@ class UpdateCommandTests(unittest.TestCase):
         self.assertEqual(code, EXIT_CRASH)
         self.assertIn("Prüfsumme", err)
         self.assertFalse(self._engine_path().exists())
+        self.assertEqual(self.calls, [], "abgelehnte Engine darf kein halbes Update hinterlassen")
+
+    def test_editable_checkout_is_not_replaced(self) -> None:
+        self.editable_install.return_value = True
+        code, _, err = self._run(_release())
+        self.assertEqual(code, EXIT_CRASH)
+        self.assertIn("git pull", err)
+        self.assertEqual((self.calls, self.requested), ([], []))
+
+    def test_externally_managed_python_stops_before_download(self) -> None:
+        self.externally_managed.return_value = True
+        code, _, err = self._run(_release())
+        self.assertEqual(code, EXIT_CRASH)
+        self.assertIn("PEP 668", err)
+        self.assertEqual((self.calls, self.requested), ([], []))
+
+    def test_broken_manifest_is_exit_three(self) -> None:
+        for raw in (b"{kaputt", b"[1, 2]"):
+            urls = _release()
+            manifest_url = CHANNEL_BASES["stable"] + "ruttla-release.json"
+            sums_url = CHANNEL_BASES["stable"] + "SHA256SUMS"
+            urls[manifest_url] = raw
+            urls[sums_url] = f"{hashlib.sha256(raw).hexdigest()}  ruttla-release.json\n".encode()
+            self.calls.clear()
+            code, _, err = self._run(urls)
+            self.assertEqual(code, EXIT_CRASH, raw)
+            self.assertIn("ruttla-release.json", err)
+            self.assertEqual(self.calls, [])
 
     def test_invalid_commit_stops_before_pip(self) -> None:
         code, _, err = self._run(_release(manifest={"commit": "main; rm -rf /"}))
