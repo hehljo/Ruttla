@@ -10,17 +10,31 @@ use regex::Regex;
 #[derive(Debug)]
 pub struct Glob {
     re: Option<Regex>,
+    normcase: bool,
 }
 
 impl Glob {
+    /// `fnmatch.fnmatch`: auf Windows ohne Groß-/Kleinschreibung.
     pub fn new(pattern: &str) -> Glob {
-        let pattern = normcase(pattern);
-        Glob { re: translate(&pattern).map(|src| Regex::new(&src).expect("fnmatch translation is valid")) }
+        Glob::build(&normcase(pattern), true)
+    }
+
+    /// `fnmatch.fnmatchcase`: auf jedem System exakt.
+    pub fn new_case(pattern: &str) -> Glob {
+        Glob::build(pattern, false)
+    }
+
+    fn build(pattern: &str, normcase: bool) -> Glob {
+        Glob {
+            re: translate(pattern).map(|src| Regex::new(&src).expect("fnmatch translation is valid")),
+            normcase,
+        }
     }
 
     pub fn is_match(&self, name: &str) -> bool {
         match &self.re {
-            Some(re) => re.is_match(&normcase(name)),
+            Some(re) if self.normcase => re.is_match(&normcase(name)),
+            Some(re) => re.is_match(name),
             None => false,
         }
     }
