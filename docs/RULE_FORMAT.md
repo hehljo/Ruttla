@@ -35,6 +35,27 @@ examined file → `unmeasured`; hits → `fail`; else `pass`. Fixtures run like
 `expect_finding_contains` the text must occur in `message + " " + evidence`
 of some finding.
 
+## Conformance kit: `ruttla rule test PATH…` (P10-T009)
+
+Checks a rule file or a package (directory, all `*.toml`) the way the hub will
+before admission. Needs only the installed package and engine, not this repo.
+Every rule is loaded **in isolation** (own copy in an empty directory). Steps,
+each reported on its own — one rejection never hides another:
+
+| Step | Rejects |
+|---|---|
+| `schema` | everything `ruttla-engine check-rules` rejects: lookaround/backreferences (the classic ReDoS shapes), patterns over the `regex` size limit, missing `fail`/`pass` fixture, `fix` naming an API without `references`, … |
+| `id` | an ID of an official check (unless the file *is* that official rule, byte for byte) or a duplicate ID within the package |
+| `fixtures` | any fixture that does not hold |
+| `wirksamkeit` | fixtures that stay green when the pattern is neutralized, or when any single `[[match.exclude]]` is removed — such an exclusion is an untested exemption. Add a `pass` fixture per exclusion |
+| `budget` | scan of three ~1 MB stress files (content of the `pass` fixtures repeated, the same as one line, blank lines) over 10 s, or engine output over 64 MB (finding flood) |
+
+Exit 0 = all accepted, 1 = at least one rejected, 2 = not measured (no
+engine), 3 = usage error or no rule found. `--format json` emits
+`ruttla-rulekit/0`. Nested quantifiers such as `^(a+)+$` are accepted: the
+`regex` crate is linear, the budget step measures it instead of guessing from
+the pattern's shape.
+
 ## Port of a Python check (P11-T008)
 
 1. `python3 scripts/port_rule.py CHECK_ID` — skeleton with all metadata and
@@ -53,7 +74,8 @@ of some finding.
    check (still present, rule is *shadowed*) against the rule over the
    reference corpus. Must end with exit 0 and `N/N Repos identisch`.
 5. Delete the Python check (decorator, function, now unused helpers/imports).
-6. `python3 master_gate.py --self-test` — probe count unchanged, green;
+6. `ruttla rule test src/ruttla/rules/<platform>/CHECK_ID.toml` — accepted;
+   `python3 master_gate.py --self-test` — probe count unchanged, green;
    `python3 scripts/engine_gate.py`; `python3 -m unittest discover -s tests`;
    `python3 scripts/gen_rule_docs.py --check`.
 

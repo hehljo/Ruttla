@@ -155,6 +155,10 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         from .update import run_update
 
         return run_update(raw_argv[1:], prog=prog)
+    if raw_argv and raw_argv[0] == "rule":
+        from .rulekit import run_rule_command
+
+        return run_rule_command(raw_argv[1:], prog=prog)
 
     args = build_parser(prog).parse_args(raw_argv)
 

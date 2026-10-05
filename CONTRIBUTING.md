@@ -39,7 +39,11 @@ A rule is mergeable only with:
 7. version thresholds as named constants with their measurement;
 8. a CHANGELOG entry; `python scripts/gen_rule_docs.py`.
 
-Place the rule in `src/ruttla/checks/<pack>/<topic>.py` and import from
+A declarative rule (`src/ruttla/rules/<platform>/<id>.toml`,
+[docs/RULE_FORMAT.md](docs/RULE_FORMAT.md)) must also pass
+`ruttla rule test` — including one `pass` fixture per `[[match.exclude]]`.
+
+A Python check goes into `src/ruttla/checks/<pack>/<topic>.py` and imports from
 `ruttla.core`. Shared helpers go into `_*.py` modules (not loaded as rules).
 Measure the **property**, not the code shape; count candidates, not only
 violations, so a healthy project reports `pass`, not `unmeasured`.

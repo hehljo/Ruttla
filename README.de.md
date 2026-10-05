@@ -102,6 +102,10 @@ cargo build --release --locked --manifest-path engine/Cargo.toml
 export RUTTLA_ENGINE_BIN="$PWD/engine/target/release/ruttla-engine"   # für eine pip-Installation anderswo
 ```
 
+`ruttla rule test PFAD` prüft eine Regel oder ein Regelpaket vor dem Merge
+oder Teilen: isoliert geladen, Fixtures, ungeprüfte Ausschlüsse, ID-Kollision
+und Laufzeitbudget ([docs/RULE_FORMAT.md](docs/RULE_FORMAT.md)).
+
 Ein Checkout findet sein eigenes Build ohne Variable. Auf `PATH` oder im
 geprüften Ordner wird die Engine nie gesucht. `--engine required` macht eine
 fehlende Engine zum Runner-Fehler (Exit 3) — so gehört es in die CI.

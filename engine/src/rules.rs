@@ -214,9 +214,13 @@ pub fn parse_message(text: &str, groups: usize) -> Result<Vec<Piece>, String> {
 }
 
 fn compile(what: &str, pattern: &str) -> Result<Regex, String> {
-    Regex::new(pattern).map_err(|e| {
-        format!("{what} ist kein linearzeitiges Muster (regex-Crate; Lookaround und Rückverweise \
-                 sind nicht erlaubt): {e}")
+    Regex::new(pattern).map_err(|e| match e {
+        // Eigene Meldung: sonst liest sich ein zu großes Muster wie Lookaround.
+        regex::Error::CompiledTooBig(limit) => {
+            format!("{what} ist zu groß (übersetzt über {limit} Bytes, Grenze der regex-Crate)")
+        }
+        e => format!("{what} ist kein linearzeitiges Muster (regex-Crate; Lookaround und Rückverweise \
+                      sind nicht erlaubt): {e}"),
     })
 }
 

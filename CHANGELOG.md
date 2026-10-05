@@ -5,6 +5,14 @@ when added, changed or deprecated.
 
 ## [Unreleased] — 0.1.0 (public preview)
 
+### Added
+- `ruttla rule test PATH…`: conformance kit for declarative rules (schema, ID clash, fixtures, untested exclusions, runtime budget), each rule loaded in isolation (P10-T009).
+
+### Fixed
+- `ruttla-engine`: evidence and `exclude on = "line"` are computed once per line, not per hit. Many hits on one long line (minified file) were hits × line length — 22 s for 100 KB.
+- `ruttla-engine`: a pattern over the `regex` size limit is reported as too large, no longer as lookaround.
+- `web.hardcoded_endpoint`, `web.secret_reaches_browser`: one `pass` fixture per exclusion; the exclusions were untested.
+
 ### Changed
 - `godot.balance_value_in_code`: exclude explicitly named touch width/height/size bounds from gameplay balance advisories; touch damage remains detected. Healthy geometry and isolated damage probes added.
 - `godot.mobile_button_touch_target_too_small`: scope scenes to the nearest portrait project, accept normal configuration whitespace/comments, and distinguish declared minima from actual platform hit regions. Remove the invalid universal 96–120-unit recommendation.

@@ -74,10 +74,32 @@ fn render(pieces: &[Piece], caps: &regex::Captures) -> String {
     out
 }
 
+/// Was an einer Zeile hängt (Evidenz, `exclude on = "line"`), wird je Zeile
+/// einmal berechnet, nicht je Treffer: n Treffer auf einer n Zeichen langen
+/// Zeile (minifizierte Datei) wären sonst n × n. Gemessen 2026-10-05 vor dem
+/// Cache: Muster `a` auf 25/50/100 KB `a` ohne Umbruch 1,5/5,7/22 s.
+struct LineFacts {
+    line_no: usize,
+    evidence: String,
+    excluded: bool,
+}
+
+fn line_facts<'a>(cache: &'a mut Option<LineFacts>, rule: &Rule, lines: &[&str], line_no: usize) -> &'a LineFacts {
+    if cache.as_ref().map(|f| f.line_no) != Some(line_no) {
+        let raw = lines.get(line_no - 1).map(|l| strip(l)).unwrap_or("");
+        *cache = Some(LineFacts {
+            line_no,
+            evidence: snippet(raw, 120),
+            excluded: rule.exclude.iter().any(|ex| ex.on == ExcludeOn::Line && ex.pattern.is_match(raw)),
+        });
+    }
+    cache.as_ref().expect("gerade gesetzt")
+}
+
 fn match_file(rule: &Rule, file: &SourceFile, prep: &Prepared) -> Vec<Finding> {
     let haystack = if rule.skip_comments { prep.stripped.as_deref().unwrap_or(&prep.text) } else { &prep.text };
     let lines = splitlines(&prep.text);
-    let raw_line = |line_no: usize| lines.get(line_no - 1).map(|l| strip(l)).unwrap_or("");
+    let mut facts: Option<LineFacts> = None;
     let mut out = Vec::new();
     if rule.per_line {
         // Wie `pattern.search(zeile)` je `splitlines`-Zeile: kein Treffer über
@@ -85,7 +107,7 @@ fn match_file(rule: &Rule, file: &SourceFile, prep: &Prepared) -> Vec<Finding> {
         // Trennern (auch \f, \v, U+2028 …), nicht nur an \n.
         for (idx, line) in splitlines(haystack).into_iter().enumerate() {
             if let Some(caps) = rule.pattern.captures(line) {
-                out.extend(finding(rule, file, &caps, idx + 1, raw_line(idx + 1)));
+                out.extend(finding(rule, file, &caps, line_facts(&mut facts, rule, &lines, idx + 1)));
             }
         }
         return out;
@@ -96,19 +118,19 @@ fn match_file(rule: &Rule, file: &SourceFile, prep: &Prepared) -> Vec<Finding> {
         let m = caps.get(0).expect("group 0");
         newlines += haystack.as_bytes()[counted_to..m.start()].iter().filter(|&&b| b == b'\n').count();
         counted_to = m.start();
-        let line_no = newlines + 1;
-        out.extend(finding(rule, file, &caps, line_no, raw_line(line_no)));
+        out.extend(finding(rule, file, &caps, line_facts(&mut facts, rule, &lines, newlines + 1)));
     }
     out
 }
 
 /// Ein Treffer als Befund, oder None, wenn ein `exclude` ihn verwirft.
-fn finding(rule: &Rule, file: &SourceFile, caps: &regex::Captures, line_no: usize, raw: &str) -> Option<Finding> {
-    let excluded = rule.exclude.iter().any(|ex| match ex.on {
-        ExcludeOn::Group(g) => caps.get(g).is_some_and(|c| ex.pattern.is_match(c.as_str())),
-        ExcludeOn::Line => ex.pattern.is_match(raw),
-        ExcludeOn::Path => ex.pattern.is_match(&file.rel),
-    });
+fn finding(rule: &Rule, file: &SourceFile, caps: &regex::Captures, line: &LineFacts) -> Option<Finding> {
+    let excluded = line.excluded
+        || rule.exclude.iter().any(|ex| match ex.on {
+            ExcludeOn::Group(g) => caps.get(g).is_some_and(|c| ex.pattern.is_match(c.as_str())),
+            ExcludeOn::Line => false,
+            ExcludeOn::Path => ex.pattern.is_match(&file.rel),
+        });
     if excluded {
         return None;
     }
@@ -117,8 +139,8 @@ fn finding(rule: &Rule, file: &SourceFile, caps: &regex::Captures, line_no: usiz
         severity: rule.severity.clone(),
         message: render(&rule.message, caps),
         file: file.rel.clone(),
-        line: line_no,
-        evidence: snippet(raw, 120),
+        line: line.line_no,
+        evidence: line.evidence.clone(),
         fix: rule.fix.clone(),
         guideline: (!rule.guideline.is_empty()).then(|| rule.guideline.clone()),
     })

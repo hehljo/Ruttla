@@ -84,6 +84,10 @@ cargo build --release --locked --manifest-path engine/Cargo.toml
 export RUTTLA_ENGINE_BIN="$PWD/engine/target/release/ruttla-engine"   # for a pip install elsewhere
 ```
 
+`ruttla rule test PATH` checks a rule or rule package before it is merged or
+shared: isolated load, fixtures, an untested-exclusion probe, ID clashes and
+a runtime budget ([docs/RULE_FORMAT.md](docs/RULE_FORMAT.md)).
+
 A checkout finds its own build without the variable. The engine is never
 looked up on `PATH` or in the scanned directory. `--engine required` turns a
 missing engine into a runner error (exit 3) — use it in CI.

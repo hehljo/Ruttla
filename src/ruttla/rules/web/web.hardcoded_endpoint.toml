@@ -47,3 +47,29 @@ expect = "pass"
 import { ENDPOINTS } from './config';
 const r = await fetch(ENDPOINTS.items);
 """
+
+# Je Ausschluss ein eigener grüner Fall — ohne ihn wäre der Ausschluss eine
+# ungeprüfte Freistellung (`ruttla rule test`, Prüfschritt wirksamkeit).
+[[fixtures]]
+name = "lokaler Entwicklungsserver"
+expect = "pass"
+[fixtures.files]
+"src/dev.ts" = """
+const base = 'http://localhost:5173/api';
+"""
+
+[[fixtures]]
+name = "Schema- und Dokumentationsadresse"
+expect = "pass"
+[fixtures.files]
+"src/schema.ts" = """
+const schema = { $schema: 'https://json-schema.org/draft-07/schema' };
+"""
+
+[[fixtures]]
+name = "die Endpunktliste selbst"
+expect = "pass"
+[fixtures.files]
+"src/config.ts" = """
+export const ENDPOINTS = { items: 'https://api.meinedomain.de/v1/items' };
+"""

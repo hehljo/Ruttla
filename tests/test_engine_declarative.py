@@ -116,6 +116,23 @@ class EngineContract(unittest.TestCase):
         self.assertEqual((result["status"], result["units_examined"]), ("pass", 10))
         self.assertLess(elapsed, BOMB_BOUND_S)
 
+    def test_many_hits_on_one_long_line_stay_linear(self) -> None:
+        # Evidenz und `exclude on = "line"` hängen an der Zeile; je Treffer neu
+        # berechnet war das Treffer × Zeilenlänge. Gemessen 2026-10-05 vor dem
+        # Zeilen-Cache (Release): Muster `a` auf 25/50/100 KB ohne Umbruch
+        # 1,5/5,7/22 s — hier 60 000 Treffer auf 540 KB, also über eine
+        # Minute; danach 0,3 s.
+        self._rule("@register")
+        root = self.tmp / "minified"
+        root.mkdir()
+        (root / "bundle.py").write_text("@register" * 60_000, encoding="utf-8")
+        start = time.perf_counter()
+        proc = _engine(self.binary, "scan", str(root), "--rules", str(self.rules))
+        elapsed = time.perf_counter() - start
+        self.assertEqual(proc.returncode, 0, proc.stdout[-2000:] + proc.stderr)
+        self.assertEqual(len(json.loads(proc.stdout)["results"][0]["findings"]), 60_000)
+        self.assertLess(elapsed, BOMB_BOUND_S)
+
     def test_result_does_not_depend_on_thread_count(self) -> None:
         root = self.tmp / "tree"
         for i in range(40):
