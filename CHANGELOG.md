@@ -11,6 +11,7 @@ when added, changed or deprecated.
 ### Fixed
 - `ruttla-engine`: evidence and `exclude on = "line"` are computed once per line, not per hit. Many hits on one long line (minified file) were hits × line length — 22 s for 100 KB.
 - `ruttla-engine`: a pattern over the `regex` size limit is reported as too large, no longer as lookaround.
+- `ruttla-engine`: `scope.extensions` and fixture paths with `\`, `:` or NUL are rejected at load. `..\x` and `C:/x` passed the `/`-only check and escape the fixture directory on Windows; an extension like `.py/../x` became a path in the kit's stress files.
 - `web.hardcoded_endpoint`, `web.secret_reaches_browser`: one `pass` fixture per exclusion; the exclusions were untested.
 
 ### Changed

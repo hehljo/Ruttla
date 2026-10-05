@@ -213,6 +213,17 @@ pub fn parse_message(text: &str, groups: usize) -> Result<Vec<Piece>, String> {
     Ok(out)
 }
 
+/// Zeichen, die in einer Endung oder einem Fixture-Segment einen Pfad
+/// ergeben. `\\` und `:` zählen auch unter Unix: eine Regel ist dieselbe
+/// Datei auf jedem System, und unter Windows sind `..\\x` und `C:/x`
+/// Ausbrüche bzw. absolute Pfade.
+const PATH_CHARS: &[char] = &['/', '\\', ':', '\0'];
+
+/// Relativer Pfad aus `/`-getrennten Segmenten, der im Fixture-Ordner bleibt.
+fn is_fixture_path(k: &str) -> bool {
+    k.split('/').all(|s| !s.is_empty() && s != "." && s != ".." && !s.contains(PATH_CHARS))
+}
+
 fn compile(what: &str, pattern: &str) -> Result<Regex, String> {
     Regex::new(pattern).map_err(|e| match e {
         // Eigene Meldung: sonst liest sich ein zu großes Muster wie Lookaround.
@@ -252,8 +263,10 @@ pub fn parse_rule(text: &str, source: &Path, known_platforms: &HashSet<String>) 
     if !SEVERITIES.contains(&raw.severity.as_str()) {
         return Err(format!("severity muss eine von {SEVERITIES:?} sein"));
     }
-    if raw.scope.extensions.is_empty() || raw.scope.extensions.iter().any(|e| !e.starts_with('.') || e.to_lowercase() != *e) {
-        return Err("scope.extensions: nicht leer, jede Endung kleingeschrieben mit Punkt".into());
+    if raw.scope.extensions.is_empty()
+        || raw.scope.extensions.iter().any(|e| !e.starts_with('.') || e.len() < 2 || e.to_lowercase() != *e || e.contains(PATH_CHARS))
+    {
+        return Err("scope.extensions: nicht leer, jede Endung kleingeschrieben mit Punkt, ohne / \\ : NUL".into());
     }
     if raw.title.trim().is_empty() || raw.scope.unit_label.trim().is_empty() || raw.match_.message.trim().is_empty() {
         return Err("title, scope.unit_label und match.message dürfen nicht leer sein".into());
@@ -291,7 +304,7 @@ pub fn parse_rule(text: &str, source: &Path, known_platforms: &HashSet<String>) 
         if !EXPECTS.contains(&fx.expect.as_str()) {
             return Err(format!("fixture {:?}: expect muss eine von {EXPECTS:?} sein", fx.name));
         }
-        if fx.files.keys().any(|k| k.starts_with('/') || k.split('/').any(|s| s == ".." || s.is_empty())) {
+        if fx.files.keys().any(|k| !is_fixture_path(k)) {
             return Err(format!("fixture {:?}: Dateipfad verlässt das Fixture", fx.name));
         }
         match (fx.expect_findings, fx.expect.as_str()) {
@@ -429,6 +442,25 @@ files = { "a.gd" = "ok\n" }
     fn backreference_is_rejected() {
         let err = parse(&GOOD.replace(r"wait\((\d+)\)", r"(a)\1wait\((\d+)\)")).unwrap_err();
         assert!(err.contains("linearzeitig"), "{err}");
+    }
+
+    #[test]
+    fn path_like_extensions_are_rejected() {
+        // TOML-Literale (NUL nur als Escape schreibbar).
+        for ext in [r#"".gd/../../x.gd""#, r#"'.gd\..\x'"#, r#"".""#, r#"".c:d""#, r#"".g\u0000d""#] {
+            let text = GOOD.replace(r#"extensions = [".gd"]"#, &format!("extensions = [{ext}]"));
+            assert!(parse(&text).unwrap_err().contains("scope.extensions"), "{ext:?}");
+        }
+    }
+
+    #[test]
+    fn fixture_paths_stay_inside_on_every_system() {
+        for path in ["../a.gd", "/a.gd", "x//a.gd", "./a.gd", "..\\a.gd", "C:/a.gd", "C:\\a.gd", "x\\..\\..\\a.gd"] {
+            let text = GOOD.replacen(r#"files = { "a.gd" = "ok\n" }"#, &format!("files = {{ {path:?} = \"ok\\n\" }}"), 1);
+            assert_ne!(text, GOOD);
+            assert!(parse(&text).unwrap_err().contains("verlässt das Fixture"), "{path:?}");
+        }
+        assert!(is_fixture_path("src/sub/a.gd"));
     }
 
     #[test]

@@ -65,6 +65,14 @@ MALICIOUS: dict[str, tuple[dict, str]] = {
     "ohne_gruene_fixture": (_variant(fixtures=HEALTHY["fixtures"][:1]), "schema"),
     "id_kollision": (_variant(id="web.hardcoded_endpoint", platform="web",
                               scope={"extensions": [".py"], "unit_label": "x"}), "id"),
+    # Endung und Fixture-Pfad werden zu Dateinamen — unter Windows sind
+    # `..\\` und `C:` Ausbrüche aus dem Arbeitsordner.
+    "pfad_in_endung": (_variant(scope={"extensions": [".py/../../../x.py"], "unit_label": "x"}), "schema"),
+    "pfad_in_fixture": (_variant(fixtures=[
+        HEALTHY["fixtures"][0],
+        {"name": "grün", "expect": "pass", "files": {"..\\..\\x.py": "log.info('x')\n"}},
+        HEALTHY["fixtures"][2],
+    ]), "schema"),
     "falsche_fixture": (_variant(fixtures=[
         HEALTHY["fixtures"][0],
         {"name": "grün?", "expect": "pass", "files": {"app.py": "print('x')\n"}},

@@ -342,7 +342,13 @@ def stress_files(rule: dict) -> dict[str, str]:
 def _check_budget(binary: Path, work: Path, rules: Path, rule: dict, report: RuleReport) -> None:
     root = Path(tempfile.mkdtemp(prefix="stress-", dir=work))
     for name, content in stress_files(rule).items():
-        (root / name).write_text(content, encoding="utf-8")
+        target = root / name
+        # Die Endung stammt aus der Regel. Die Engine lehnt Pfadzeichen darin
+        # schon beim Laden ab; hier zweite Sperre, falls eine alte Engine läuft.
+        if any(ch in name for ch in "/\\:\0") or target.resolve().parent != root.resolve():
+            report.add("budget", REJECTED, f"Endung ergibt einen Pfad: {name!r}")
+            return
+        target.write_text(content, encoding="utf-8")
     code, raw, elapsed = _run_engine(
         binary, ["scan", str(root), "--rules", str(rules), "--view", "unscoped", "--threads", "1"],
         BUDGET_S)
