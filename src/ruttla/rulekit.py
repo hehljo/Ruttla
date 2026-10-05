@@ -379,9 +379,14 @@ def _check_budget(binary: Path, work: Path, rules: Path, rule: dict, report: Rul
         per_file[f["file"]] = per_file.get(f["file"], 0) + 1
     detail = (f"{elapsed:.2f}s für {STRESS_FILES} × {STRESS_BYTES // 1000} KB, "
               f"{len(raw) // 1000} KB Ausgabe, höchstens {max(per_file.values(), default=0)} Befunde je Datei")
-    # Über BUDGET_S bricht _run_engine ab (Zweig oben) — ein zweiter
-    # Zeitvergleich hier war in der Sabotage-Runde wirkungslos.
-    report.add("budget", OK, detail)
+    # Über BUDGET_S bricht _run_engine in der Regel schon ab (Zweig oben).
+    # Dieser Vergleich fängt den Rest: einen Lauf, der im letzten
+    # Warteintervall fertig wird. Kein Test erreicht ihn (Sabotage-Runde
+    # 2026-10-05: wirkungslos) — er bleibt als Grenze, nicht als Messung.
+    if elapsed > BUDGET_S:
+        report.add("budget", REJECTED, f"{detail} — Grenze {BUDGET_S:.0f}s")
+    else:
+        report.add("budget", OK, detail)
 
 
 def test_rule(path: Path, binary: Path | None, official: dict[str, bytes | None],
