@@ -50,7 +50,7 @@ from .reporting import (
 from .reporting.agent import agent_field as _agent_field
 from .reporting.text import palette as _color
 from .selftest import NONEXISTENT_APIS as _NONEXISTENT_APIS  # noqa: F401
-from .selftest import run_self_test
+from .selftest import export_self_tests, run_self_test
 
 FORMATS = ("text", "agent", "json", "sarif", "markdown")
 
@@ -136,6 +136,9 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
                     help="Begründung, Referenzen und Proben eines Checks zeigen")
     ap.add_argument("--self-test", action="store_true",
                     help="Sabotage-Gegenprobe der Gates")
+    ap.add_argument("--export-self-tests", metavar="DIR",
+                    help="Sabotage-Proben je Check als JSON nach DIR schreiben "
+                         "(Orakel für den Engine-Port, Schema ruttla-selftests/1)")
     ap.add_argument("--verbose", "-v", action="store_true",
                     help="auch bestandene Checks zeigen")
     ap.add_argument("--no-color", action="store_true")
@@ -211,6 +214,11 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         return EXIT_OK
     if args.self_test:
         return run_self_test(use_color)
+    if args.export_self_tests:
+        total = export_self_tests(args.export_self_tests)
+        print(f"{total} Proben aus {len(REGISTRY)} Checks nach "
+              f"{args.export_self_tests} exportiert.")
+        return EXIT_OK if total else EXIT_UNMEASURED
 
     root = os.path.abspath(args.root if args.root is not None else os.getcwd())
     if not os.path.isdir(root):

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruttla.invalid/schemas/selftests-1.schema.json",
+  "title": "Ruttla exported self-test probes (ruttla-selftests/1)",
+  "description": "Frozen format (P11-T004). One file per check plus index.json. A probe materialises `files` under an empty root, runs the check and expects `expect`; if `expect_finding_contains` is set, that substring must occur in the concatenated message + ' ' + evidence of the findings. Changing a field needs a new schema name.",
+  "oneOf": [
+    {
+      "title": "check file",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "check_id", "platform", "cases"],
+      "properties": {
+        "schema": { "const": "ruttla-selftests/1" },
+        "check_id": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$" },
+        "platform": { "type": "string", "minLength": 1 },
+        "cases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "files", "expect", "expect_finding_contains"],
+            "properties": {
+              "name": { "type": "string" },
+              "files": { "type": "object", "additionalProperties": { "type": "string" } },
+              "expect": { "enum": ["pass", "fail", "unmeasured", "error"] },
+              "expect_finding_contains": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "index",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "checks", "cases_total"],
+      "properties": {
+        "schema": { "const": "ruttla-selftests/1" },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["check_id", "cases"],
+            "properties": {
+              "check_id": { "type": "string" },
+              "cases": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "cases_total": { "type": "integer", "minimum": 0 }
+      }
+    }
+  ]
+}

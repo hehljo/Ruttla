@@ -8,6 +8,7 @@ worse than none.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
@@ -15,8 +16,8 @@ import tempfile
 from .config import Config
 from .context import Context
 from .engine import EXIT_FAILED, EXIT_OK, EXIT_UNMEASURED, validate_result
-from .models import Status
-from .registry import REGISTRY
+from .models import SelfTestCase, Status
+from .registry import REGISTRY, Check
 from .reporting.text import palette
 
 # APIs, die es nicht gibt und die trotzdem naheliegend klingen. Jeder Eintrag
@@ -46,6 +47,102 @@ def probe_count() -> int:
     return sum(len(check.self_tests) for check in REGISTRY.values())
 
 
+def run_case(check: Check, case: SelfTestCase) -> str | None:
+    """Eine Probe ausführen: None = Erwartung erfüllt, sonst die Abweichung."""
+    work = os.path.realpath(tempfile.mkdtemp(prefix="ruttla-selftest-"))
+    try:
+        try:
+            if not _materialise(work, case.files):
+                raise ValueError("Testpfad verlässt Arbeitsbereich")
+            ctx = Context(root=work, config=Config())
+            res = validate_result(check, check.fn(ctx))
+            okay = res.status == case.expect
+            if okay and case.expect_finding_contains:
+                blob = " ".join(
+                    (f.message or "") + " " + (f.evidence or "")
+                    for f in res.findings
+                )
+                okay = case.expect_finding_contains in blob
+            if okay:
+                return None
+            extra = f" (reason: {res.reason})" if res.reason else ""
+            return f"erwartet {case.expect.value}, bekommen {res.status.value}{extra}"
+        except Exception as exc:
+            return f"Probe abgestürzt: {type(exc).__name__}: {exc}"
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+# Export der Proben als Daten (P11-T004): sie sind das Orakel für den Port
+# nach Rust (ADR-0011). Ein portierter Check gilt erst, wenn er genau diese
+# Proben unverändert besteht. Das Format ist eingefroren
+# (schemas/selftests.schema.json); eine Änderung braucht einen neuen Namen.
+SELFTEST_EXPORT_SCHEMA = "ruttla-selftests/1"
+SELFTEST_INDEX = "index.json"
+
+
+def _case_to_dict(case: SelfTestCase) -> dict:
+    return {
+        "name": case.name,
+        "files": dict(sorted(case.files.items())),
+        "expect": case.expect.value,
+        "expect_finding_contains": case.expect_finding_contains,
+    }
+
+
+def _write_json(path: str, data: dict) -> None:
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=1, sort_keys=True)
+        fh.write("\n")
+
+
+def export_self_tests(out_dir: str) -> int:
+    """Je Check eine JSON-Datei plus Index; liefert die Probenzahl."""
+    os.makedirs(out_dir, exist_ok=True)
+    checks = []
+    total = 0
+    for check in sorted(REGISTRY.values(), key=lambda c: c.id):
+        cases = [_case_to_dict(c) for c in check.self_tests]
+        total += len(cases)
+        _write_json(os.path.join(out_dir, f"{check.id}.json"), {
+            "schema": SELFTEST_EXPORT_SCHEMA,
+            "check_id": check.id,
+            "platform": check.platform,
+            "cases": cases,
+        })
+        checks.append({"check_id": check.id, "cases": len(cases)})
+    _write_json(os.path.join(out_dir, SELFTEST_INDEX), {
+        "schema": SELFTEST_EXPORT_SCHEMA,
+        "checks": checks,
+        "cases_total": total,
+    })
+    return total
+
+
+def load_exported_self_tests(out_dir: str) -> dict[str, list[SelfTestCase]]:
+    """Gegenstück zum Export; prüft Schema und Vollständigkeit gegen den Index."""
+    with open(os.path.join(out_dir, SELFTEST_INDEX), encoding="utf-8") as fh:
+        index = json.load(fh)
+    if index.get("schema") != SELFTEST_EXPORT_SCHEMA:
+        raise ValueError(f"unbekanntes Exportschema: {index.get('schema')!r}")
+    loaded: dict[str, list[SelfTestCase]] = {}
+    for entry in index["checks"]:
+        cid = entry["check_id"]
+        with open(os.path.join(out_dir, f"{cid}.json"), encoding="utf-8") as fh:
+            data = json.load(fh)
+        if data.get("schema") != SELFTEST_EXPORT_SCHEMA or data.get("check_id") != cid:
+            raise ValueError(f"{cid}: Datei passt nicht zum Index")
+        cases = [SelfTestCase(name=c["name"], files=c["files"], expect=Status(c["expect"]),
+                              expect_finding_contains=c["expect_finding_contains"])
+                 for c in data["cases"]]
+        if len(cases) != entry["cases"]:
+            raise ValueError(f"{cid}: {len(cases)} Proben, Index sagt {entry['cases']}")
+        loaded[cid] = cases
+    if sum(len(c) for c in loaded.values()) != index["cases_total"]:
+        raise ValueError("Probensumme weicht vom Index ab")
+    return loaded
+
+
 def run_self_test(use_color: bool) -> int:
     """Jeder Check mit Sabotage-Proben wird in BEIDE Richtungen geprüft."""
     red, green, yellow, blue, grey, bold, reset = palette(use_color)
@@ -69,37 +166,11 @@ def run_self_test(use_color: bool) -> int:
             )
         for case in check.self_tests:
             total += 1
-            work = os.path.realpath(tempfile.mkdtemp(prefix="ruttla-selftest-"))
-            try:
-                try:
-                    if not _materialise(work, case.files):
-                        raise ValueError("Testpfad verlässt Arbeitsbereich")
-                    ctx = Context(root=work, config=Config())
-                    res = validate_result(check, check.fn(ctx))
-                    okay = res.status == case.expect
-                    if okay and case.expect_finding_contains:
-                        blob = " ".join(
-                            (f.message or "") + " " + (f.evidence or "")
-                            for f in res.findings
-                        )
-                        okay = case.expect_finding_contains in blob
-                    if okay:
-                        passed += 1
-                    else:
-                        got = res.status.value
-                        extra = f" (reason: {res.reason})" if res.reason else ""
-                        failures.append(
-                            f"{check.id} / '{case.name}': erwartet {case.expect.value}, "
-                            f"bekommen {got}{extra}"
-                        )
-                except Exception as exc:
-                    failures.append(
-                        f"{check.id} / '{case.name}': Probe abgestürzt: "
-                        f"{type(exc).__name__}: {exc}"
-                    )
-            finally:
-                shutil.rmtree(work, ignore_errors=True)
-
+            problem = run_case(check, case)
+            if problem is None:
+                passed += 1
+            else:
+                failures.append(f"{check.id} / '{case.name}': {problem}")
     # Ein fix:-Text ist Code, den jemand abschreibt. Empfiehlt er eine API,
     # die es nicht gibt, baut das Gate den Fehler ein, den es verhindern soll
     # — als Autorität, also schlimmer als gar kein Check.
