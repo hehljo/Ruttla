@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from pathlib import Path
 import sys
 
 from . import __version__
@@ -106,7 +107,7 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
     ap = RunnerArgumentParser(
         prog=prog,
         description="Ruttla — lokales, deterministisches Quality Gate. "
-                    "Scans sind offline; nur `ruttla update` greift aufs Netz zu. "
+                    "Scans sind offline; nur `ruttla update` und `ruttla hub` greifen aufs Netz zu. "
                     "Zielcode wird nie ausgeführt.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Exit: 0 grün · 1 blockierende Befunde · 2 nicht gemessen · 3 Absturz/Fehlbedienung",
@@ -155,6 +156,10 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         from .update import run_update
 
         return run_update(raw_argv[1:], prog=prog)
+    if raw_argv and raw_argv[0] == "hub":
+        from .hub import run_hub_command
+
+        return run_hub_command(raw_argv[1:], prog=prog)
     if raw_argv and raw_argv[0] == "rule":
         from .rulekit import run_rule_command
 
@@ -187,6 +192,17 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
     except Exception as exc:
         _emit_runner_state("plugin_load_failed", str(exc), EXIT_CRASH, args)
         return EXIT_CRASH
+    # Installierte Hub-Pakete des Prüfziels (Lockfile), offline und nur bei
+    # passendem Hash. Selbsttest und Export prüfen allein die offiziellen Regeln.
+    hub_root = os.path.abspath(args.root if args.root is not None else os.getcwd())
+    if not (args.self_test or args.export_self_tests) and os.path.isdir(hub_root):
+        from .hub import HubError, register_locked
+
+        try:
+            register_locked(Path(hub_root))
+        except HubError as exc:
+            _emit_runner_state("hub_lock_mismatch", str(exc), EXIT_CRASH, args)
+            return EXIT_CRASH
 
     if args.platform and args.platform not in PACK_PLATFORMS:
         detail = (" — erkannt, aber noch ohne Regelpaket"

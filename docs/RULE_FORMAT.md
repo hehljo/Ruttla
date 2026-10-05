@@ -81,3 +81,31 @@ the pattern's shape.
 
 Never commit a state where a rule and a Python check share an ID
 (`tests/test_engine_declarative.py` fails on it).
+
+## Hub packages: `ruttla hub` (P10-T010)
+
+Community rules come as packages from the index repo `ruttla-hub` (GitHub
+releases, direct download URLs, no API). A package is one canonical JSON
+document `ruttla-hub-package/0` (`name`, `version`, `description`, `evidence`
+= https URLs to the observed failure, `license`, `rules` = path → rule text).
+Rule IDs must live in `hub.<package>.` — a clash with an official check or
+another package is impossible by construction; the engine still aborts on a
+duplicate ID across `--rules` directories.
+
+| Command | Network | Effect |
+|---|---|---|
+| `ruttla hub search [TEXT]` | yes | list the index |
+| `ruttla hub add NAME` | yes | download, check sha256 against the index, verify the Sigstore bundle (identity: the index repo's `publish.yml` on `main`), write `.ruttla/hub/NAME/package.json` and `ruttla-hub.lock` |
+| `ruttla hub sync` | only for missing/changed packages | restore exactly the locked versions, same checks |
+| `ruttla hub remove NAME` | no | drop from lock and store |
+| `ruttla hub check DIR --corpus DIR…` | no | admission (index CI): format · conformance kit · false-positive scan over the healthy corpus (threshold 0; a rule that examines no corpus file is *not measured*) |
+| `ruttla hub build PACKAGES OUT [--previous index.json]` | no | canonical package files + `index.json`; a published version with different content aborts |
+
+`add`/`sync` need `sigstore` (`pip install 'ruttla[hub]'`); without it they
+abort — nothing is installed unverified. A scan loads locked packages offline
+and only when the stored bytes match the lockfile hash; a mismatch or a missing
+package is a runner error (exit 3, `hub_lock_mismatch`). `.ruttla/` is excluded
+from scans. The lockfile guards against corruption and hand edits, not against
+a malicious target repo — whoever writes the repo writes the lockfile too; the
+design bounds the damage (data only, linear-time patterns, additional findings
+only).

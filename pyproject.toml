@@ -30,6 +30,7 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
+hub = ["sigstore>=4.5,<5"]
 dev = [
     "build>=1.2",
     "coverage>=7.6",

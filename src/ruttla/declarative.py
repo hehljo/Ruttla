@@ -38,6 +38,9 @@ ENGINE_USAGE_EXIT = 3
 
 # Declarative rule IDs that still have a Python check (port in progress).
 SHADOWED: dict[str, Check] = {}
+# Zusätzliche Regelverzeichnisse (installierte Hub-Pakete, ``hub.register_locked``).
+# Sie laufen im selben Engine-Lauf wie die offiziellen Regeln.
+EXTRA_RULE_DIRS: list[Path] = []
 _mode = os.environ.get("RUTTLA_ENGINE", "auto")
 
 
@@ -104,7 +107,7 @@ def _cases(rule: dict) -> list[SelfTestCase]:
             for f in rule.get("fixtures", [])]
 
 
-def _make_check(rule: dict) -> Check:
+def make_check(rule: dict) -> Check:
     check_id = rule["id"]
 
     def run(ctx: "Context") -> CheckResult:
@@ -146,7 +149,7 @@ def load_declarative() -> int:
     """Register every declarative rule; returns the number registered."""
     added = 0
     for rule in read_rules():
-        check = _make_check(rule)
+        check = make_check(rule)
         existing = REGISTRY.get(check.id)
         if existing is not None and not existing.engine:
             SHADOWED[check.id] = check
@@ -194,8 +197,10 @@ def run_engine_rules(ctx: "Context", check_ids: list[str], *, view: str = "scope
             out[cid] = CheckResult(cid, Status.UNMEASURED, check.title, reason=_missing_reason(),
                                    platform=check.platform)
         return out
-    cmd = [str(binary), "scan", ctx.root, "--rules", str(rules or rules_dir()), "--view", view,
-           *_engine_args(ctx)]
+    dirs = [rules] if rules is not None else [rules_dir(), *EXTRA_RULE_DIRS]
+    cmd = [str(binary), "scan", ctx.root, "--view", view, *_engine_args(ctx)]
+    for d in dirs:
+        cmd += ["--rules", str(d)]
     for cid in check_ids:
         cmd += ["--rule", cid]
     # Ausgabe in eine Datei, nie in eine Pipe: ein hängender Kindprozess hält

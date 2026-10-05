@@ -23,6 +23,7 @@ pub const DEFAULT_EXCLUDE_DIRS: &[&str] = &[
     ".qualitygate-work", ".temp", ".tmp", "tmp", ".svelte-kit", ".astro",
     ".parcel-cache", ".angular", "__snapshots__", "migrations_backup",
     ".vercel", ".netlify", ".supabase", "storybook-static", ".docusaurus",
+    ".ruttla",
 ];
 
 pub const AGENT_INSTRUCTION_FILES: &[&str] = &[

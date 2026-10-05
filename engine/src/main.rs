@@ -17,9 +17,9 @@ const USAGE: &str = "usage: ruttla-engine --version
        ruttla-engine inventory ROOT [OPTIONEN]
        ruttla-engine detect ROOT [--manifest DATEI] [OPTIONEN]
        ruttla-engine check-manifest [DATEI]
-       ruttla-engine check-rules --rules DIR [--manifest DATEI]
-       ruttla-engine scan ROOT --rules DIR [--rule ID]... [--view scoped|unscoped] [--threads N] [--manifest DATEI] [OPTIONEN]
-       ruttla-engine selftest --rules DIR [--rule ID]... [--manifest DATEI]
+       ruttla-engine check-rules --rules DIR... [--manifest DATEI]
+       ruttla-engine scan ROOT --rules DIR... [--rule ID]... [--view scoped|unscoped] [--threads N] [--manifest DATEI] [OPTIONEN]
+       ruttla-engine selftest --rules DIR... [--rule ID]... [--manifest DATEI]
 OPTIONEN: [--exclude-dir D]... [--exclude-glob G]... [--max-file-bytes N]";
 
 fn usage_error(msg: &str) -> ExitCode {
@@ -31,7 +31,7 @@ struct Invocation {
     root: Option<PathBuf>,
     cfg: InventoryConfig,
     manifest: Option<PathBuf>,
-    rules: Option<PathBuf>,
+    rules: Vec<PathBuf>,
     only: Vec<String>,
     view: View,
     threads: usize,
@@ -42,7 +42,7 @@ fn parse_inventory_args(args: &[String]) -> Result<Invocation, String> {
     let mut cfg = InventoryConfig::default();
     let mut root: Option<PathBuf> = None;
     let mut manifest: Option<PathBuf> = None;
-    let mut rules: Option<PathBuf> = None;
+    let mut rules: Vec<PathBuf> = Vec::new();
     let mut only = Vec::new();
     let mut view = View::Scoped;
     let mut threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
@@ -51,7 +51,7 @@ fn parse_inventory_args(args: &[String]) -> Result<Invocation, String> {
         let mut value = |flag: &str| it.next().cloned().ok_or(format!("{flag} braucht einen Wert"));
         match a.as_str() {
             "--manifest" => manifest = Some(PathBuf::from(value("--manifest")?)),
-            "--rules" => rules = Some(PathBuf::from(value("--rules")?)),
+            "--rules" => rules.push(PathBuf::from(value("--rules")?)),
             "--rule" => only.push(value("--rule")?),
             "--view" => {
                 view = match value("--view")?.as_str() {
@@ -99,17 +99,31 @@ fn need_root(inv: &Invocation) -> Result<PathBuf, ExitCode> {
 
 /// Regeln laden und auf `--rule` einschränken; Fehler gesammelt, Exit 3.
 fn load_selected(inv: &Invocation, manifest: &Manifest) -> Result<Vec<Rule>, ExitCode> {
-    let Some(dir) = &inv.rules else {
+    if inv.rules.is_empty() {
         return Err(usage_error("--rules DIR fehlt"));
-    };
+    }
     let known = manifest.platforms.iter().map(|p| p.name.clone()).collect();
-    let rules = match load_rules(dir, &known) {
-        Ok(r) => r,
-        Err(errors) => {
-            println!("{}", json!({"error": {"kind": "rules", "path": dir.display().to_string(), "message": errors.join("\n")}}));
-            return Err(ExitCode::from(3));
+    // Mehrere Verzeichnisse (offiziell + Hub-Pakete): dieselbe id in zwei
+    // Verzeichnissen ist ein Abbruch, nie ein stilles Überschreiben.
+    let mut rules: Vec<Rule> = Vec::new();
+    let mut origin: std::collections::HashMap<String, &PathBuf> = std::collections::HashMap::new();
+    for dir in &inv.rules {
+        let loaded = match load_rules(dir, &known) {
+            Ok(r) => r,
+            Err(errors) => {
+                println!("{}", json!({"error": {"kind": "rules", "path": dir.display().to_string(), "message": errors.join("\n")}}));
+                return Err(ExitCode::from(3));
+            }
+        };
+        for r in loaded {
+            if let Some(first) = origin.insert(r.id.clone(), dir) {
+                let msg = format!("id {} kommt in {} und {} vor", r.id, first.display(), dir.display());
+                println!("{}", json!({"error": {"kind": "rules", "path": dir.display().to_string(), "message": msg}}));
+                return Err(ExitCode::from(3));
+            }
+            rules.push(r);
         }
-    };
+    }
     if inv.only.is_empty() {
         return Ok(rules);
     }
@@ -211,7 +225,7 @@ fn main() -> ExitCode {
                 Ok(v) => v,
                 Err(e) => return usage_error(&e),
             };
-            if inv.manifest.is_some() || inv.rules.is_some() {
+            if inv.manifest.is_some() || !inv.rules.is_empty() {
                 return usage_error("--manifest/--rules gelten nicht für inventory");
             }
             let root = match need_root(&inv) {

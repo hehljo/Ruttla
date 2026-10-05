@@ -27,6 +27,7 @@ DEFAULT_EXCLUDE_DIRS = {
     ".qualitygate-work", ".temp", ".tmp", "tmp", ".svelte-kit", ".astro",
     ".parcel-cache", ".angular", "__snapshots__", "migrations_backup",
     ".vercel", ".netlify", ".supabase", "storybook-static", ".docusaurus",
+    ".ruttla",
 }
 
 # Agent instruction files and gate profiles DESCRIBE rules by their role;
