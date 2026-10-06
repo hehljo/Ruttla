@@ -1,0 +1,63 @@
+format = "ruttla-rule/0"
+id = "ci.action_node20_runtime"
+title = "Offizielle GitHub Action auf einer Hauptversion mit veraltetem Node-Runtime"
+platform = "universal"
+severity = "warning"
+guideline = "GUIDELINES.md § CI and script runtimes — grüne Läufe mit Laufzeit-Warnungen"
+rationale = """
+Belegt (Drink-and-Hide, 24.09.2026): ein grüner Lauf meldete, dass
+actions/checkout@v4 auf Node.js 20 läuft und auf Node.js 24 gezwungen
+wurde. Der Job war grün — die Warnung stand nur in den Annotationen.
+
+Die Schwellen sind gemessen, nicht geschätzt: `runs.using` der action.yml je
+Hauptversions-Tag (gh api repos/actions/<name>/contents/action.yml?ref=vN,
+Stand 06.10.2026). Erste Hauptversion mit node24: checkout v5, setup-node v5,
+setup-python v6, cache v5, upload-artifact v6, download-artifact v7,
+github-script v8, setup-dotnet v5, setup-java v5, setup-go v6,
+configure-pages v6, deploy-pages v5. Neue Runtime-Wechsel heißen: neu messen
+und das Muster anpassen. SHA-Pins und fremde Actions misst die Regel nicht.
+"""
+references = ["https://github.com/actions/checkout", "https://github.com/actions/upload-artifact", "https://github.com/actions/download-artifact"]
+safe_by_default = false
+introduced_in = "0.1.0"
+
+[scope]
+extensions = [".yml", ".yaml"]
+unit_label = "YAML-Dateien mit uses:"
+no_files_reason = "Keine YAML-Datei mit 'uses:' gefunden."
+require_text = "uses:"
+
+[match]
+pattern = '''uses:[ \t]*["']?(actions/(?:checkout@v[1-4]|setup-node@v[1-4]|setup-python@v[1-5]|cache@v[1-4]|upload-artifact@v[1-5]|download-artifact@v[1-6]|github-script@v[1-7]|setup-dotnet@v[1-4]|setup-java@v[1-4]|setup-go@v[1-5]|configure-pages@v[1-5]|deploy-pages@v[1-4]))\b'''
+message = "{1} läuft auf Node.js 20 oder älter; der Runner erzwingt Node.js 24 und warnt im grünen Lauf."
+fix = "Auf die erste Hauptversion mit node24 heben (Liste in der Regelbegründung) und deren Changelog auf geänderte Eingaben prüfen."
+
+[[fixtures]]
+name = "checkout v4 und upload-artifact v5"
+expect = "fail"
+expect_findings = 2
+expect_finding_contains = "actions/checkout@v4"
+[fixtures.files]
+".github/workflows/ci.yml" = """
+jobs:
+  test:
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload
+        uses: 'actions/upload-artifact@v5.0.1'
+"""
+
+[[fixtures]]
+name = "node24-Hauptversionen, v10 ist nicht v1"
+expect = "pass"
+[fixtures.files]
+".github/workflows/ci.yml" = """
+jobs:
+  test:
+    steps:
+      # alt: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: actions/upload-artifact@v6
+      - uses: actions/setup-node@v10
+      - uses: someone/checkout@v4
+"""

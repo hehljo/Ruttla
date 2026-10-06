@@ -4,6 +4,7 @@ Dokumentations- und Playtest-Checks.
 Fängt typische Fehler in Anleitungen und Vorlagen:
 - Unquotierte Angle-Bracket-Platzhalter in Shell-Snippets (<HOST_IP> bricht die Shell)
 - Trailing Whitespace in Markdown-Dateien (lässt git diff --check scheitern)
+- Dokumentierte Ergebniswerte, die der Code nirgends als Literal erzeugt
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import re
 
 from ruttla.core import (
     Context, CheckResult, Finding, Severity, Status, SelfTestCase,
-    register, result_for, snippet,
+    register, result_for, snippet, strip_comments, unmeasured,
 )
 
 SHELL_LANGS = {"bash", "sh", "zsh", "shell", "powershell", "pwsh", "cmd", "console"}
@@ -102,3 +103,87 @@ def check_unquoted_shell_placeholders(ctx: Context) -> CheckResult:
                 ))
 
     return result_for("docs.unquoted_shell_placeholder", title, findings, units, "Markdown-Dateien")
+
+
+# --- Dokumentierte Ergebniswerte gegen erzeugte Literale ---------------------
+RESULT_ID = "docs.result_value_not_emitted"
+RESULT_TITLE = "Dokumentierter Ergebniswert kommt im Code nicht als Literal vor"
+SOURCE_EXTS = (".gd", ".py", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".cs", ".swift", ".rs", ".go", ".kt", ".java", ".dart")
+# Eine Werteliste in einer Tabellenzelle, in Klammern hinter einem Ergebniswort:
+# `Grund (`a` / `b`)`. Ohne das Ergebniswort trafen im Sweep über 40 lokale
+# Repos fast nur Modul-, Befehls- und Funktionslisten (`add` / `sync`).
+_VALUE_LIST = re.compile(
+    r"(?i:\b(?:ergebnis|grund|ursache|result|reason|outcome|status|zustand|ausgang)\w*)[ \t]*\("
+    r"[ \t]*(`[a-z][a-z0-9_]*`(?:[ \t]*/[ \t]*`[a-z][a-z0-9_]*`)+)")
+_LITERAL = re.compile(r"""["']([a-z][a-z0-9_]*)["']""")
+
+_RESULT_DOC = (
+    "| Rd. | Ergebnis (`hunter` / `drunks` / `aborted`) | Grund (`last_catch` / `timeout` / `hunter_disconnect`) |\n"
+    "|---|---|---|\n| 1 | | |\n"
+)
+_RESULT_CODE = (
+    "func _finish(reason: String) -> void:\n"
+    "\tvar winner := \"hunter\" if reason == \"last_catch\" else \"drunks\"\n"
+    "\tif reason in [\"timeout\", \"hunter_disconnect\"]:\n"
+    "\t\t_emit(\"aborted\")\n"
+)
+
+
+@register(
+    RESULT_ID, RESULT_TITLE,
+    platform="universal",
+    severity=Severity.WARNING,
+    guideline="GUIDELINES.md § Documentation — Enum- & Literal-Abgleich",
+    rationale="Belegt (Drink-and-Hide DH003-LL-023): die Playtest-Tabelle nannte `disconnect`, der Code "
+              "erzeugt hunter_disconnect und last_drunk_disconnect. Gemessen werden nur Wertelisten in "
+              "Tabellenzellen (`a` / `b`); berechnete Werte (Formatstrings) sieht die Regel nicht.",
+    self_tests=[
+        SelfTestCase("gesund: alle Werte als Literal im Code",
+                     {"docs/playtest.md": _RESULT_DOC, "scripts/match.gd": _RESULT_CODE}, Status.PASS),
+        SelfTestCase("defekt: zusammengefasster Wert",
+                     {"docs/playtest.md": _RESULT_DOC.replace("hunter_disconnect", "disconnect"),
+                      "scripts/match.gd": _RESULT_CODE},
+                     Status.FAIL, expect_finding_contains="disconnect"),
+        SelfTestCase("gesund: Wert nur als Teil eines Bezeichners zählt nicht als Treffer, Literal schon",
+                     {"docs/playtest.md": "| Status (`ready` / `idle`) |\n|---|\n",
+                      "src/a.py": "STATE = 'ready'\nother = \"idle\"\n"}, Status.PASS),
+        SelfTestCase("defekt: Wert steht nur im Kommentar",
+                     {"docs/playtest.md": "| Status (`ready` / `idle`) |\n|---|\n",
+                      "src/a.py": "STATE = 'ready'\n# früher: 'idle'\n"},
+                     Status.FAIL, expect_finding_contains="idle"),
+        SelfTestCase("ungemessen: Bezeichnerliste ohne Ergebniswort",
+                     {"docs/arch.md": "| Modul | `handlers` / `polling` |\n|---|---|\n", "scripts/match.gd": _RESULT_CODE},
+                     Status.UNMEASURED),
+        SelfTestCase("ungemessen: kein Quellcode", {"docs/playtest.md": _RESULT_DOC}, Status.UNMEASURED),
+        SelfTestCase("ungemessen: keine Werteliste",
+                     {"docs/playtest.md": "| Rd. | Notiz |\n|---|---|\n", "scripts/match.gd": _RESULT_CODE},
+                     Status.UNMEASURED),
+    ],
+)
+def check_result_value_not_emitted(ctx: Context) -> CheckResult:
+    literals: set[str] = set()
+    sources = ctx.files(*SOURCE_EXTS)
+    for sf in sources:
+        literals.update(_LITERAL.findall(strip_comments(sf.text, sf.ext)))
+    if not sources:
+        return unmeasured(RESULT_ID, RESULT_TITLE, "Kein Quellcode, gegen den dokumentierte Werte geprüft werden könnten.")
+    findings, units = [], 0
+    for sf in ctx.files(".md"):
+        for no, line in enumerate(sf.lines, 1):
+            if not line.lstrip().startswith("|"):
+                continue
+            for m in _VALUE_LIST.finditer(line):
+                for value in re.findall(r"`([a-z][a-z0-9_]*)`", m.group(1)):
+                    units += 1
+                    if value in literals:
+                        continue
+                    findings.append(Finding(RESULT_ID, Severity.WARNING,
+                        f"Dokumentierter Wert `{value}` kommt in keinem Quelltext als String-Literal vor — "
+                        "Log oder Protokoll zeigen dann einen anderen Text als die Anleitung.",
+                        file=sf.rel, line=no, evidence=snippet(m.group(1)),
+                        fix="Den tatsächlich erzeugten Wert aus Produzent/Serializer übernehmen; zusammengefasste "
+                            "Werte als mehrere exakte Werte auflisten.",
+                        guideline="GUIDELINES.md § Documentation — Enum- & Literal-Abgleich"))
+    if units == 0:
+        return unmeasured(RESULT_ID, RESULT_TITLE, "Keine Werteliste Ergebnis (`a` / `b`) in einer Markdown-Tabelle gefunden.")
+    return result_for(RESULT_ID, RESULT_TITLE, findings, units, "dokumentierte Tabellenwerte")

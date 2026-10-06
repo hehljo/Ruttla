@@ -8,14 +8,13 @@
 > JSON, SARIF) sind in [docs/CONTRACTS.md](docs/CONTRACTS.md) verbindlich.
 > `python3 master_gate.py` ist identisch mit dem Befehl `ruttla`.
 
-**Ruttla** kommt von „rütteln“ — und der Specht-Metapher:
+**Ruttla** kommt von „rütteln“.
 
-Normale Linter schauen nur oberflächlich auf die Rinde. Ruttla macht es wie der
-Specht am Baum: Gezielt an die Struktur klopfen, bis hohle Stellen, Schädlinge
-und Schwachstellen hörbar werden — und Probleme wachrütteln, die beim reinen
-Lesen unbemerkt bleiben.
+Ein normaler Linter liest den Code, wie er daliegt. Ruttla rüttelt daran, bis
+herausfällt, was locker sitzt — genau das zeigt das Logo: zwei geschüttelte
+Klammern, aus denen ein Käfer purzelt.
 
-*Code → Baum/Struktur → Ruttla klopft dagegen → Schwachstellen werden hörbar.*
+*Code → Ruttla rüttelt → was locker sitzt, fällt heraus.*
 
 Es prüft nicht nur, ob eine Regel grün wird, sondern versucht aktiv, sie mit
 einer Gegenprobe zum Scheitern zu bringen. Wenn nichts gemessen wurde, behauptet

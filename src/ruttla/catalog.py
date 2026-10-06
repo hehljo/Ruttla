@@ -104,6 +104,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Regex on untrusted files must stay linear: no ^\\s* under MULTILINE."),
     ("GUIDELINES.md § Internal notes", "internal-notes-stay-local",
      "Session handovers and private roadmaps stay out of published repositories."),
+    ("GUIDELINES.md § CI and script runtimes", "ci-and-script-runtimes",
+     "Green CI runs with forced-runtime warnings; PowerShell 7 APIs need a version guard."),
     ("GUIDELINES.md § Documentation", "documentation-that-can-be-executed",
      "Docs snippets must be copy-paste safe and diff-clean."),
 ]

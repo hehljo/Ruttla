@@ -4,14 +4,13 @@
 
 # Ruttla
 
-**Ruttla** comes from the German *rütteln* ("to shake") — and the woodpecker metaphor.
+**Ruttla** comes from the German *rütteln* ("to shake").
 
-A normal linter looks at the bark. Ruttla behaves like a woodpecker tapping
-against the trunk: it knocks firmly against the code structure until hidden
-hollows, bugs and brittle spots become audible — shaking out flaws that passive
-reading never catches.
+A normal linter reads the code as it lies. Ruttla shakes it until whatever sits
+loose falls out — which is exactly what the logo shows: a pair of braces being
+shaken, a bug tumbling out.
 
-*Code → Structure → Ruttla taps → Weak spots resonate.*
+*Code → Ruttla shakes → what sits loose falls out.*
 
 It doesn't just check whether a rule turns green — it actively tries to make
 every rule fail with a counter-probe. And when nothing was measured, Ruttla

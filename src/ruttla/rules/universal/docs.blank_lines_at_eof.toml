@@ -1,0 +1,36 @@
+format = "ruttla-rule/0"
+id = "docs.blank_lines_at_eof"
+title = "Leerzeilen am Ende einer Markdown-Datei"
+platform = "universal"
+severity = "warning"
+guideline = "GUIDELINES.md § Documentation — git diff --check clean"
+rationale = """
+Belegt (Drink-and-Hide, 06.10.2026): `git diff --cached --check` meldete
+"new blank line at EOF" in zwei neuen Dateien. Ungestaget waren sie für
+`git diff --check` unsichtbar. Schwester von docs.trailing_whitespace, die nur
+Leerraum am Zeilenende misst.
+"""
+introduced_in = "0.1.0"
+
+[scope]
+extensions = [".md"]
+unit_label = "Markdown-Dateien"
+skip_comments = false
+
+[match]
+pattern = '''\n(?:[ \t]*\n)+$'''
+message = "Leerzeile(n) am Dateiende (git diff --check: new blank line at EOF)."
+fix = "Die Datei mit genau einem Zeilenumbruch nach der letzten Textzeile enden lassen."
+
+[[fixtures]]
+name = "zwei Umbrüche am Ende"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"docs/test.md" = "# Titel\n\nText\n\n"
+
+[[fixtures]]
+name = "genau ein Umbruch, Leerzeile mittendrin"
+expect = "pass"
+[fixtures.files]
+"docs/test.md" = "# Titel\n\nText\n"

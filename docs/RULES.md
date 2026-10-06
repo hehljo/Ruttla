@@ -3,16 +3,16 @@
 
 # Rule catalog
 
-156 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+162 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 44 | 9 |
 | dotnet | 10 | 0 |
-| godot | 29 | 0 |
+| godot | 31 | 0 |
 | python | 7 | 0 |
 | raspberry | 6 | 0 |
-| universal | 32 | 6 |
+| universal | 36 | 6 |
 | unreal | 6 | 0 |
 | web | 22 | 3 |
 
@@ -3714,6 +3714,62 @@ func setup():
 
 </details>
 
+### `godot.hud_blocks_world_click`
+
+**Dekorative HUD-Fläche mit Standardfilter STOP verschluckt den Weltklick**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+- Reference: <https://docs.godotengine.org/en/stable/classes/class_control.html>
+- Reference: <https://docs.godotengine.org/en/stable/tutorials/inputs/inputevent.html>
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt (Drink-and-Hide DH003-LL-015): ein dekoratives PanelContainer im HUD fing den Anklage-Klick ab, bevor er _unhandled_input erreichte; Bots riefen die Aktion direkt auf und blieben grün. Gemessen wird nur im Skript bzw. in der Szene mit dem Weltklick-Handler; ein HUD in einer fremden, instanzierten Szene sieht die Regel nicht.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Standardfilter STOP im Skript</summary>
+
+`scripts/world.gd`
+
+```text
+extends Node2D
+func _build_ui() -> void:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	var panel := PanelContainer.new()
+	layer.add_child(panel)
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		_accuse(event.position)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: IGNORE gesetzt</summary>
+
+`scripts/world.gd`
+
+```text
+extends Node2D
+func _build_ui() -> void:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(panel)
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		_accuse(event.position)
+```
+
+</details>
+
 ### `godot.instant_hitbox_overlapping_bodies`
 
 **Kurzlebige Hitbox nutzt get_overlapping_bodies() statt PhysicsDirectSpaceState2D.intersect_shape()**
@@ -4065,6 +4121,64 @@ renderer/rendering_method.mobile="forward_plus"
 ```text
 [rendering]
 renderer/rendering_method.mobile="mobile"
+```
+
+</details>
+
+### `godot.multiplayer_peer_null`
+
+**multiplayer_peer auf null gesetzt — danach ist keine lokale Autorität mehr da**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Netzwerk — Sitzung verlassen
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+- Reference: <https://docs.godotengine.org/en/stable/classes/class_offlinemultiplayerpeer.html>
+- Reference: <https://docs.godotengine.org/en/stable/classes/class_multiplayerapi.html>
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt (Drink-and-Hide, 25.09.2026): die Rückkehr ins Hauptmenü setzte
+multiplayer_peer auf null. Jede folgende lokale, serverautoritative Sitzung
+im selben Prozess lehnte alle Teilnehmer ab.
+
+Gemessen mit Godot 4.7.1 headless: der Standard-Peer ist ein
+OfflineMultiplayerPeer (is_server() = true, Unique-ID 1). Nach `= null` ist
+has_multiplayer_peer() false, is_server() false und get_unique_id() bricht
+mit "No multiplayer peer is assigned" ab. Mit OfflineMultiplayerPeer.new()
+ist is_server() wieder true.
+
+Weich, weil `= null` zum reinen Beenden einer Verbindung legitim ist, wenn
+danach keine lokale Sitzung mehr Autorität braucht.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Menü-Reset setzt null</summary>
+
+`scripts/app.gd`
+
+```text
+extends Node
+func return_to_menu() -> void:
+	multiplayer.multiplayer_peer.close()
+	multiplayer.multiplayer_peer = null
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Offline-Peer und Vergleich mit null</summary>
+
+`scripts/app.gd`
+
+```text
+extends Node
+func return_to_menu() -> void:
+	# früher: multiplayer.multiplayer_peer = null
+	if multiplayer.multiplayer_peer == null:
+		return
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 ```
 
 </details>
@@ -5320,6 +5434,172 @@ const R = ratioFromTemplate();
 
 </details>
 
+### `ci.action_node20_runtime`
+
+**Offizielle GitHub Action auf einer Hauptversion mit veraltetem Node-Runtime**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § CI and script runtimes — grüne Läufe mit Laufzeit-Warnungen
+- Public rationale: [GUIDELINES.md › ci-and-script-runtimes](GUIDELINES.md#ci-and-script-runtimes)
+- Reference: <https://github.com/actions/checkout>
+- Reference: <https://github.com/actions/upload-artifact>
+- Reference: <https://github.com/actions/download-artifact>
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt (Drink-and-Hide, 24.09.2026): ein grüner Lauf meldete, dass
+actions/checkout@v4 auf Node.js 20 läuft und auf Node.js 24 gezwungen
+wurde. Der Job war grün — die Warnung stand nur in den Annotationen.
+
+Die Schwellen sind gemessen, nicht geschätzt: `runs.using` der action.yml je
+Hauptversions-Tag (gh api repos/actions/<name>/contents/action.yml?ref=vN,
+Stand 06.10.2026). Erste Hauptversion mit node24: checkout v5, setup-node v5,
+setup-python v6, cache v5, upload-artifact v6, download-artifact v7,
+github-script v8, setup-dotnet v5, setup-java v5, setup-go v6,
+configure-pages v6, deploy-pages v5. Neue Runtime-Wechsel heißen: neu messen
+und das Muster anpassen. SHA-Pins und fremde Actions misst die Regel nicht.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): checkout v4 und upload-artifact v5</summary>
+
+`.github/workflows/ci.yml`
+
+```text
+jobs:
+  test:
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload
+        uses: 'actions/upload-artifact@v5.0.1'
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): node24-Hauptversionen, v10 ist nicht v1</summary>
+
+`.github/workflows/ci.yml`
+
+```text
+jobs:
+  test:
+    steps:
+      # alt: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: actions/upload-artifact@v6
+      - uses: actions/setup-node@v10
+      - uses: someone/checkout@v4
+```
+
+</details>
+
+### `docs.blank_lines_at_eof`
+
+**Leerzeilen am Ende einer Markdown-Datei**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § Documentation — git diff --check clean
+- Public rationale: [GUIDELINES.md › documentation-that-can-be-executed](GUIDELINES.md#documentation-that-can-be-executed)
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt (Drink-and-Hide, 06.10.2026): `git diff --cached --check` meldete
+"new blank line at EOF" in zwei neuen Dateien. Ungestaget waren sie für
+`git diff --check` unsichtbar. Schwester von docs.trailing_whitespace, die nur
+Leerraum am Zeilenende misst.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): zwei Umbrüche am Ende</summary>
+
+`docs/test.md`
+
+```text
+# Titel
+
+Text
+
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): genau ein Umbruch, Leerzeile mittendrin</summary>
+
+`docs/test.md`
+
+```text
+# Titel
+
+Text
+```
+
+</details>
+
+### `docs.result_value_not_emitted`
+
+**Dokumentierter Ergebniswert kommt im Code nicht als Literal vor**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § Documentation — Enum- & Literal-Abgleich
+- Public rationale: [GUIDELINES.md › documentation-that-can-be-executed](GUIDELINES.md#documentation-that-can-be-executed)
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt (Drink-and-Hide DH003-LL-023): die Playtest-Tabelle nannte `disconnect`, der Code erzeugt hunter_disconnect und last_drunk_disconnect. Gemessen werden nur Wertelisten in Tabellenzellen (`a` / `b`); berechnete Werte (Formatstrings) sieht die Regel nicht.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: zusammengefasster Wert</summary>
+
+`docs/playtest.md`
+
+```text
+| Rd. | Ergebnis (`hunter` / `drunks` / `aborted`) | Grund (`last_catch` / `timeout` / `disconnect`) |
+|---|---|---|
+| 1 | | |
+```
+
+`scripts/match.gd`
+
+```text
+func _finish(reason: String) -> void:
+	var winner := "hunter" if reason == "last_catch" else "drunks"
+	if reason in ["timeout", "hunter_disconnect"]:
+		_emit("aborted")
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: alle Werte als Literal im Code</summary>
+
+`docs/playtest.md`
+
+```text
+| Rd. | Ergebnis (`hunter` / `drunks` / `aborted`) | Grund (`last_catch` / `timeout` / `hunter_disconnect`) |
+|---|---|---|
+| 1 | | |
+```
+
+`scripts/match.gd`
+
+```text
+func _finish(reason: String) -> void:
+	var winner := "hunter" if reason == "last_catch" else "drunks"
+	if reason in ["timeout", "hunter_disconnect"]:
+		_emit("aborted")
+```
+
+</details>
+
 ### `docs.trailing_whitespace`
 
 **Trailing Whitespace in Markdown-Dateien**
@@ -6048,6 +6328,50 @@ raw_duration = duration('voice.wav')
 if raw_duration < 0.2 or raw_duration > 30.0:
     raise RuntimeError('TTS duration invalid')
 subprocess.run(['ffmpeg', '-i', 'voice.wav', '-filter_complex', 'amix=inputs=2', 'mix.wav'])
+```
+
+</details>
+
+### `powershell.ps7_api_without_guard`
+
+**PowerShell-7-API ohne Versionssperre**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § CI and script runtimes — Laufzeitversion vor der API prüfen
+- Public rationale: [GUIDELINES.md › ci-and-script-runtimes](GUIDELINES.md#ci-and-script-runtimes)
+- Reference: <https://learn.microsoft.com/dotnet/api/system.diagnostics.processstartinfo.argumentlist>
+- Reference: <https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_requires>
+
+<details><summary>Why it exists</summary>
+
+```text
+Windows PowerShell 5.1 bricht an ArgumentList erst zur Laufzeit ab, mit einer Meldung, die nicht auf die Version zeigt.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: ArgumentList ohne Sperre</summary>
+
+`tools/common.ps1`
+
+```text
+param([string[]]$Arguments)
+$info = [System.Diagnostics.ProcessStartInfo]::new('godot')
+foreach ($argument in $Arguments) { [void]$info.ArgumentList.Add($argument) }
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: #Requires -Version 7</summary>
+
+`tools/common.ps1`
+
+```text
+#requires -version 7.2
+param([string[]]$Arguments)
+$info = [System.Diagnostics.ProcessStartInfo]::new('godot')
+foreach ($argument in $Arguments) { [void]$info.ArgumentList.Add($argument) }
 ```
 
 </details>

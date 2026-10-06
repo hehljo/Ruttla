@@ -11,11 +11,14 @@ project.
 
 ## Decision
 
-**Ruttla** — from German *rütteln*, "to shake", and the woodpecker metaphor.
-A normal linter looks at the bark; Ruttla behaves like a woodpecker tapping
-against the tree structure: it knocks firmly against the code until flaws
-resonate, every rule must survive a counter-probe that tries to make it fail,
-and a run that measured nothing never claims that everything is fine.
+**Ruttla** — from German *rütteln*, "to shake": Ruttla shakes the code until
+what sits loose falls out, every rule must survive a counter-probe that tries
+to make it fail, and a run that measured nothing never claims that everything
+is fine.
+
+*Amended 2026-10-06:* the original woodpecker image was dropped together with
+the woodpecker logo; the logo now shows shaken braces
+([concepts](../icon/concepts/prompts.md)).
 
 | Surface | Name |
 |---|---|

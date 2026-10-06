@@ -1,0 +1,59 @@
+format = "ruttla-rule/0"
+id = "godot.multiplayer_peer_null"
+title = "multiplayer_peer auf null gesetzt — danach ist keine lokale Autorität mehr da"
+platform = "godot"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_GAMEDEV.md § Netzwerk — Sitzung verlassen"
+rationale = """
+Belegt (Drink-and-Hide, 25.09.2026): die Rückkehr ins Hauptmenü setzte
+multiplayer_peer auf null. Jede folgende lokale, serverautoritative Sitzung
+im selben Prozess lehnte alle Teilnehmer ab.
+
+Gemessen mit Godot 4.7.1 headless: der Standard-Peer ist ein
+OfflineMultiplayerPeer (is_server() = true, Unique-ID 1). Nach `= null` ist
+has_multiplayer_peer() false, is_server() false und get_unique_id() bricht
+mit "No multiplayer peer is assigned" ab. Mit OfflineMultiplayerPeer.new()
+ist is_server() wieder true.
+
+Weich, weil `= null` zum reinen Beenden einer Verbindung legitim ist, wenn
+danach keine lokale Sitzung mehr Autorität braucht.
+"""
+references = ["https://docs.godotengine.org/en/stable/classes/class_offlinemultiplayerpeer.html", "https://docs.godotengine.org/en/stable/classes/class_multiplayerapi.html"]
+safe_by_default = false
+introduced_in = "0.1.0"
+
+[scope]
+extensions = [".gd"]
+unit_label = "GDScript-Dateien mit multiplayer_peer"
+no_files_reason = "Keine GDScript-Datei setzt multiplayer_peer."
+require_text = "multiplayer_peer"
+
+[match]
+pattern = '''\bmultiplayer_peer[ \t]*=[ \t]*null\b'''
+message = "multiplayer_peer = null: danach liefert is_server() false — eine folgende lokale Sitzung hat keine Autorität."
+fix = "Beim Verlassen einer Sitzung OfflineMultiplayerPeer.new() zuweisen statt null, wenn im selben Prozess wieder lokal gespielt werden kann."
+
+[[fixtures]]
+name = "Menü-Reset setzt null"
+expect = "fail"
+expect_finding_contains = "is_server"
+[fixtures.files]
+"scripts/app.gd" = """
+extends Node
+func return_to_menu() -> void:
+\tmultiplayer.multiplayer_peer.close()
+\tmultiplayer.multiplayer_peer = null
+"""
+
+[[fixtures]]
+name = "Offline-Peer und Vergleich mit null"
+expect = "pass"
+[fixtures.files]
+"scripts/app.gd" = """
+extends Node
+func return_to_menu() -> void:
+\t# früher: multiplayer.multiplayer_peer = null
+\tif multiplayer.multiplayer_peer == null:
+\t\treturn
+\tmultiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+"""

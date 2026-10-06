@@ -181,7 +181,21 @@ Placeholders and examples are not secrets.
 
 Shell snippets in docs are copied verbatim. An unquoted `<HOST_IP>`
 placeholder becomes an I/O redirection in a POSIX shell. Markdown with
-trailing whitespace fails `git diff --check`.
+trailing whitespace or blank lines at the end fails `git diff --check`.
+Documented result values (`Reason (`a` / `b`)` in a table) must be the exact
+strings the code emits — a summarised `disconnect` hides the real
+`hunter_disconnect`.
+
+<a id="ci-and-script-runtimes"></a>
+### CI and script runtimes
+
+A green CI run can still carry runtime warnings: an official action on a
+major version that targets an outdated Node.js is forced onto a newer runtime
+and only says so in the annotations. The thresholds are measured from each
+tag's `action.yml`, not guessed. Scripts that call an API only available in
+PowerShell 7 (`ProcessStartInfo.ArgumentList`, `ForEach-Object -Parallel`)
+declare `#Requires -Version 7` or check the major version, so Windows
+PowerShell 5.1 fails with a clear message instead of a cryptic one.
 
 <a id="internal-notes-stay-local"></a>
 ### Internal notes stay local
@@ -279,6 +293,13 @@ nodes communicate via signals or exported references instead of fragile
 `get_node("../..")` paths; `any_peer` RPCs must verify the sender; the main
 scene configured in `project.godot` must exist; the project root stays tidy;
 declarations are typed; visible UI text goes through `tr()`.
+
+Decorative HUD controls whose default mouse filter is STOP (`Panel`,
+`PanelContainer`, `ColorRect`, `RichTextLabel`, `ProgressBar`, plain
+`Control`) swallow clicks before `_unhandled_input` sees them; measured with
+`Viewport.push_input`, PASS and IGNORE let the click through. Leaving a
+session sets an `OfflineMultiplayerPeer`, not `null` — with `null`,
+`is_server()` is false and the next local session has no authority.
 
 Explicitly connected Area physics callbacks must defer collider changes using
 `set_deferred()` or a deferred geometry helper. The bounded
