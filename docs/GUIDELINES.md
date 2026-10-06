@@ -176,6 +176,18 @@ Credentials are recognised by their **form** (prefixes, structure, entropy),
 not by variable names, and never live in source or in client bundles.
 Placeholders and examples are not secrets.
 
+<a id="credentials-never-in-a-url"></a>
+### Credentials never in a URL
+
+Passwords and one-time codes travel in a request body (form-urlencoded or
+JSON) or a header — never in a URL. A URL is logged verbatim by the HTTP
+stack on every connection error (on Apple platforms in
+`NSErrorFailingURLStringKey`), by proxies and by server access logs.
+Observed 2026-10-06: a Synology client sent `passwd=` as a GET query item; a
+copied Xcode console log carried the password in plain text, several times
+per failed attempt. The rule examines the assignment to the URL, not the
+parameter array: the same array encoded into `httpBody` is the fix.
+
 <a id="documentation-that-can-be-executed"></a>
 ### Documentation that can be executed
 

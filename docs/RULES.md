@@ -3,16 +3,16 @@
 
 # Rule catalog
 
-162 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+164 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 44 | 9 |
+| apple | 45 | 9 |
 | dotnet | 10 | 0 |
 | godot | 31 | 0 |
 | python | 7 | 0 |
 | raspberry | 6 | 0 |
-| universal | 36 | 6 |
+| universal | 37 | 6 |
 | unreal | 6 | 0 |
 | web | 22 | 3 |
 
@@ -270,6 +270,68 @@ let package = Package(name: "App", targets: [
 ```text
 import SwiftUI
 let b = Bundle.module
+```
+
+</details>
+
+### `apple.credential_in_url_query`
+
+**Passwort oder OTP als URL-Query-Parameter**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Zugangsdaten gehören nie in eine URL
+- Public rationale: [GUIDELINES.md › credentials-never-in-a-url](GUIDELINES.md#credentials-never-in-a-url)
+- Reference: <https://developer.apple.com/documentation/foundation/urlrequest/httpbody>
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein Passwort in `URLComponents.queryItems` landet in der Request-URL — und
+die schreibt CFNetwork bei jedem Verbindungsfehler im Klartext ins Systemlog
+(`NSErrorFailingURLStringKey`), dazu in Proxy- und Server-Zugriffslogs.
+
+Belegt am 06.10.2026 (SynologyPhotos/Lugga): der Login schickte `passwd=` per
+GET; ein Nutzer kopierte das Xcode-Log in einen Chat, beide Passwörter standen
+darin, je Fehlversuch mehrfach. Der Fix ist ein POST mit form-urlencoded Body.
+
+Geprüft wird die Zuweisung an `queryItems` (direkt, per `append` oder als
+gleichnamige Sammelvariable). Ein Array, das in einen Body kodiert wird,
+heißt anders und ist kein Befund.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Sammelvariable queryItems mit passwd (Original-Fehler)</summary>
+
+`Sources/Client.swift`
+
+```text
+func login() async throws {
+    var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
+    var queryItems = [
+        URLQueryItem(name: "api", value: "SYNO.API.Auth"),
+        URLQueryItem(name: "account", value: config.account),
+        URLQueryItem(name: "passwd", value: config.password),
+    ]
+    components?.queryItems = queryItems
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Body-Array unter anderem Namen (der Fix)</summary>
+
+`Sources/Client.swift`
+
+```text
+var params = [
+    URLQueryItem(name: "account", value: config.account),
+    URLQueryItem(name: "passwd", value: config.password),
+]
+var request = URLRequest(url: base)
+request.httpMethod = "POST"
+request.httpBody = formEncoded(params)
 ```
 
 </details>
@@ -6787,6 +6849,49 @@ Zwischenständen. Lokal bleiben sie — nur eben per .gitignore.
 
 ```text
 # Öffentliche Roadmap
+```
+
+</details>
+
+### `secrets.credential_in_url`
+
+**Passwort wird in einen URL-String eingesetzt**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Zugangsdaten gehören nie in eine URL
+- Public rationale: [GUIDELINES.md › credentials-never-in-a-url](GUIDELINES.md#credentials-never-in-a-url)
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein in die URL eingesetztes Passwort (`?password=${pw}`, `&passwd=\(pw)`)
+steht in Systemlogs, Browserverlauf, Proxy- und Server-Zugriffslogs.
+
+Belegt am 06.10.2026 (SynologyPhotos/Lugga): CFNetwork protokollierte bei
+jedem Verbindungsfehler die vollständige Login-URL samt Passwort. Gegenstück
+für Swift-`URLComponents`: `apple.credential_in_url_query`.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Swift-Interpolation</summary>
+
+`Sources/Api.swift`
+
+```text
+let url = URL(string: "\(base)/webapi/auth.cgi?account=\(user)&passwd=\(password)")!
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): kein Treffer über den Zeilenumbruch</summary>
+
+`src/c.js`
+
+```text
+const u = base + '?password=';
+// $user wird hier nicht eingesetzt
 ```
 
 </details>
