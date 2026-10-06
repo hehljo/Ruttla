@@ -1,7 +1,20 @@
 # Changelog
 
+## Godot CSV reference guard (2026-10-06)
+
+- Extended `i18n.catalog_key_parity`: configured CSV catalogs are checked against literal `tr()` calls, scene text keys and explicit title/description/name/unlock key fields. Missing keys in both locales are detected even when catalog parity passes.
+- Reference scope follows the nearest `project.godot` and configured valid CSV files. Unconfigured/dynamic/non-CSV references do not count as measured; existing catalog-parity coverage remains separate. Target code is never executed. Import freshness and rendered labels still require engine evidence.
+- Nine added healthy/isolated defect/unknown controls; Current live working tree: 645/645 total self-test probes; clean-tree validation separately recorded below. CLI tests verify four independent defects and cross-project isolation. Full suite: 297 tests, 294 passed and three optional skips. Full and changed-only scans: 13 PASS, 26 UNMEASURED, no blockers/advisories; generated catalog current. Existing unrelated working-tree changes are preserved.
+
+
 Format: Keep a Changelog; versions: SemVer (ADR-0007). Rule IDs are listed
 when added, changed or deprecated.
+
+
+Format: Keep a Changelog; versions: SemVer (ADR-0007). Rule IDs are listed
+when added, changed or deprecated.
+- Clean baseline plus this change: 636/636 self-test probes; 297 unit/contract tests (294 passed, three optional skips); strict full scan 14 PASS, 25 UNMEASURED, no blockers/advisories; generated catalogue current.
+
 
 ## [Unreleased] — 0.1.0 (public preview)
 

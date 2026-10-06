@@ -26,6 +26,9 @@ from ruttla.core import (
 )
 
 from ._common import MARKUP_EXTS, SOURCE_EXTS
+from ruttla.checks.godot._translation_references import (
+    REFERENCE_SELF_TESTS, csv_translation_references,
+)
 
 
 _CATALOG_PATH = re.compile(
@@ -512,7 +515,7 @@ def check_string_concat(ctx: Context) -> CheckResult:
 
 @register(
     "i18n.catalog_key_parity",
-    "Sprachkataloge haben nicht dieselben Schlüssel",
+    "Sprachkataloge sind unvollständig oder Textschlüssel fehlen",
     severity=Severity.WARNING,
     guideline="CLAUDE.md § Grundsatz C — 'Fehlender Schlüssel ist sichtbar, nicht still leer'",
     self_tests=[
@@ -679,6 +682,7 @@ def check_string_concat(ctx: Context) -> CheckResult:
               ("invalid quoting", 'keys,de,en\nUI_START,"Los,Go\n'),
               ("unrelated data", 'id,name,amount\n1,item,2\n'),
           ]],
+        *REFERENCE_SELF_TESTS,
     ],
 )
 def check_catalog_key_parity(ctx: Context) -> CheckResult:
@@ -695,7 +699,7 @@ def check_catalog_key_parity(ctx: Context) -> CheckResult:
     JSON, verschachtelte oder dynamische TS/JS-Kataloge sind nicht unterstützt;
     erkannte dynamische Locale-Objekte verhindern ein vollständiges PASS.
     """
-    title = "Sprachkataloge haben nicht dieselben Schlüssel"
+    title = "Sprachkataloge sind unvollständig oder Textschlüssel fehlen"
     groups: dict[str, dict[str, dict[str, int]]] = {}
     files = {}
     unsupported = []
@@ -733,14 +737,15 @@ def check_catalog_key_parity(ctx: Context) -> CheckResult:
         groups.setdefault(name, {})[sf.rel] = dict(reversed(_apple_keys(sf)))
         files[sf.rel] = sf.rel
     compared = {name: langs for name, langs in groups.items() if len(langs) >= 2}
-    if not compared:
+    reference_findings, reference_units = csv_translation_references(ctx, _godot_csv_locales)
+    if not compared and not reference_units:
         return unmeasured(
             "i18n.catalog_key_parity", title,
             "Keine unterstützten Kataloge in mindestens zwei Sprachen gefunden. "
             "Gemessen werden Apple .lproj/*.strings, Godot-CSV und flache TS/JS-Locale-Konstanten. "
             "JSON und dynamische Kataloge sind nicht gemessen.")
-    findings: list[Finding] = []
-    units = 0
+    findings: list[Finding] = reference_findings
+    units = reference_units
     for name, langs in sorted(compared.items()):
         union = set().union(*(set(k) for k in langs.values()))
         union.update(expected_keys.get(name, set()))
@@ -761,4 +766,4 @@ def check_catalog_key_parity(ctx: Context) -> CheckResult:
                           "Dynamische oder nicht unterstützte Locale-Objekte: "
                           + ", ".join(sorted(unsupported)))
     return result_for("i18n.catalog_key_parity", title, findings, units,
-                      "Sprachkataloge")
+                      "Sprachkataloge und literale Referenzen eingebundener Godot-CSV-Kataloge; dynamische Referenzen benötigen Laufzeitnachweise")

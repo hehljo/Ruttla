@@ -670,3 +670,10 @@ References: [Apple Buttons](https://developer.apple.com/design/human-interface-g
 Explicit `MIN/MAX_TOUCH_SIZE/WIDTH/HEIGHT` constants express UI geometry, not
 gameplay balance. Excluding them from balance advisories does not prove their
 actual runtime hit regions. Health and touch damage constants remain covered.
+
+## Godot menus and advertising evidence (2026-10-06)
+
+- Input-dependent return focus, non-overlapping pause weapon summaries, refreshed weapon levels/evolutions, zero-value menu records and interruption-safe event banners require actual-engine project contracts. Each regression needs its own isolated defect after a healthy run; static source presence alone cannot prove display or pointer behavior.
+- `i18n.catalog_key_parity` additionally reads configured CSV catalogs and bounded literal references; dynamic keys remain outside its measured scope. Catalog import freshness and dynamic translation keys require runtime proof.
+- Advertising consent UI, a loaded rewarded video, its earned-reward callback, provider app readiness and store publication are separate facts. Local gates cannot certify provider inventory or account approval. Test ads on registered devices verify the native flow; do not substitute mock rewards for native SDK proof.
+- Primary references checked 2026-10-06: https://developers.google.com/admob/ios/test-ads and https://support.google.com/admob/answer/10564477 and https://support.google.com/admob/answer/14538460 .

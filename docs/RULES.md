@@ -5587,7 +5587,7 @@ fi
 
 ### `i18n.catalog_key_parity`
 
-**Sprachkataloge haben nicht dieselben Schlüssel**
+**Sprachkataloge sind unvollständig oder Textschlüssel fehlen**
 
 - Default severity: `warning`
 - Lifecycle: stable, introduced in 0.1.0
