@@ -688,3 +688,7 @@ actual runtime hit regions. Health and touch damage constants remain covered.
 - Primärquellen: https://docs.godotengine.org/en/stable/tutorials/platform/web/customizing_html5_shell.html ; https://docs.godotengine.org/en/stable/classes/class_resourceloader.html ; https://developer.apple.com/design/human-interface-guidelines/launching
 
 - Godot boot regression: a cached threaded resource may already be loaded inside `_ready()`. Defer the scene transition until the parent finishes adding children. Bind a cached-resource engine probe and reject parent-busy/remove-child errors even if the next menu is visible.
+
+### Vollständige Godot-Downloads in Cloud-Builds (06.10.2026)
+
+HTTP 200 und vorhandene Dateigröße beweisen keinen vollständigen Download. Ein belegter macOS-Editor-Download war 33.490 Bytes kürzer als das offizielle Release-Asset; die unveränderte SHA256-Pin-Prüfung lehnte ihn korrekt ab. Nach ausgeschöpften urllib-Retries kann ein unabhängiger curl-Client mit GET, HTTP/1.1, begrenzten Retries/Timeouts und Datei-Ausgabe einspringen. Vor atomarer Übernahme weiterhin exakt denselben offiziellen Digest prüfen; Teilantworten, Transportfehler und falsche Prüfsummen einzeln sabotieren. Keine Prüfsumme an einen kaputten Download anpassen. Reale macOS- und vollständige Cloud-Aktions-/Verteilungsprüfung bleiben eigene Nachweise.
