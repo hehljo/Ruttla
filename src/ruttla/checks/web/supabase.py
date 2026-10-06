@@ -235,3 +235,76 @@ def check_supabase_email_login_without_smtp(ctx: Context) -> CheckResult:
         guideline=_SMTP_GUIDE,
     )
     return result_for(_SMTP_ID, _SMTP_TITLE, [finding], len(calls), "Mail-Login-Aufrufe", "web")
+
+
+_MOCK_ID = "web.rest_mock_ignores_select"
+_MOCK_TITLE = "REST-Attrappe im Prüfstand liefert mehr Spalten als angefragt"
+_MOCK_GUIDE = "docs/GUIDELINES.md § REST-Attrappe ohne select-Projektion"
+_REST_PATH = re.compile(r"/rest/v1/")
+_FULFILL = re.compile(r"\.fulfill\s*\(")
+_SELECT_PARAM = re.compile(r"['\"`]select['\"`]")
+
+
+@register(
+    _MOCK_ID, _MOCK_TITLE, platform="web", severity=Severity.WARNING,
+    guideline=_MOCK_GUIDE,
+    references=("https://postgrest.org/en/stable/references/api/tables_views.html#vertical-filtering",
+                "https://playwright.dev/docs/api/class-route#route-fulfill"),
+    self_tests=[
+        SelfTestCase("Attrappe beantwortet REST mit vollen Zeilen", {
+            "setup-pruef.mjs": (
+                "await page.route('**/*', async (route) => {\n"
+                "  const pfad = new URL(route.request().url()).pathname;\n"
+                "  if (pfad.startsWith('/rest/v1/')) return route.fulfill({ body: JSON.stringify(zeilen(pfad)) });\n"
+                "});\n"),
+        }, Status.FAIL),
+        SelfTestCase("Attrappe projiziert auf select=", {
+            "setup-pruef.mjs": (
+                "await page.route('**/*', async (route) => {\n"
+                "  const url = new URL(route.request().url());\n"
+                "  if (url.pathname.startsWith('/rest/v1/')) {\n"
+                "    const daten = projiziere(zeilen(url.pathname), url.searchParams.get('select'));\n"
+                "    return route.fulfill({ body: JSON.stringify(daten) });\n"
+                "  }\n"
+                "});\n"),
+        }, Status.PASS),
+        SelfTestCase("Nur im Kommentar erwähnte Attrappe", {
+            "setup-pruef.mjs": "// route.fulfill fuer /rest/v1/ waere hier moeglich\nexport default 1;\n",
+        }, Status.UNMEASURED),
+    ],
+)
+def check_rest_mock_ignores_select(ctx: Context) -> CheckResult:
+    """Ein Prüfstand, der PostgREST-Aufrufe abfängt und immer volle Zeilen
+    zurückgibt, ist großzügiger als der echte Server: eine Seite, die Spalten
+    liest, die ihre Abfrage gar nicht selektiert, sieht dort gesund aus und
+    bekommt in Produktion `undefined`. Gemessen wird jede Datei, die
+    `/rest/v1/` mit einem Playwright-`fulfill` beantwortet; ein Befund, wenn
+    sie den `select`-Parameter nirgends ausliest. Ob die Projektion richtig
+    rechnet (Aliasse, Einbettungen), misst der Check nicht.
+
+    Python statt TOML-Regel: der Befund ist die ABWESENHEIT von `select` in
+    einer Datei, die zwei andere Merkmale trägt — das braucht eine
+    Negativbedingung über die ganze Datei, die die linearzeitige Regex der
+    Engine (ohne Lookaround) nicht ausdrücken kann.
+    """
+    findings: list[Finding] = []
+    measured = 0
+    for sf in ctx.files_including_rules(*_CODE_EXT):
+        body = strip_comments(sf.text, sf.ext)
+        rest = _REST_PATH.search(body)
+        if not rest or not _FULFILL.search(body):
+            continue
+        measured += 1
+        if _SELECT_PARAM.search(body):
+            continue
+        findings.append(Finding(
+            check_id=_MOCK_ID, severity=Severity.WARNING,
+            message="REST-Attrappe beantwortet /rest/v1/ ohne den select-Parameter auszuwerten.",
+            file=sf.rel, line=sf.line_of(rest.start()),
+            evidence=sf.text.splitlines()[sf.line_of(rest.start()) - 1].strip()[:160],
+            fix="Antwortzeilen auf die Spalten aus `select=` beschränken, wie PostgREST es tut.",
+            guideline=_MOCK_GUIDE,
+        ))
+    if measured == 0:
+        return unmeasured(_MOCK_ID, _MOCK_TITLE, "Keine REST-Attrappe (fulfill auf /rest/v1/) gefunden.", "web")
+    return result_for(_MOCK_ID, _MOCK_TITLE, findings, measured, "REST-Attrappen", "web")

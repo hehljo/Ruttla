@@ -4,8 +4,27 @@
 
 - Extended `i18n.catalog_key_parity`: configured CSV catalogs are checked against literal `tr()` calls, scene text keys and explicit title/description/name/unlock key fields. Missing keys in both locales are detected even when catalog parity passes.
 - Reference scope follows the nearest `project.godot` and configured valid CSV files. Unconfigured/dynamic/non-CSV references do not count as measured; existing catalog-parity coverage remains separate. Target code is never executed. Import freshness and rendered labels still require engine evidence.
-- Nine added healthy/isolated defect/unknown controls; Current live working tree: 645/645 total self-test probes; clean-tree validation separately recorded below. CLI tests verify four independent defects and cross-project isolation. Full suite: 297 tests, 294 passed and three optional skips. Full and changed-only scans: 13 PASS, 26 UNMEASURED, no blockers/advisories; generated catalog current. Existing unrelated working-tree changes are preserved.
+- Nine added healthy/isolated defect/unknown controls; 645/645 total self-test probes. CLI tests verify four independent defects and cross-project isolation. Full suite: 297 tests, 294 passed and three optional skips. Full and changed-only scans: 13 PASS, 26 UNMEASURED, no blockers/advisories; generated catalog current. Existing unrelated working-tree changes are preserved.
 - Clean baseline plus this change: 636/636 self-test probes; 297 unit/contract tests (294 passed, three optional skips); strict full scan 14 PASS, 25 UNMEASURED, no blockers/advisories; generated catalogue current.
+
+
+## Vite secret replacement and field-device review (2026-10-05)
+
+- Added Rust advisory `web.vite_define_secret`: direct secret-like replacements
+  in `loadEnv` configurations. Six healthy/isolated defect/absent-scope controls;
+  rule-kit schema, ID, fixture, mutation-effectiveness and budget gates passed.
+- 636/636 self-test probes; 238 unit/contract tests (235 passed, one local handover provenance
+  failure, two optional skips). Generated catalogue current; strict self-scan and changed-only have
+  no blockers or advisories. Ignored local handover contains repository/signing
+  identity for another active task and was preserved; full suite not green.
+  No commit or push performed.
+- Existing `rpi.io_without_timeout` no longer demands an unsupported Popen
+  constructor timeout. Three healthy/defect/unknown controls retain blocking
+  run detection and leave Popen-only lifecycles unmeasured.
+- Public Raspberry guidance records writable lgpio notification directories,
+  nonredundant writable binds and actual gpiochip access. Working-directory
+  path relationships and real target GPIO/camera/upload delivery remain
+  unmeasured by the current declarative format; no speculative rule added.
 
 
 ## Collider callbacks and evidence integration (2026-10-04)

@@ -303,6 +303,22 @@ before the service starts; raw measurements are append-only (corrections are
 stored as offsets next to them); long-running services declare a restart
 policy; hardware access is isolated (Principle D).
 
+For GPIO services using `lgpio`, its notification files use a relative path:
+the service's working directory must remain writable by its user after all
+systemd mount restrictions are applied. Declare the pin factory explicitly
+so an unavailable driver does not silently fall back to an incompatible
+implementation. Avoid redundant overlapping writable binds beneath a hidden
+home directory; check the final mount namespace on the target device.
+On Pi 5, gpiozero may select gpiochip4 or gpiochip0 depending on the kernel;
+the device policy must allow the actually selected chip. See the
+[gpiozero implementation](https://gpiozero.readthedocs.io/en/stable/_modules/gpiozero/pins/lgpio.html).
+
+These are target-device checks, not automatic passes. The current declarative
+format cannot compare captured working-directory and read-only path values
+or prove device-node availability; a source scan leaves those runtime claims
+unmeasured. Confirm service restart, input-edge logging and actual image/upload
+delivery separately; a dashboard test does not exercise the physical contact.
+
 <a id="wpf-desktop-guidelines"></a>
 ### WPF desktop guidelines
 
@@ -415,6 +431,23 @@ erreichbare Frontend-URL separat freigeschaltet und im Browser geprüft werden.
 Referenzen: <https://vite.dev/guide/env-and-mode.html>,
 <https://vite.dev/config/server-options.html#server-allowedhosts>,
 <https://supabase.com/docs/guides/auth/redirect-urls>.
+
+<a id="rest-mock-select"></a>
+### REST-Attrappe ohne select-Projektion
+
+Ein Browser-Prüfstand, der PostgREST-Aufrufe (`/rest/v1/…`) abfängt und mit
+Beispielzeilen beantwortet, muss auf die Spalten aus `select=` projizieren.
+Liefert er immer volle Zeilen, ist er großzügiger als der echte Server: eine
+Seite, die eine Spalte liest, die ihre Abfrage nicht selektiert, sieht im
+Prüfstand gesund aus und bekommt in Produktion `undefined`. Belegt am
+06.10.2026 in einer Web-App: eine Auswertungsseite meldete immer „Profilwert
+fehlt", eine zweite immer „Erinnerungen aus", und ein Bearbeiten-Formular
+löschte beim Speichern Verknüpfungen, Beschreibung und Tags — alle drei lasen
+aus den Vorschauspalten der Listenansicht, und alle Browser-Gates waren grün.
+Erst die Projektion im Prüfstand machte die drei rot. Der Check misst nur,
+ob `select` überhaupt ausgewertet wird, nicht ob die Projektion Aliasse und
+Einbettungen richtig behandelt.
+Referenzen: <https://postgrest.org/en/stable/references/api/tables_views.html#vertical-filtering>.
 
 <a id="supabase-email-login-smtp"></a>
 ### Mail-Anmeldung ohne eigenen SMTP

@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-154 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+156 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -14,7 +14,7 @@
 | raspberry | 6 | 0 |
 | universal | 32 | 6 |
 | unreal | 6 | 0 |
-| web | 20 | 3 |
+| web | 22 | 3 |
 
 ## Pack `apple`
 
@@ -5049,6 +5049,7 @@ def berechne_energie(werte):
 - Lifecycle: stable, introduced in 0.1.0
 - Guideline: CODE_QUALITY_GUIDELINES_RASPBERRY.md § 3
 - Public rationale: [GUIDELINES.md › raspberry-pi-field-device-guidelines](GUIDELINES.md#raspberry-pi-field-device-guidelines)
+- Reference: <https://docs.python.org/3/library/subprocess.html#subprocess.Popen>
 
 <details><summary>Why it exists</summary>
 
@@ -7515,6 +7516,65 @@ x
 
 </details>
 
+### `web.rest_mock_ignores_select`
+
+**REST-Attrappe im Prüfstand liefert mehr Spalten als angefragt**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: docs/GUIDELINES.md § REST-Attrappe ohne select-Projektion
+- Public rationale: [GUIDELINES.md › rest-mock-select](GUIDELINES.md#rest-mock-select)
+- Reference: <https://postgrest.org/en/stable/references/api/tables_views.html#vertical-filtering>
+- Reference: <https://playwright.dev/docs/api/class-route#route-fulfill>
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein Prüfstand, der PostgREST-Aufrufe abfängt und immer volle Zeilen
+zurückgibt, ist großzügiger als der echte Server: eine Seite, die Spalten
+liest, die ihre Abfrage gar nicht selektiert, sieht dort gesund aus und
+bekommt in Produktion `undefined`. Gemessen wird jede Datei, die
+`/rest/v1/` mit einem Playwright-`fulfill` beantwortet; ein Befund, wenn
+sie den `select`-Parameter nirgends ausliest. Ob die Projektion richtig
+rechnet (Aliasse, Einbettungen), misst der Check nicht.
+
+Python statt TOML-Regel: der Befund ist die ABWESENHEIT von `select` in
+einer Datei, die zwei andere Merkmale trägt — das braucht eine
+Negativbedingung über die ganze Datei, die die linearzeitige Regex der
+Engine (ohne Lookaround) nicht ausdrücken kann.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Attrappe beantwortet REST mit vollen Zeilen</summary>
+
+`setup-pruef.mjs`
+
+```text
+await page.route('**/*', async (route) => {
+  const pfad = new URL(route.request().url()).pathname;
+  if (pfad.startsWith('/rest/v1/')) return route.fulfill({ body: JSON.stringify(zeilen(pfad)) });
+});
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Attrappe projiziert auf select=</summary>
+
+`setup-pruef.mjs`
+
+```text
+await page.route('**/*', async (route) => {
+  const url = new URL(route.request().url());
+  if (url.pathname.startsWith('/rest/v1/')) {
+    const daten = projiziere(zeilen(url.pathname), url.searchParams.get('select'));
+    return route.fulfill({ body: JSON.stringify(daten) });
+  }
+});
+```
+
+</details>
+
 ### `web.search_selection_resets_category`
 
 **Suchtreffer-Auswahl leert Suchfeld ohne Kategorie-Sync (UI springt weg)**
@@ -8032,6 +8092,58 @@ still aus, und die Farbe ist die geerbte.
 
 ```text
 .page { height: 100dvh; }
+```
+
+</details>
+
+### `web.vite_define_secret`
+
+**Vite ersetzt Client-Konstanten durch Servergeheimnisse**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § 5b Regel 1
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+- Reference: <https://vite.dev/config/shared-options.html#define>
+- Reference: <https://vite.dev/guide/env-and-mode.html>
+
+<details><summary>Why it exists</summary>
+
+```text
+Minimal reproduziertes Fehlerbild: loadEnv mit leerem Präfix liest auch
+Servervariablen. Eine explizite process.env.API_KEY-Ersetzung über
+JSON.stringify(env.PROVIDER_API_KEY) kann den Wert in verwendeten
+Clientausdrücken publizieren, ohne VITE_-Präfix.
+
+Die Regel misst ausschließlich diese direkte Ersetzungsform mit zwei
+eindeutig geheimnisverdächtigen Namen in einer loadEnv-Datei. Sie beweist
+keinen tatsächlich vorhandenen Schlüssel und keine Bundle-Verwendung.
+Aliases, berechnete Schlüssel, Destrukturierung, Wrapper und SSR-only-
+Builds brauchen zusätzliche Prüfung. Kein vollständiger Datenflusscheck.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Einzeldefekt: Providergeheimnis unter generischem Alias</summary>
+
+`vite.config.ts`
+
+```text
+import { loadEnv } from 'vite';
+const env = loadEnv(mode, '.', '');
+export default { define: { 'process.env.API_KEY': JSON.stringify(env.PROVIDER_API_KEY) } };
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Gesund zuerst: nur öffentliche Versionskonstante</summary>
+
+`vite.config.ts`
+
+```text
+import { loadEnv } from 'vite';
+const env = loadEnv(mode, '.', '');
+export default { define: { 'process.env.VERSION': JSON.stringify(env.VERSION) } };
 ```
 
 </details>

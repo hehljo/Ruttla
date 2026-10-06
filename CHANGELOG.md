@@ -1,14 +1,20 @@
 # Changelog
 
+## REST mock select projection (2026-10-06)
+
+- Added `web.rest_mock_ignores_select` (warning, Python: the finding is the
+  absence of `select` handling in a file, which the lookaround-free engine
+  regex cannot express). A Playwright mock that answers `/rest/v1/` with full
+  rows hides pages that read columns their query never selects. Three
+  healthy/defect/unmeasured fixtures; measured against a real broken and fixed
+  harness and one further real finding. Guideline section and public
+  guideline family `rest-mock-select` added; catalogue regenerated.
+
 ## Godot CSV reference guard (2026-10-06)
 
 - Extended `i18n.catalog_key_parity`: configured CSV catalogs are checked against literal `tr()` calls, scene text keys and explicit title/description/name/unlock key fields. Missing keys in both locales are detected even when catalog parity passes.
 - Reference scope follows the nearest `project.godot` and configured valid CSV files. Unconfigured/dynamic/non-CSV references do not count as measured; existing catalog-parity coverage remains separate. Target code is never executed. Import freshness and rendered labels still require engine evidence.
-- Nine added healthy/isolated defect/unknown controls; Current live working tree: 645/645 total self-test probes; clean-tree validation separately recorded below. CLI tests verify four independent defects and cross-project isolation. Full suite: 297 tests, 294 passed and three optional skips. Full and changed-only scans: 13 PASS, 26 UNMEASURED, no blockers/advisories; generated catalog current. Existing unrelated working-tree changes are preserved.
-
-
-Format: Keep a Changelog; versions: SemVer (ADR-0007). Rule IDs are listed
-when added, changed or deprecated.
+- Nine added healthy/isolated defect/unknown controls; 645/645 total self-test probes. CLI tests verify four independent defects and cross-project isolation. Full suite: 297 tests, 294 passed and three optional skips. Full and changed-only scans: 13 PASS, 26 UNMEASURED, no blockers/advisories; generated catalog current. Existing unrelated working-tree changes are preserved.
 
 
 Format: Keep a Changelog; versions: SemVer (ADR-0007). Rule IDs are listed
@@ -19,9 +25,11 @@ when added, changed or deprecated.
 ## [Unreleased] — 0.1.0 (public preview)
 
 ### Added
+- `web.vite_define_secret`: Rust advisory for direct secret-like `process.env` replacements through `JSON.stringify(env.KEY)` in `loadEnv` configurations, including aliases without a `VITE_` prefix. Healthy, isolated defect and absent-scope controls; no claim about actual secret values or bundle usage.
 - `ruttla rule test PATH…`: conformance kit for declarative rules (schema, ID clash, fixtures, untested exclusions, runtime budget), each rule loaded in isolation (P10-T009).
 
 ### Fixed
+- `rpi.io_without_timeout`: no longer recommends the unsupported `timeout` constructor argument for asynchronous `subprocess.Popen`. Direct blocking convenience calls remain checked; Popen-only lifecycles stay unmeasured. Healthy, defect and unknown counterprobes added.
 - `ruttla update`: reads releases via direct download URLs (`releases/latest/download`, `releases/download/nightly`) instead of the GitHub API, which allows 60 unauthenticated requests per hour and IP (`HTTP 403 rate limit exceeded` on a shared CI runner).
 - `ruttla-engine`: evidence and `exclude on = "line"` are computed once per line, not per hit. Many hits on one long line (minified file) were hits × line length — 22 s for 100 KB.
 - `ruttla-engine`: a pattern over the `regex` size limit is reported as too large, no longer as lookaround.

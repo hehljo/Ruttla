@@ -131,6 +131,7 @@ def check_hw_isolation(ctx: Context) -> CheckResult:
     platform=PLATFORM,
     severity=Severity.ERROR,
     guideline="CODE_QUALITY_GUIDELINES_RASPBERRY.md § 3",
+    references=("https://docs.python.org/3/library/subprocess.html#subprocess.Popen",),
     self_tests=[
         SelfTestCase(
             name="serial ohne timeout",
@@ -141,6 +142,21 @@ def check_hw_isolation(ctx: Context) -> CheckResult:
             name="serial mit timeout",
             files={"app/io.py": "import serial\ns = serial.Serial('/dev/ttyUSB0', 9600, timeout=2)\n"},
             expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Gesund: Popen startet asynchron, run hat Zeitlimit",
+            files={"app/io.py": "import subprocess\np = subprocess.Popen(['worker'])\nsubprocess.run(['check'], timeout=3)\np.wait(timeout=3)\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Defekt: blockierendes run weiterhin ohne Zeitlimit",
+            files={"app/io.py": "import subprocess\nsubprocess.run(['check'])\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Ungemessen: Popen-Lebenszyklus allein",
+            files={"app/io.py": "import subprocess\np = subprocess.Popen(['worker'])\n"},
+            expect=Status.UNMEASURED,
         ),
     ],
 )
@@ -156,7 +172,7 @@ def check_timeouts(ctx: Context) -> CheckResult:
     calls = re.compile(
         r"\b(serial\.Serial|requests\.(?:get|post|put|delete|patch)|"
         r"urlopen|socket\.create_connection|http\.client\.HTTP\w*Connection|"
-        r"subprocess\.(?:run|check_output|call|Popen))\s*\("
+        r"subprocess\.(?:run|check_output|call))\s*\("
     )
     findings: list[Finding] = []
     measured = 0

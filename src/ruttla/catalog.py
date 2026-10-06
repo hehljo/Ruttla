@@ -22,6 +22,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Explicit host snapshots separate a reproduced tzdata defect from live VPS capabilities."),
     ("docs/GUIDELINES.md § Browser-Supabase im Remote-Dev-Modus", "browser-supabase-remote-dev",
      "Remote browser hosts must use a Supabase URL reachable from the browser."),
+    ("docs/GUIDELINES.md § REST-Attrappe ohne select-Projektion", "rest-mock-select",
+     "A PostgREST mock must project rows onto the requested select columns like the real server."),
     ("docs/GUIDELINES.md § Mail-Anmeldung ohne eigenen SMTP", "supabase-email-login-smtp",
      "Email login needs its own SMTP; Supabase's default sender is rate-limited and team-only."),
     ("GUIDELINES.md § Server-only boundary", "server-only-boundary",
