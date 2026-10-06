@@ -23,7 +23,9 @@ GUIDELINE = "GUIDELINES.md § CI and script runtimes — Laufzeitversion vor der
 # ProcessStartInfo.ArgumentList gibt es erst ab .NET Core 2.1 (5.1 läuft auf
 # .NET Framework) — belegt in Drink-and-Hide DH004-LL-003; ForEach-Object
 # -Parallel ist laut Doku neu in PowerShell 7.0.
-PS7_API = re.compile(r"\.ArgumentList\b|\bForEach-Object\b[^\n|]*\s-Parallel\b", re.IGNORECASE)
+ARGUMENT_LIST = re.compile(r"\.ArgumentList\b", re.IGNORECASE)
+FOREACH = re.compile(r"\bForEach-Object\b", re.IGNORECASE)
+PARALLEL = re.compile(r"\s-Parallel\b", re.IGNORECASE)
 
 # Zulässige Sperren: `#Requires -Version 6+` bzw. `-PSEdition Core` oder eine
 # Abfrage der Hauptversion, die das Skript mit klarer Meldung abbricht.
@@ -34,6 +36,18 @@ BASE = """param([string[]]$Arguments)
 $info = [System.Diagnostics.ProcessStartInfo]::new('godot')
 foreach ($argument in $Arguments) { [void]$info.ArgumentList.Add($argument) }
 """
+
+
+def _ps7_api(code: str) -> tuple[int, str] | None:
+    """Erste Fundstelle (Zeile, API). Je Pipeline-Segment statt eines Musters
+    `ForEach-Object[^|]*-Parallel`: das liefe von jedem Vorkommen bis zum
+    Zeilenende und wäre quadratisch über eine lange Zeile."""
+    for no, line in enumerate(code.split("\n"), 1):
+        if ARGUMENT_LIST.search(line):
+            return no, ".ArgumentList"
+        if any(FOREACH.search(seg) and PARALLEL.search(seg) for seg in line.split("|")):
+            return no, "ForEach-Object -Parallel"
+    return None
 
 
 @register(
@@ -68,16 +82,16 @@ def check_ps7_api_without_guard(ctx: Context) -> CheckResult:
     units = 0
     for sf in ctx.files(".ps1"):
         code = strip_comments(sf.text, sf.ext)
-        hit = PS7_API.search(code)
+        hit = _ps7_api(code)
         if not hit:
             continue
         units += 1
         if REQUIRES.search(sf.text) or VERSION_QUERY.search(code):
             continue
-        line = code.count("\n", 0, hit.start()) + 1
+        line, api = hit
         findings.append(Finding(
             CHECK_ID, Severity.WARNING,
-            f"'{hit.group(0).strip()}' gibt es erst in PowerShell 7; unter Windows PowerShell 5.1 bricht das Skript "
+            f"'{api}' gibt es erst in PowerShell 7; unter Windows PowerShell 5.1 bricht das Skript "
             "zur Laufzeit ab, ohne die Version zu nennen.",
             file=sf.rel, line=line, evidence=sf.lines[line - 1].strip() if line <= len(sf.lines) else None,
             fix="Als erste Zeile '#Requires -Version 7' setzen (oder die Hauptversion abfragen und mit klarer "

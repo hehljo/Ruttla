@@ -88,7 +88,10 @@ HUD_ID = "godot.hud_blocks_world_click"
 HUD_TITLE = "Dekorative HUD-Fläche mit Standardfilter STOP verschluckt den Weltklick"
 STOP_DEFAULT = ("Control", "Panel", "PanelContainer", "ColorRect", "RichTextLabel", "ProgressBar")
 _STOP_ALT = "|".join(STOP_DEFAULT)
-_WORLD_CLICK = re.compile(r"(?m)^func\s+_unhandled_input\s*\([^\n]*\n((?:[ \t]+[^\n]*\n|[ \t]*\n)*)")
+# Kopf und Rumpf getrennt suchen: eine Rumpf-Gruppe mit zwei überlappenden
+# Zeilenalternativen backtrackt quadratisch über Leerraumzeilen ohne Umbruch.
+_WORLD_CLICK = re.compile(r"(?m)^func[ \t]+_unhandled_input\b[^\n]*\n")
+_NEXT_TOP_LEVEL = re.compile(r"\n(?=[^ \t\n])")
 _CREATE = re.compile(r"(?m)^[ \t]*(?:var\s+)?(\w+)(?:\s*:\s*\w+)?\s*:?=\s*(" + _STOP_ALT + r")\.new\(\)")
 _TSCN_NODE = re.compile(r'(?m)^\[node name="([^"]+)" type="(' + _STOP_ALT + r')"[^\n]*\]\n((?:(?!\[)[^\n]*\n?)*)')
 _TSCN_SCRIPT = re.compile(r'(?m)^\[ext_resource[^\n]*type="Script"[^\n]*path="res://([^"]+)"')
@@ -118,8 +121,10 @@ mouse_filter = 2
 def _world_click_files(ctx: Context) -> set[str]:
     found = set()
     for sf in _gd(ctx):
-        for m in _WORLD_CLICK.finditer(strip_comments(sf.text, sf.ext)):
-            if re.search(r"InputEventMouseButton|MOUSE_BUTTON_", m.group(1)):
+        text = strip_comments(sf.text, sf.ext)
+        for m in _WORLD_CLICK.finditer(text):
+            end = _NEXT_TOP_LEVEL.search(text, m.end())
+            if re.search(r"InputEventMouseButton|MOUSE_BUTTON_", text[m.end():end.start() if end else len(text)]):
                 found.add(sf.rel)
     return found
 
