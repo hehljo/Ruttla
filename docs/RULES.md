@@ -3,18 +3,18 @@
 
 # Rule catalog
 
-167 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+169 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 46 | 9 |
+| apple | 47 | 9 |
 | dotnet | 10 | 0 |
 | godot | 31 | 0 |
 | python | 7 | 0 |
 | raspberry | 6 | 0 |
 | universal | 37 | 6 |
 | unreal | 6 | 0 |
-| web | 24 | 3 |
+| web | 25 | 3 |
 
 ## Pack `apple`
 
@@ -2331,6 +2331,81 @@ Katalog andere Schlüssel führte als der Code verwendet.
 
 ```text
 {"sourceLanguage": "de", "version": "1.0", "strings": {"Hallo": {"localizations": {"en": {"stringUnit": {"state": "translated", "value": "Hello"}}}}, "%lld": {"shouldTranslate": false}, "%@ (%@@%@)": {}, "Alt": {"extractionState": "stale"}}}
+```
+
+</details>
+
+### `apple.required_reason_api_undeclared`
+
+**Required-Reason-API im Swift-Code, aber in keinem Datenschutz-Manifest erklärt**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § Store-Pflichten
+- Public rationale: [GUIDELINES.md › required-reason-api](GUIDELINES.md#required-reason-api)
+- Reference: <https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api>
+- Reference: <https://developer.apple.com/documentation/bundleresources/privacy-manifest-files>
+- Reference: <https://capacitorjs.com/docs/ios/privacy-manifest>
+
+<details><summary>Why it exists</summary>
+
+```text
+Prüfgegenstand ist jede Quellgruppe, die ins App-Binary kommt: der
+eigene Swift-Code und jedes lokale Swift-Paket. Jede benutzte Kategorie
+braucht eine Erklärung im Manifest des Pakets oder der App — und das
+App-Manifest wirkt nur, wenn das Xcode-Projekt es mitnimmt.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Lokales Paket nutzt UserDefaults, kein Manifest</summary>
+
+`ios/App/CapApp-SPM/Package.swift`
+
+```text
+let p = Package(dependencies: [
+  .package(name: "Prefs", path: "../../../node_modules/prefs")
+])
+```
+
+`node_modules/prefs/ios/Sources/Prefs/Store.swift`
+
+```text
+let d = UserDefaults(suiteName: "x")
+```
+
+`ios/App/App/AppDelegate.swift`
+
+```text
+import UIKit
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): App-Manifest erklärt es und steht im Projekt</summary>
+
+`ios/App/CapApp-SPM/Package.swift`
+
+```text
+.package(name: "Prefs", path: "../../../node_modules/prefs")
+```
+
+`node_modules/prefs/Sources/Store.swift`
+
+```text
+UserDefaults.standard
+```
+
+`ios/App/App/PrivacyInfo.xcprivacy`
+
+```text
+<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+```
+
+`ios/App/App.xcodeproj/project.pbxproj`
+
+```text
+/* PrivacyInfo.xcprivacy in Resources */
 ```
 
 </details>
@@ -5497,7 +5572,7 @@ export const A = () => <h1>Willkommen bei Acme</h1>;
 
 </details>
 
-<details><summary>Healthy probe (must PASS): Markenname nur in der Quelle</summary>
+<details><summary>Healthy probe (must PASS): Plugin-Paket liefert keine Marke</summary>
 
 `package.json`
 
@@ -5505,17 +5580,16 @@ export const A = () => <h1>Willkommen bei Acme</h1>;
 {"name": "acme-web"}
 ```
 
-`src/brand.ts`
+`native/acme-apple-sign-in/package.json`
 
 ```text
-export const BRAND = { name: "Acme" };
+{"name": "acme-apple-sign-in", "capacitor": {"ios": {"src": "ios"}}}
 ```
 
 `src/App.tsx`
 
 ```text
-import { BRAND } from "./brand";
-export const A = () => <h1>{BRAND.name}</h1>;
+export const A = () => <button>Mit Apple fortfahren</button>;
 ```
 
 </details>
@@ -7724,6 +7798,58 @@ export const signIn = (redirectTo) => db.auth.signInWithOAuth({
 		</dict>
 	</array>
 </dict>
+```
+
+</details>
+
+### `web.capacitor_plugin_resolved_from_promise`
+
+**Capacitor-Plugin wird aus einem Promise zurückgegeben und hängt für immer**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 9 Web-APIs in WKWebView
+- Public rationale: [GUIDELINES.md › capacitor-plugin-thenable](GUIDELINES.md#capacitor-plugin-thenable)
+- Reference: <https://capacitorjs.com/docs/plugins/creating-plugins/ios-guide>
+
+<details><summary>Why it exists</summary>
+
+```text
+`registerPlugin` liefert einen Proxy, der auf jeden Namen eine Methode
+antwortet — auch auf `then`. Gibt eine async-Funktion oder ein `.then` das
+Plugin selbst zurück, hält JavaScript es für ein Promise, ruft
+`plugin.then(resolve, reject)` als native Methode auf, und `resolve` kommt
+nie. Kein Fehler, kein Log.
+
+Belegt am 07.10.2026 (Merkma): `storage: nativeSessionStorage(async () =>
+(await nativePlugins()).preferences)` — die App blieb am Gerät leer in der
+Hintergrundfarbe stehen, alle Tests grün, weil die Plugin-Attrappen schlichte
+Objekte waren. Warnung statt Fehler: am Muster ist nicht sicher erkennbar,
+dass die Sammlung wirklich Capacitor-Plugins enthält.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): async-Pfeil gibt Plugin aus der Sammlung zurück (Merkma, 07.10.2026)</summary>
+
+`src/data.js`
+
+```text
+client = createClient(url, key, {
+  auth: { storage: nativeSessionStorage(async () => (await nativePlugins()).preferences) },
+});
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Sammlung übergeben, Plugin erst nach dem await</summary>
+
+`src/data.js`
+
+```text
+client = createClient(url, key, { auth: { storage: nativeSessionStorage(nativePlugins) } });
+const read = async (key) => (await nativePlugins()).preferences.get({ key });
+const { p } = await speicher();
 ```
 
 </details>

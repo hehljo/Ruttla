@@ -496,6 +496,36 @@ im Code, und — wo eine iOS-Hülle existiert — einen nativen Rücksprung ohne
 in Supabase unter *Redirect URLs* steht; fehlt sie, ist das Bild dasselbe — die
 App öffnet nach der Anmeldung die Startseite im Browserfenster.
 
+<a id="capacitor-plugin-thenable"></a>
+### Capacitor-Plugin als Promise-Ergebnis
+
+`registerPlugin` liefert einen Proxy, der auf jeden Namen eine Methode
+antwortet — auch auf `then`. Gibt eine async-Funktion oder ein `.then` das
+Plugin selbst zurück, hält JavaScript es für ein Promise, ruft `then` als
+native Methode auf und wartet für immer: kein Fehler, kein Log. Belegt am
+07.10.2026 (Merkma): ein Sitzungsspeicher über `@capacitor/preferences`, die
+App blieb am Gerät leer in der Hintergrundfarbe, alle Tests grün, weil die
+Plugin-Attrappen schlichte Objekte waren. Die Regel warnt bei einer
+async-Pfeilfunktion, deren Rumpf ein Feld einer erwarteten Plugin-Sammlung ist,
+und bei `.then(… => registerPlugin(…))`. Abhilfe: die Sammlung zurückgeben und
+erst nach dem `await` aufs Plugin zugreifen; Attrappen als Proxy bauen, der
+auch auf `then` antwortet.
+
+<a id="required-reason-api"></a>
+### Required-Reason-API ohne Erklärung im Datenschutz-Manifest
+
+App Store Connect lehnt einen iOS-Upload ab (ITMS-91053), wenn Code im Binary
+`UserDefaults`, Datei-Zeitstempel, die Systemstartzeit oder den freien
+Speicher abfragt und kein `PrivacyInfo.xcprivacy` die Kategorie mit Grund
+erklärt. Belegt am 07.10.2026 (Merkma): `@capacitor/preferences` speichert über
+`UserDefaults` und bringt kein Manifest mit; der Xcode-Build ist grün, der
+Fehler käme erst beim Upload. Die Regel misst je Quellgruppe — der eigene
+Swift-Code und jedes lokale Swift-Paket aus einer `Package.swift`, auch unter
+`node_modules` — ob das Paket-Manifest oder das App-Manifest die Kategorie
+nennt, und ob das App-Manifest im Xcode-Projekt steht. Fehlt ein lokales Paket
+auf der Platte, ist es nicht gemessen; reine macOS-Apps ebenfalls, dort
+verlangt Apple die Erklärung beim Upload nicht.
+
 <a id="supabase-email-login-smtp"></a>
 ### Mail-Anmeldung ohne eigenen SMTP
 

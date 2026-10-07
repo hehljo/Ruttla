@@ -1,0 +1,73 @@
+format = "ruttla-rule/0"
+id = "web.capacitor_plugin_resolved_from_promise"
+title = "Capacitor-Plugin wird aus einem Promise zurückgegeben und hängt für immer"
+platform = "web"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 9 Web-APIs in WKWebView"
+tags = ["capacitor", "ios", "android", "promise"]
+references = ["https://capacitorjs.com/docs/plugins/creating-plugins/ios-guide"]
+rationale = """
+`registerPlugin` liefert einen Proxy, der auf jeden Namen eine Methode
+antwortet — auch auf `then`. Gibt eine async-Funktion oder ein `.then` das
+Plugin selbst zurück, hält JavaScript es für ein Promise, ruft
+`plugin.then(resolve, reject)` als native Methode auf, und `resolve` kommt
+nie. Kein Fehler, kein Log.
+
+Belegt am 07.10.2026 (Merkma): `storage: nativeSessionStorage(async () =>
+(await nativePlugins()).preferences)` — die App blieb am Gerät leer in der
+Hintergrundfarbe stehen, alle Tests grün, weil die Plugin-Attrappen schlichte
+Objekte waren. Warnung statt Fehler: am Muster ist nicht sicher erkennbar,
+dass die Sammlung wirklich Capacitor-Plugins enthält."""
+
+[scope]
+extensions = [".js", ".mjs", ".ts", ".tsx", ".jsx"]
+unit_label = "Dateien mit Plugin-Zugriff"
+require_text = "lugin"
+no_files_reason = "Keine Datei mit Plugin-Zugriff gefunden."
+
+[match]
+# Zwei Formen: eine async-Pfeilfunktion, deren ganzer Rumpf ein Feld der
+# erwarteten Plugin-Sammlung ist (danach kein Aufruf, kein weiteres Feld),
+# und ein `.then`, das direkt `registerPlugin(…)` zurückgibt.
+pattern = '''(async\s*(?:\([^()]*\)|[\w$]+)\s*=>\s*\(\s*await\s+[\w$.]*[Pp]lugins?[\w$]*\s*\([^()]*\)\s*\)\s*\.\s*[\w$]+\s*[,;)\]}\n]|\.then\s*\(\s*(?:\([^()]*\)|[\w$]+)\s*=>\s*[\w$.]*registerPlugin\s*\()'''
+message = "Plugin als Ergebnis eines Promise: {1:80} — Capacitors Proxy antwortet auf then, das Promise wird nie fertig."
+fix = "Die Plugin-Sammlung zurückgeben und erst nach dem await auf das Plugin zugreifen, oder es verpacken ({ p: plugin }). Test-Attrappen als Proxy bauen, der auch auf then antwortet."
+
+[[fixtures]]
+name = "async-Pfeil gibt Plugin aus der Sammlung zurück (Merkma, 07.10.2026)"
+expect = "fail"
+expect_finding_contains = "nativePlugins"
+expect_findings = 1
+[fixtures.files]
+"src/data.js" = """
+client = createClient(url, key, {
+  auth: { storage: nativeSessionStorage(async () => (await nativePlugins()).preferences) },
+});
+"""
+
+[[fixtures]]
+name = "then gibt registerPlugin zurück"
+expect = "fail"
+[fixtures.files]
+"src/plugins.ts" = """
+export const prefs = import('@capacitor/core').then((core) => core.registerPlugin('Preferences'));
+"""
+
+[[fixtures]]
+name = "Sammlung übergeben, Plugin erst nach dem await"
+expect = "pass"
+[fixtures.files]
+"src/data.js" = """
+client = createClient(url, key, { auth: { storage: nativeSessionStorage(nativePlugins) } });
+const read = async (key) => (await nativePlugins()).preferences.get({ key });
+const { p } = await speicher();
+"""
+
+[[fixtures]]
+name = "async-Pfeil auf ein Feld ohne Plugin-Bezug"
+expect = "pass"
+[fixtures.files]
+"src/config.js" = """
+// Plugin-frei: nur Konfiguration
+const timeout = async () => (await loadConfig()).timeout;
+"""

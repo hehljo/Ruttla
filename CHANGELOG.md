@@ -1,5 +1,23 @@
 # Changelog
 
+## Capacitor plugin thenable and required-reason APIs (2026-10-07)
+
+- Added `web.capacitor_plugin_resolved_from_promise` (warning, TOML). A
+  Capacitor plugin proxy answers `then`; returning it from an async arrow or a
+  `.then` hangs forever. Found on device in Merkma (blank app, all tests
+  green). Four fixtures; fires on Merkma's broken revision, silent on the fix.
+- Added `apple.required_reason_api_undeclared` (error, Python: resolves local
+  SPM packages from `Package.swift`, including under `node_modules`, and
+  compares their Swift sources with package and app privacy manifests, plus
+  the manifest's presence in `project.pbxproj`). Missing local packages and
+  macOS-only apps are unmeasured. Nine self-tests. Real positives: Merkma
+  (`@capacitor/preferences` → `UserDefaults`) and eight iOS repos without any
+  `PrivacyInfo.xcprivacy`.
+- Added `web.capacitor_oauth_without_native_return` (entry was missing since
+  2026-10-07, commit 4a722a8).
+- Public guideline families `capacitor-plugin-thenable`, `required-reason-api`;
+  catalogue regenerated.
+
 ## Brand candidates skip app plugin packages (2026-10-07)
 
 - `_brand_candidates` no longer reads brand words from a `package.json` that carries a Capacitor (`capacitor.ios`/`.android`) or Cordova plugin manifest. A local plugin named `merkma-apple-sign-in` turned "apple" and "sign" into brand anchors, and every "Mit Apple fortfahren" became a `brand.hardcoded_in_display` finding (18 in Merkma, now 0, check still measured). Three new controls: plugin words pass, the real brand next to a plugin still fails, a nested package without plugin manifest still counts.
