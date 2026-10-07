@@ -1,5 +1,11 @@
 # STATUS
 
+## Godot scene ownership ordering (2026-10-07)
+
+- [x] Corrected a reproducible false positive in `godot.add_child_before_configure`: native `Node.owner` must be set after parenting because its owner must be an ancestor.
+- [x] Exact-property exemption only; later gameplay configuration and owner-like custom properties remain errors. Three added healthy/isolated-defect controls; public rule catalogue regenerated.
+- [x] Full self-test: 713/713 probes; unit/contract suite: 298 tests, 295 passed and three optional skips. Native PackedScene generation remains valid instead of following an impossible fix suggestion.
+
 ## Godot CSV reference guard (2026-10-06)
 
 - Extended `i18n.catalog_key_parity`: configured CSV catalogs are checked against literal `tr()` calls, scene text keys and explicit title/description/name/unlock key fields. Missing keys in both locales are detected even when catalog parity passes.

@@ -53,6 +53,21 @@ from ._common import PLATFORM, _gd
             )},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="Native scene owner after parenting",
+            files={"src/scene.gd": "extends Node\nfunc build_scene():\n\tvar item = Node3D.new()\n\tvar mesh = MeshInstance3D.new()\n\titem.add_child(mesh)\n\tmesh.owner = item\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Owner does not hide late configuration",
+            files={"src/scene.gd": "extends Node\nfunc build_scene():\n\tvar item = Node3D.new()\n\tvar mesh = MeshInstance3D.new()\n\titem.add_child(mesh)\n\tmesh.owner = item\n\tmesh.marker_path = $Markers.get_path()\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Owner-like custom property stays checked",
+            files={"src/scene.gd": "extends Node\nfunc build_scene():\n\tvar item = Node3D.new()\n\tvar mesh = MeshInstance3D.new()\n\titem.add_child(mesh)\n\tmesh.owner_id = 4\n"},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_add_child_order(ctx: Context) -> CheckResult:
@@ -86,6 +101,10 @@ def check_add_child_order(ctx: Context) -> CheckResult:
                     break
                 am = assign.match(nxt)
                 if not am:
+                    continue
+                # Node.owner requires an ancestor, therefore parenting comes first.
+                # https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-property-owner
+                if am.group(1) == "owner":
                     continue
                 orig = sf.lines[off] if off < len(sf.lines) else nxt
                 findings.append(Finding(

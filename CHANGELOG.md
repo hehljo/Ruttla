@@ -1,5 +1,9 @@
 # Changelog
 
+## Godot scene ownership ordering (2026-10-07)
+
+- `godot.add_child_before_configure` no longer treats native `Node.owner` after parenting as late gameplay configuration. Owner must be an ancestor, so the old fix direction was invalid for PackedScene builders. Later custom configuration remains detected; three new healthy/defect controls.
+
 ## REST mock select projection (2026-10-06)
 
 - Added `web.rest_mock_ignores_select` (warning, Python: the finding is the
