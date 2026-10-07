@@ -13,6 +13,7 @@ Shared helpers and fixtures of this pack (not a rule module).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 
@@ -54,12 +55,31 @@ def _is_git_ignored(ctx: Context, rel: str) -> bool:
 # A · Branding
 # ===========================================================================
 
+def _is_app_plugin_manifest(text: str) -> bool:
+    """package.json eines Capacitor- oder Cordova-Plugins?"""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return False
+    if not isinstance(data, dict):
+        return False
+    cap = data.get("capacitor")
+    return (isinstance(cap, dict) and any(k in cap for k in ("ios", "android"))) or isinstance(
+        data.get("cordova"), dict)
+
+
 def _brand_candidates(ctx: Context) -> list[str]:
     """Markennamen aus dem Profil, sonst aus Projektmetadaten abgeleitet."""
     if ctx.config.brand_names:
         return ctx.config.brand_names
     names: set[str] = set()
     for sf in ctx.files_named("package.json"):
+        # Ein Plugin-Paket für die App (Capacitor/Cordova-Manifest) ist ein
+        # Baustein, nicht das Produkt. Sein Name beschreibt die Funktion
+        # („…-apple-sign-in") — als Marke gelesen, wurde jedes „Apple" im
+        # Anmeldeknopf zum Befund (Merkma, 07.10.2026).
+        if _is_app_plugin_manifest(sf.text):
+            continue
         m = re.search(r'"name"\s*:\s*"([^"]+)"', sf.text)
         if m:
             raw = m.group(1).split("/")[-1]

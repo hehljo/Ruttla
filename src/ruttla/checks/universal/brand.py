@@ -42,6 +42,37 @@ from ._common import _brand_candidates, MARKUP_EXTS, SOURCE_EXTS
             expect_finding_contains="Acme",
         ),
         SelfTestCase(
+            name="Plugin-Paket liefert keine Marke",
+            files={
+                "package.json": '{"name": "acme-web"}',
+                "native/acme-apple-sign-in/package.json":
+                    '{"name": "acme-apple-sign-in", "capacitor": {"ios": {"src": "ios"}}}',
+                "src/App.tsx": 'export const A = () => <button>Mit Apple fortfahren</button>;\n',
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Plugin-Paket verdeckt die echte Marke nicht",
+            files={
+                "package.json": '{"name": "acme-web"}',
+                "native/acme-apple-sign-in/package.json":
+                    '{"name": "acme-apple-sign-in", "capacitor": {"ios": {"src": "ios"}}}',
+                "src/App.tsx": 'export const A = () => <h1>Willkommen bei Acme</h1>;\n',
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="Acme",
+        ),
+        SelfTestCase(
+            name="Unterpaket ohne Plugin-Manifest zaehlt weiter",
+            files={
+                "package.json": '{"name": "web"}',
+                "apps/acme-shop/package.json": '{"name": "acme-shop"}',
+                "src/App.tsx": 'export const A = () => <h1>Willkommen bei Acme</h1>;\n',
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="Acme",
+        ),
+        SelfTestCase(
             name="Markenname nur in der Quelle",
             files={
                 "package.json": '{"name": "acme-web"}',

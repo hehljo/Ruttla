@@ -1,5 +1,9 @@
 # Changelog
 
+## Brand candidates skip app plugin packages (2026-10-07)
+
+- `_brand_candidates` no longer reads brand words from a `package.json` that carries a Capacitor (`capacitor.ios`/`.android`) or Cordova plugin manifest. A local plugin named `merkma-apple-sign-in` turned "apple" and "sign" into brand anchors, and every "Mit Apple fortfahren" became a `brand.hardcoded_in_display` finding (18 in Merkma, now 0, check still measured). Three new controls: plugin words pass, the real brand next to a plugin still fails, a nested package without plugin manifest still counts.
+
 ## Godot scene ownership ordering (2026-10-07)
 
 - `godot.add_child_before_configure` no longer treats native `Node.owner` after parenting as late gameplay configuration. Owner must be an ancestor, so the old fix direction was invalid for PackedScene builders. Later custom configuration remains detected; three new healthy/defect controls.
