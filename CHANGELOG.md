@@ -10,7 +10,9 @@
   SPM packages from `Package.swift`, including under `node_modules`, and
   compares their Swift sources with package and app privacy manifests, plus
   the manifest's presence in `project.pbxproj`). Missing local packages and
-  macOS-only apps are unmeasured. Nine self-tests. Real positives: Merkma
+  macOS-only apps are unmeasured. Package paths and links that resolve outside
+  the scan root are never read (unmeasured). Nine self-tests plus three root
+  boundary tests. Real positives: Merkma
   (`@capacitor/preferences` → `UserDefaults`) and eight iOS repos without any
   `PrivacyInfo.xcprivacy`.
 - Added `web.capacitor_oauth_without_native_return` (entry was missing since

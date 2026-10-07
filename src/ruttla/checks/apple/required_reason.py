@@ -72,11 +72,25 @@ def _read(path: str) -> str:
         return ""
 
 
-def _walk(top: str, suffix: str) -> list[str]:
+def _inside(path: str, root: str) -> bool:
+    """Liegt der aufgelöste Pfad unter der Prüfwurzel? Eine fremde
+    Package.swift oder ein Link darf den Check nicht aus dem Repository
+    führen — weder zum Lesen noch zu einem Lauf über das halbe Dateisystem."""
+    real, base = os.path.realpath(path), os.path.realpath(root)
+    try:
+        return os.path.commonpath([real, base]) == base
+    except ValueError:  # anderes Laufwerk unter Windows
+        return False
+
+
+def _walk(top: str, suffix: str, root: str) -> list[str]:
+    if not _inside(top, root):
+        return []
     out = []
     for base, dirs, files in os.walk(top):
         dirs[:] = sorted(d for d in dirs if d not in _SKIP and not d.startswith("."))
-        out += [os.path.join(base, f) for f in sorted(files) if f.endswith(suffix)]
+        out += [os.path.join(base, f) for f in sorted(files)
+                if f.endswith(suffix) and _inside(os.path.join(base, f), root)]
     return out
 
 
@@ -102,11 +116,11 @@ def _mac_only(ctx: Context) -> bool:
     """Nur macOS? Gemessen am SDK, gegen das gebaut wird, nicht an einem
     MACOSX_DEPLOYMENT_TARGET, das jedes iOS-Projekt mit Catalyst auch trägt.
     Ohne Xcode-Projekt zählen die Plattformen der Package.swift."""
-    sdks = {m.group(1) for p in _walk(ctx.root, "project.pbxproj")
+    sdks = {m.group(1) for p in _walk(ctx.root, "project.pbxproj", ctx.root)
             for m in _SDKROOT.finditer(_read(p))}
     if sdks:
         return sdks == {"macosx"}
-    platforms = {m.group(1) for p in _walk(ctx.root, "Package.swift")
+    platforms = {m.group(1) for p in _walk(ctx.root, "Package.swift", ctx.root)
                  for m in _SPM_PLATFORM.finditer(strip_comments(_read(p), ".swift"))}
     return platforms == {"macOS"}
 
@@ -181,21 +195,23 @@ def check_required_reason(ctx: Context) -> CheckResult:
     App-Manifest wirkt nur, wenn das Xcode-Projekt es mitnimmt."""
     packages: dict[str, str] = {}   # Paketordner → Package.swift, das ihn nennt
     missing: list[str] = []
-    for spm in _walk(ctx.root, "Package.swift"):
+    for spm in _walk(ctx.root, "Package.swift", ctx.root):
         for m in _LOCAL_PACKAGE.finditer(strip_comments(_read(spm), ".swift")):
             target = os.path.realpath(os.path.join(os.path.dirname(spm), m.group(1)))
-            if os.path.isdir(target):
+            if not _inside(target, ctx.root):
+                missing.append(f"{_rel(ctx, spm)} → {m.group(1)} (außerhalb des Repositorys)")
+            elif os.path.isdir(target):
                 packages.setdefault(target, spm)
             else:
                 missing.append(f"{_rel(ctx, spm)} → {m.group(1)}")
 
-    package_files = {t: _walk(t, ".swift") for t in packages}
+    package_files = {t: _walk(t, ".swift", ctx.root) for t in packages}
     in_package = {os.path.realpath(f) for files in package_files.values() for f in files}
     app_files = [os.path.join(ctx.root, sf.rel) for sf in ctx.files(".swift")
                  if os.path.basename(sf.rel) != "Package.swift"
                  and os.path.realpath(os.path.join(ctx.root, sf.rel)) not in in_package]
     in_package_dirs = tuple(t + os.sep for t in packages)
-    app_manifests = [p for p in _walk(ctx.root, ".xcprivacy")
+    app_manifests = [p for p in _walk(ctx.root, ".xcprivacy", ctx.root)
                      if not os.path.realpath(p).startswith(in_package_dirs)]
     app_declared = _declared(app_manifests)
 
@@ -204,7 +220,8 @@ def check_required_reason(ctx: Context) -> CheckResult:
     if not groups:
         reason = "Kein Swift-Code und kein lokales Swift-Paket gefunden."
         if missing:
-            reason = ("Lokale Swift-Pakete fehlen auf der Platte (npm ci?): "
+            reason = ("Lokale Swift-Pakete fehlen auf der Platte (npm ci?) oder liegen "
+                      "außerhalb des Repositorys: "
                       + ", ".join(missing[:3]) + " — ihr Code ist nicht gemessen.")
         return unmeasured(_ID, _TITLE, reason, "apple")
 
@@ -220,7 +237,7 @@ def check_required_reason(ctx: Context) -> CheckResult:
     findings: list[Finding] = []
     app_needs = False
     for target, files in groups:
-        own = _declared(_walk(target, ".xcprivacy")) if target else set()
+        own = _declared(_walk(target, ".xcprivacy", ctx.root)) if target else set()
         for category, (path, line) in sorted(_uses(files).items()):
             if category in own:
                 continue
@@ -248,7 +265,7 @@ def check_required_reason(ctx: Context) -> CheckResult:
             ))
 
     if app_needs and app_manifests:
-        projects = [_read(p) for p in _walk(ctx.root, "project.pbxproj")]
+        projects = [_read(p) for p in _walk(ctx.root, "project.pbxproj", ctx.root)]
         names = {os.path.basename(p) for p in app_manifests}
         if projects and not any(n in text for n in names for text in projects):
             findings.append(Finding(
