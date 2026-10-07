@@ -849,3 +849,105 @@ def check_project_generator(ctx: Context) -> CheckResult:
                 ))
     return result_for("apple.project_generator_outdated", title, findings,
                       len(candidates), "Projektgeneratoren", PLATFORM)
+
+
+_SCENE_TITLE = "UIKit-App ohne Szenen-Lebenszyklus (startet mit dem iOS-27-SDK nicht)"
+_IOS_APP_PLIST_KEY = re.compile(r"<key>(UILaunchStoryboardName|LSRequiresIPhoneOS)</key>")
+_SWIFTUI_APP = re.compile(r"@main\s+struct\s+\w+\s*:\s*(?:\w+\s*,\s*)*App\b")
+
+
+@register(
+    "apple.uikit_app_without_scene_lifecycle",
+    _SCENE_TITLE,
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="IOS_DEBUGGING_GUIDELINES.md § Szenen-Lebenszyklus",
+    references=["https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle"],
+    self_tests=[
+        SelfTestCase(
+            name="App-Plist ohne Szenen-Manifest (Capacitor-Vorlage bis 8.4)",
+            files={
+                "ios/App/App/Info.plist": (
+                    "<plist><dict>\n<key>LSRequiresIPhoneOS</key>\n<true/>\n"
+                    "<key>UILaunchStoryboardName</key>\n<string>LaunchScreen</string>\n"
+                    "</dict></plist>\n"),
+                "ios/App/App/AppDelegate.swift": (
+                    "@UIApplicationMain\nclass AppDelegate: UIResponder, UIApplicationDelegate {\n"
+                    "    var window: UIWindow?\n}\n"),
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="UIApplicationSceneManifest",
+        ),
+        SelfTestCase(
+            name="App-Plist mit Szenen-Manifest (Capacitor ab 8.5)",
+            files={
+                "ios/App/App/Info.plist": (
+                    "<plist><dict>\n<key>UILaunchStoryboardName</key>\n<string>LaunchScreen</string>\n"
+                    "<key>UIApplicationSceneManifest</key>\n<dict/>\n</dict></plist>\n"),
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="SwiftUI-App: Szenen kommen aus @main App",
+            files={
+                "App/Info.plist": (
+                    "<plist><dict>\n<key>LSRequiresIPhoneOS</key>\n<true/>\n</dict></plist>\n"),
+                "App/MyApp.swift": "@main\nstruct MyApp: App {\n    var body: some Scene { WindowGroup { Text(\"x\") } }\n}\n",
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Manifest per Build-Setting erzeugt",
+            files={
+                "App/Info.plist": "<plist><dict>\n<key>LSRequiresIPhoneOS</key>\n<true/>\n</dict></plist>\n",
+                "App.xcodeproj/project.pbxproj": "INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;\n",
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Nur eine Datenschutz-Plist, keine App",
+            files={"App/PrivacyInfo.xcprivacy.plist": "<plist><dict>\n</dict></plist>\n"},
+            expect=Status.UNMEASURED,
+        ),
+    ],
+)
+def check_uikit_app_without_scene_lifecycle(ctx: Context) -> CheckResult:
+    """Ab dem SDK nach iOS 26 startet eine UIKit-App ohne Szenen-Lebenszyklus
+    nicht mehr (TN3187). Belegt am 07.10.2026: die iOS-Vorlage von Capacitor
+    8.4.2 kannte nur das AppDelegate; erst 8.5 bringt SceneDelegate und
+    Manifest mit. Gebaut wird trotzdem grün — der Fehler zeigt sich erst beim
+    Start auf dem Gerät.
+
+    Python statt TOML: geprüft wird ein FEHLEN (kein Manifest-Schlüssel), und
+    die Ausnahmen liegen in anderen Dateien (SwiftUI-`App`, Build-Setting)."""
+    plists = [sf for sf in ctx.all_files()
+              if sf.rel.endswith(".plist") and _IOS_APP_PLIST_KEY.search(sf.text)]
+    if not plists:
+        return unmeasured("apple.uikit_app_without_scene_lifecycle", _SCENE_TITLE,
+                          "Keine Info.plist einer iOS-App gefunden.", PLATFORM)
+
+    swiftui = any(_SWIFTUI_APP.search(strip_comments(sf.text, sf.ext))
+                  for sf in ctx.all_files() if sf.rel.endswith(".swift"))
+    generated = any("INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES" in sf.text
+                    for sf in ctx.all_files() if sf.rel.endswith("project.pbxproj"))
+
+    findings: list[Finding] = []
+    for pf in plists:
+        if "<key>UIApplicationSceneManifest</key>" in pf.text or swiftui or generated:
+            continue
+        line = next((i + 1 for i, l in enumerate(pf.lines) if _IOS_APP_PLIST_KEY.search(l)), 1)
+        findings.append(Finding(
+            check_id="apple.uikit_app_without_scene_lifecycle",
+            severity=Severity.ERROR,
+            message="Info.plist einer iOS-App ohne UIApplicationSceneManifest — mit dem "
+                    "iOS-27-SDK startet die App nicht.",
+            file=pf.rel,
+            line=line,
+            evidence=snippet(pf.lines[line - 1]),
+            fix="SceneDelegate anlegen und UIApplicationSceneManifest eintragen (TN3187). "
+                "Bei Capacitor: auf ≥ 8.5 aktualisieren und die iOS-Vorlage neu erzeugen "
+                "bzw. SceneDelegate.swift und das Manifest aus ihr übernehmen.",
+            guideline="IOS_DEBUGGING_GUIDELINES.md § Szenen-Lebenszyklus",
+        ))
+    return result_for("apple.uikit_app_without_scene_lifecycle", _SCENE_TITLE, findings,
+                      len(plists), "App-Info.plists", PLATFORM)

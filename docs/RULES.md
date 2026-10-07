@@ -3,18 +3,18 @@
 
 # Rule catalog
 
-164 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+166 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 45 | 9 |
+| apple | 46 | 9 |
 | dotnet | 10 | 0 |
 | godot | 31 | 0 |
 | python | 7 | 0 |
 | raspberry | 6 | 0 |
 | universal | 37 | 6 |
 | unreal | 6 | 0 |
-| web | 22 | 3 |
+| web | 23 | 3 |
 
 ## Pack `apple`
 
@@ -2769,6 +2769,70 @@ func load() {
     await MainActor.run { isLoading = false }
   }
 }
+```
+
+</details>
+
+### `apple.uikit_app_without_scene_lifecycle`
+
+**UIKit-App ohne Szenen-Lebenszyklus (startet mit dem iOS-27-SDK nicht)**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: IOS_DEBUGGING_GUIDELINES.md § Szenen-Lebenszyklus
+- Public rationale: [GUIDELINES.md › apple-build-and-debugging-guidelines](GUIDELINES.md#apple-build-and-debugging-guidelines)
+- Reference: <https://developer.apple.com/documentation/technotes/tn3187-migrating-to-the-uikit-scene-based-life-cycle>
+
+<details><summary>Why it exists</summary>
+
+```text
+Ab dem SDK nach iOS 26 startet eine UIKit-App ohne Szenen-Lebenszyklus
+nicht mehr (TN3187). Belegt am 07.10.2026: die iOS-Vorlage von Capacitor
+8.4.2 kannte nur das AppDelegate; erst 8.5 bringt SceneDelegate und
+Manifest mit. Gebaut wird trotzdem grün — der Fehler zeigt sich erst beim
+Start auf dem Gerät.
+
+Python statt TOML: geprüft wird ein FEHLEN (kein Manifest-Schlüssel), und
+die Ausnahmen liegen in anderen Dateien (SwiftUI-`App`, Build-Setting).
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): App-Plist ohne Szenen-Manifest (Capacitor-Vorlage bis 8.4)</summary>
+
+`ios/App/App/Info.plist`
+
+```text
+<plist><dict>
+<key>LSRequiresIPhoneOS</key>
+<true/>
+<key>UILaunchStoryboardName</key>
+<string>LaunchScreen</string>
+</dict></plist>
+```
+
+`ios/App/App/AppDelegate.swift`
+
+```text
+@UIApplicationMain
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): App-Plist mit Szenen-Manifest (Capacitor ab 8.5)</summary>
+
+`ios/App/App/Info.plist`
+
+```text
+<plist><dict>
+<key>UILaunchStoryboardName</key>
+<string>LaunchScreen</string>
+<key>UIApplicationSceneManifest</key>
+<dict/>
+</dict></plist>
 ```
 
 </details>
@@ -7582,6 +7646,65 @@ export const A = () => <button><Icon /></button>;
 
 ```text
 export const A = () => <button aria-label="Schliessen"><Icon /></button>;
+```
+
+</details>
+
+### `web.capacitor_remote_server_url`
+
+**Capacitor-App lädt ihre Oberfläche von einer Adresse statt aus dem Bündel**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § Web-App als native Hülle
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+- Reference: <https://capacitorjs.com/docs/config>
+- Reference: <https://developer.apple.com/app-store/review/guidelines/#minimum-functionality>
+
+<details><summary>Why it exists</summary>
+
+```text
+`server.url` in der Capacitor-Konfiguration lässt die App die Live-Website
+laden statt des mitgelieferten Web-Stands. Das ist eine reine Website-Hülle
+(App-Store-Regel 4.2), führt Code aus, den kein Review gesehen hat, und geht
+offline gar nicht. Gedacht ist der Schlüssel für Live-Reload in der
+Entwicklung — eingecheckt landet er im Release.
+
+Festgehalten am 07.10.2026 (Merkma) als Bauentscheidung beim Port; der
+Fehler ist die naheliegende Abkürzung für „die App soll automatisch
+nachziehen“.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): JSON mit Live-Adresse</summary>
+
+`capacitor.config.json`
+
+```text
+{
+  "appId": "com.example.app",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "url": "https://merkma.netlify.app"
+  }
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Server-Block ohne url (Startpfad)</summary>
+
+`capacitor.config.json`
+
+```text
+{
+  "appId": "com.example.app",
+  "webDir": "dist-app",
+  "server": { "appStartPath": "/app/index.html" },
+  "plugins": { "Updater": { "url": "https://example.org/updates" } }
+}
 ```
 
 </details>

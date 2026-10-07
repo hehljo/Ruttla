@@ -1,0 +1,79 @@
+format = "ruttla-rule/0"
+id = "web.capacitor_remote_server_url"
+title = "Capacitor-App lädt ihre Oberfläche von einer Adresse statt aus dem Bündel"
+platform = "web"
+severity = "error"
+guideline = "CODE_QUALITY_GUIDELINES_WEB.md § Web-App als native Hülle"
+tags = ["capacitor", "ios", "android", "store-review"]
+references = ["https://capacitorjs.com/docs/config", "https://developer.apple.com/app-store/review/guidelines/#minimum-functionality"]
+rationale = """
+`server.url` in der Capacitor-Konfiguration lässt die App die Live-Website
+laden statt des mitgelieferten Web-Stands. Das ist eine reine Website-Hülle
+(App-Store-Regel 4.2), führt Code aus, den kein Review gesehen hat, und geht
+offline gar nicht. Gedacht ist der Schlüssel für Live-Reload in der
+Entwicklung — eingecheckt landet er im Release.
+
+Festgehalten am 07.10.2026 (Merkma) als Bauentscheidung beim Port; der
+Fehler ist die naheliegende Abkürzung für „die App soll automatisch
+nachziehen“."""
+
+[scope]
+extensions = [".json", ".ts", ".js", ".mjs", ".cjs"]
+unit_label = "Capacitor-Konfigurationen"
+require_text = "webDir"
+no_files_reason = "Keine Capacitor-Konfiguration (Datei mit webDir) gefunden."
+
+[match]
+# `[^}]*?` bleibt im server-Objekt: ein url-Schlüssel anderswo trifft nicht.
+pattern = '''server["']?\s*:\s*\{[^}]*?\burl["']?\s*:\s*["'](https?://[^"']*)'''
+message = "server.url = {1}: die App lädt die Website statt ihres Bündels."
+fix = "server.url entfernen und den Web-Stand bündeln (webDir). Für Live-Reload die Adresse nur lokal per CLI-Option setzen, nie einchecken."
+
+[[fixtures]]
+name = "JSON mit Live-Adresse"
+expect = "fail"
+expect_finding_contains = "merkma.netlify.app"
+[fixtures.files]
+"capacitor.config.json" = """
+{
+  "appId": "com.example.app",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "url": "https://merkma.netlify.app"
+  }
+}
+"""
+
+[[fixtures]]
+name = "TypeScript mit Live-Reload-Adresse"
+expect = "fail"
+[fixtures.files]
+"capacitor.config.ts" = """
+const config: CapacitorConfig = {
+  appId: 'com.example.app',
+  webDir: 'dist',
+  server: { url: 'http://192.168.0.10:5173', cleartext: true },
+};
+"""
+
+[[fixtures]]
+name = "Server-Block ohne url (Startpfad)"
+expect = "pass"
+[fixtures.files]
+"capacitor.config.json" = """
+{
+  "appId": "com.example.app",
+  "webDir": "dist-app",
+  "server": { "appStartPath": "/app/index.html" },
+  "plugins": { "Updater": { "url": "https://example.org/updates" } }
+}
+"""
+
+[[fixtures]]
+name = "Andere JSON-Datei mit url"
+expect = "unmeasured"
+[fixtures.files]
+"package.json" = """
+{ "server": { "url": "https://example.org" } }
+"""
