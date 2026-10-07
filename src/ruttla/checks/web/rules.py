@@ -204,6 +204,9 @@ def check_swallowed_error(ctx: Context) -> CheckResult:
                       "ok-Prüfungen", PLATFORM)
 
 
+_JS_COMMENT = re.compile(r"//|/\*")
+
+
 @register(
     "web.empty_catch_block",
     "Leerer catch-Block verschluckt den Fehler vollständig",
@@ -238,6 +241,19 @@ def check_swallowed_error(ctx: Context) -> CheckResult:
             },
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="Begründet leer: Kommentar im Block",
+            files={"src/build.js": (
+                "try {\n  await stat(path);\n} catch {\n"
+                "  // Nicht vorhanden — genau so soll es sein.\n}\n")},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Kommentar vor dem try entschuldigt nichts",
+            files={"src/build.js": (
+                "// Datei lesen\ntry {\n  await stat(path);\n} catch {\n}\n")},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_empty_catch_block(ctx: Context) -> CheckResult:
@@ -258,7 +274,14 @@ def check_empty_catch_block(ctx: Context) -> CheckResult:
         measured += len(matches)
         for match in empty_catch.finditer(body):
             line_no = body.count("\n", 0, match.start()) + 1
+            end_no = body.count("\n", 0, match.end()) + 1
             raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""
+            # Ein Kommentar im Block IST die Begründung, die der fix-Text
+            # verlangt. Belegt am 08.10.2026 (Merkma, build.js): `catch {
+            # // Nicht vorhanden — genau so soll es sein. }` wurde gemeldet,
+            # weil die Prüfung auf kommentarfreiem Text lief.
+            if any(_JS_COMMENT.search(l) for l in sf.lines[line_no - 1:end_no]):
+                continue
             findings.append(Finding(
                 check_id="web.empty_catch_block", severity=Severity.WARNING,
                 message="Leerer catch-Block verwirft den Fehler ohne Meldung oder Fallback.",

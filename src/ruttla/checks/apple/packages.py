@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import re
 
 from ruttla.core import (
     CheckResult,
@@ -82,7 +83,35 @@ _PBX_WITH_PACKAGE = (
     "\t\t\trepositoryURL = \"https://example.com/kit\";\n\t\t};\n"
 )
 _RESOLVED = '{\n  "pins" : [ ],\n  "version" : 2\n}\n'
+# Capacitor (ab 8, SPM): das Projekt kennt nur ein lokales Paket, die
+# Remote-Abhängigkeit steht in dessen Package.swift.
+_LOCAL_PACKAGE = re.compile(
+    r"isa = XCLocalSwiftPackageReference;\s*relativePath = \"?([^\";]+)\"?;")
+_PBX_WITH_LOCAL_PACKAGE = (
+    "isa = XCLocalSwiftPackageReference;\n"
+    "\t\t\trelativePath = \"CapApp-SPM\";\n")
+_PACKAGE_SWIFT_REMOTE = (
+    "let package = Package(\n  dependencies: [\n"
+    "    .package(url: \"https://github.com/ionic-team/capacitor-swift-pm.git\", exact: \"8.5.2\")\n"
+    "  ]\n)\n")
 _RESOLVED_PATH = "App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+
+
+def _local_package_is_remote(proj: str, pbx: str) -> bool:
+    """Zieht ein lokales Paket des Projekts Remote-Pakete nach? Belegt am
+    08.10.2026 (Merkma): Capacitor 8 hängt capacitor-swift-pm in ein lokales
+    Paket CapApp-SPM — der Check sah kein Remote-Paket und meldete *nicht
+    gemessen*, obwohl Xcode Cloud ohne Package.resolved abbricht."""
+    base = os.path.dirname(proj)
+    for rel in _LOCAL_PACKAGE.findall(pbx):
+        manifest = os.path.join(base, rel, "Package.swift")
+        try:
+            with open(manifest, "r", encoding="utf-8", errors="replace") as fh:
+                if ".package(url:" in fh.read():
+                    return True
+        except OSError:
+            continue
+    return False
 
 
 @register(
@@ -115,6 +144,29 @@ _RESOLVED_PATH = "App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package
             expect=Status.PASS,
         ),
         SelfTestCase(
+            name="Remote-Paket nur im lokalen Paket (Capacitor), Datei fehlt",
+            files={"App.xcodeproj/project.pbxproj": _PBX_WITH_LOCAL_PACKAGE,
+                   "CapApp-SPM/Package.swift": _PACKAGE_SWIFT_REMOTE,
+                   ".gitignore": ".build/\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="fehlt",
+        ),
+        SelfTestCase(
+            name="Remote-Paket nur im lokalen Paket (Capacitor), Datei da",
+            files={"App.xcodeproj/project.pbxproj": _PBX_WITH_LOCAL_PACKAGE,
+                   "CapApp-SPM/Package.swift": _PACKAGE_SWIFT_REMOTE,
+                   _RESOLVED_PATH: _RESOLVED,
+                   ".gitignore": ".build/\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Lokales Paket ohne Remote-Abhängigkeit",
+            files={"App.xcodeproj/project.pbxproj": _PBX_WITH_LOCAL_PACKAGE,
+                   "CapApp-SPM/Package.swift": "let package = Package(name: \"X\")\n",
+                   ".gitignore": "*.resolved\n"},
+            expect=Status.UNMEASURED,
+        ),
+        SelfTestCase(
             name="Projekt ohne Remote-Paket",
             files={"App.xcodeproj/project.pbxproj": "isa = PBXNativeTarget;\n",
                    ".gitignore": "*.resolved\n"},
@@ -136,10 +188,11 @@ def check_package_resolved(ctx: Context) -> CheckResult:
         try:
             with open(os.path.join(proj, "project.pbxproj"), "r",
                       encoding="utf-8", errors="replace") as fh:
-                if _REMOTE_PACKAGE in fh.read():
-                    candidates.append(proj)
+                text = fh.read()
         except OSError:
             continue
+        if _REMOTE_PACKAGE in text or _local_package_is_remote(proj, text):
+            candidates.append(proj)
     if not candidates:
         return unmeasured(cid, title, "Kein Xcode-Projekt mit Remote-Swift-Paket gefunden.",
                           PLATFORM)

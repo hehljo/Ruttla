@@ -31,6 +31,13 @@ pattern = '(?i)(w3\.org|schema\.org|json-schema|xmlns|example\.(com|org)|github\
 on = "path"
 pattern = '(?i)(config|constants|endpoints|env)\.(ts|js)$'
 
+# Testdateien tragen Prüfadressen als Eingabe, nicht als Endpunkt. Belegt
+# am 08.10.2026 (Merkma, scripts/test-native.mjs): eine erfundene
+# Supabase-Adresse für den App-Build wurde als feste Adresse gemeldet.
+[[match.exclude]]
+on = "path"
+pattern = '(?i)((^|/)(tests?|__tests__)/|(^|/)test-[^/]*\.m?[jt]s$|\.(test|spec)\.m?[jt]sx?$)'
+
 [[fixtures]]
 name = "feste Adresse"
 expect = "fail"
@@ -72,4 +79,12 @@ expect = "pass"
 [fixtures.files]
 "src/config.ts" = """
 export const ENDPOINTS = { items: 'https://api.meinedomain.de/v1/items' };
+"""
+
+[[fixtures]]
+name = "Prüfadresse in einer Testdatei"
+expect = "pass"
+[fixtures.files]
+"scripts/test-native.mjs" = """
+const gesund = buildApp({ SUPABASE_URL: 'https://beispiel.supabase.co' });
 """
