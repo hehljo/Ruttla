@@ -185,7 +185,11 @@ impl<'a> Walker<'a> {
             self.admit(&full, &rel, &name)?;
         }
         for (name, is_link) in dirs {
-            if self.exclude_dirs.contains(name.as_str()) || name.ends_with(".xcassets") || is_link {
+            if self.exclude_dirs.contains(name.as_str())
+                || name.ends_with(".xcassets")
+                || is_link
+                || is_capacitor_copy(dir, &name)
+            {
                 continue;
             }
             let rel = if rel_dir.is_empty() { name.clone() } else { format!("{rel_dir}/{name}") };
@@ -193,6 +197,15 @@ impl<'a> Walker<'a> {
         }
         Ok(())
     }
+}
+
+/// Die Kopie, die `cap copy` in ein natives Projekt schreibt — erkannt an
+/// capacitor.config.json daneben und cordova_plugins.js darin. Gleiche
+/// Regel in src/ruttla/discovery.py (is_capacitor_copy).
+fn is_capacitor_copy(parent: &Path, name: &str) -> bool {
+    name == "public"
+        && parent.join("capacitor.config.json").is_file()
+        && parent.join(name).join("cordova_plugins.js").is_file()
 }
 
 pub fn inventory(root: &Path, cfg: &InventoryConfig) -> Result<(Vec<SourceFile>, Coverage), InputError> {

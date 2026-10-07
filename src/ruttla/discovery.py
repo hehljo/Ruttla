@@ -218,6 +218,22 @@ def is_rule_definition_file(sf: SourceFile) -> bool:
     return sf._rule_definition
 
 
+def is_capacitor_copy(parent: str, name: str) -> bool:
+    """Ist ``parent/name`` die Kopie, die `cap copy` in ein natives Projekt
+    schreibt (ios/App/App/public, android/app/src/main/assets/public)?
+
+    Erkannt an der Eigenschaft, nicht am Pfad: daneben liegt die von
+    Capacitor erzeugte capacitor.config.json, darin cordova_plugins.js.
+    Ein Web-Quellverzeichnis public/ neben der Projekt-Konfiguration trägt
+    kein cordova_plugins.js. Belegt am 08.10.2026 (Merkma): ein Vollscan
+    meldete jeden Web-Befund ein zweites Mal aus der Kopie, dazu den dort
+    eingesetzten anon-Key als blockierenden Befund.
+    Gleiche Regel in engine/src/inventory.rs (is_capacitor_copy)."""
+    return (name == "public"
+            and os.path.isfile(os.path.join(parent, "capacitor.config.json"))
+            and os.path.isfile(os.path.join(parent, name, "cordova_plugins.js")))
+
+
 def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
     """Walk ``root`` once; every file is either handed on or accounted for."""
     found: list[SourceFile] = []
@@ -256,6 +272,7 @@ def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
         dirnames[:] = sorted(
             d for d in dirnames
             if d not in exclude_dirs and not d.endswith(".xcassets")
+            and not is_capacitor_copy(dirpath, d)
         )
         for name in sorted(filenames):
             full = os.path.join(dirpath, name)

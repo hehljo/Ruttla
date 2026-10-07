@@ -74,6 +74,18 @@ class EngineInventoryParity(unittest.TestCase):
         out = self.assertSame(config)
         self.assertEqual(out["coverage"]["files_excluded_agent_instructions"], 3)
 
+    def test_capacitor_copy_is_skipped_web_source_is_not(self) -> None:
+        # Die Kopie im nativen Projekt fällt raus …
+        _write(self.root, "ios/App/App/capacitor.config.json", "{}\n")
+        _write(self.root, "ios/App/App/public/cordova_plugins.js")
+        _write(self.root, "ios/App/App/public/app.js")
+        _write(self.root, "ios/App/App/AppDelegate.swift")
+        # … das Web-Quellverzeichnis neben der Projekt-Konfiguration nicht.
+        _write(self.root, "capacitor.config.json", "{}\n")
+        _write(self.root, "public/app.js")
+        out = self.assertSame()
+        self.assertEqual(out["coverage"]["files_scanned"], 4)
+
     def test_exclude_globs_with_python_fnmatch_semantics(self) -> None:
         for rel in ("docs/a.md", "docs/sub/b.txt", "a1.txt", "b2.txt", "c3.txt", "x[", "ab.py",
                     "cd.py", "-z", "az", "k\\l", "q.md"):
