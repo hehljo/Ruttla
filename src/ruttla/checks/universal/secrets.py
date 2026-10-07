@@ -30,14 +30,27 @@ from ._common import _is_git_ignored, SOURCE_EXTS
 # Secrets
 # ===========================================================================
 
-def _jwt_role(token: str) -> str | None:
-    """Rolle aus der Nutzlast eines JWT, ohne Signaturprüfung."""
+def _demo_jwt(role: str, iss: str) -> str:
+    """Prüf-Token für die Selbsttests, erst zur Laufzeit gebaut — als Literal
+    im Quelltext meldet dieser Check seine eigenen Testdaten."""
+    def enc(obj: dict) -> str:
+        return base64.urlsafe_b64encode(json.dumps(obj).encode()).decode().rstrip("=")
+    return (enc({"alg": "HS256", "typ": "JWT"}) + "."
+            + enc({"iss": iss, "ref": "abcdefghijklmnop", "role": role, "iat": 1700000000})
+            + ".c2lnbmF0dXJlLWRlci1rZXk")
+
+
+def _is_public_supabase_key(token: str) -> bool:
+    """Öffentlicher Supabase-anon-Key: Rolle anon UND Aussteller Supabase.
+    Jeder Fehler beim Lesen heißt: kein anon-Key — also Befund (fail closed)."""
     try:
         payload = token.split(".")[1]
         payload += "=" * (-len(payload) % 4)
-        return json.loads(base64.urlsafe_b64decode(payload)).get("role")
-    except (IndexError, ValueError, AttributeError):
-        return None
+        data = json.loads(base64.urlsafe_b64decode(payload))
+        return (isinstance(data, dict) and data.get("role") == "anon"
+                and str(data.get("iss", "")).startswith("supabase"))
+    except Exception:  # noqa: BLE001 — auch RecursionError: im Zweifel melden
+        return False
 
 
 @register(
@@ -54,12 +67,24 @@ def _jwt_role(token: str) -> str | None:
         ),
         SelfTestCase(
             name="Supabase-anon-Key ist öffentlich",
-            files={"supabase.public.env": "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicmVmIjogImFiY2RlZmdoaWprbG1ub3AiLCAicm9sZSI6ICJhbm9uIiwgImlhdCI6IDE3MDAwMDAwMDB9.c2lnbmF0dXJlLWRlci1rZXk\n"},
+            files={"supabase.public.env": "SUPABASE_ANON_KEY=" + _demo_jwt('anon', 'supabase') + "\n"},
             expect=Status.PASS,
         ),
         SelfTestCase(
             name="service_role-JWT bleibt ein Befund",
-            files={"supabase.public.env": "SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicmVmIjogImFiY2RlZmdoaWprbG1ub3AiLCAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLCAiaWF0IjogMTcwMDAwMDAwMH0.c2lnbmF0dXJlLWRlci1rZXk\n"},
+            files={"supabase.public.env": "SUPABASE_KEY=" + _demo_jwt('service_role', 'supabase') + "\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="JWT",
+        ),
+        SelfTestCase(
+            name="anon-Key verdeckt keinen service_role-Key in derselben Zeile",
+            files={"keys.env": "KEYS=" + _demo_jwt('anon', 'supabase') + "," + _demo_jwt('service_role', 'supabase') + "\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="JWT",
+        ),
+        SelfTestCase(
+            name="Rolle anon eines fremden Ausstellers bleibt ein Befund",
+            files={"keys.env": "TOKEN_X=" + _demo_jwt('anon', 'auth.example-dienst.de') + "\n"},
             expect=Status.FAIL,
             expect_finding_contains="JWT",
         ),
@@ -138,8 +163,14 @@ def check_secrets(ctx: Context) -> CheckResult:
                 # eingecheckten öffentlichen Werte für Xcode-Builds wurden
                 # blockierend gemeldet. Entschieden wird an der Rolle im
                 # Token, nicht am Dateinamen — ein service_role-JWT bleibt rot.
-                if label == "JWT mit Nutzdaten" and _jwt_role(m.group(0)) == "anon":
-                    continue
+                if label == "JWT mit Nutzdaten":
+                    # Jeder JWT der Zeile zählt, nicht nur der erste: ein
+                    # anon-Key davor darf keinen service_role-Key verdecken.
+                    offen = [t for t in pat.finditer(raw)
+                             if not _is_public_supabase_key(t.group(0))]
+                    if not offen:
+                        continue
+                    m = offen[0]
                 # service_role nur melden, wenn es ein Wert ist, kein Kommentar
                 # über die Regel oder eine Server-seitige Umgebungsvariable.
                 if label.startswith("Supabase") and re.search(
