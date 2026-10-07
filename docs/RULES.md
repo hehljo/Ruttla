@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-166 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+167 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -14,7 +14,7 @@
 | raspberry | 6 | 0 |
 | universal | 37 | 6 |
 | unreal | 6 | 0 |
-| web | 23 | 3 |
+| web | 24 | 3 |
 
 ## Pack `apple`
 
@@ -7646,6 +7646,84 @@ export const A = () => <button><Icon /></button>;
 
 ```text
 export const A = () => <button aria-label="Schliessen"><Icon /></button>;
+```
+
+</details>
+
+### `web.capacitor_oauth_without_native_return`
+
+**Anbieter-Anmeldung in der Capacitor-App springt nicht in die App zurück**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: docs/GUIDELINES.md § Anbieter-Anmeldung in der Capacitor-Hülle
+- Public rationale: [GUIDELINES.md › capacitor-oauth-native-return](GUIDELINES.md#capacitor-oauth-native-return)
+- Reference: <https://supabase.com/docs/guides/auth/native-mobile-deep-linking>
+- Reference: <https://capacitorjs.com/docs/apis/app#addlistenerappurlopen->
+
+<details><summary>Why it exists</summary>
+
+```text
+Prüfgegenstand ist jede Anbieter-Anmeldung in einem Capacitor-Projekt.
+Gebraucht wird ein nativer Weg (`skipBrowserRedirect`, danach Browser-
+Fenster und `appUrlOpen`) und, wo eine iOS-Hülle existiert, ein URL-Schema,
+über das iOS den Rücksprung an die App gibt.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Capacitor, Anmeldung nur mit Web-Rücksprung</summary>
+
+`capacitor.config.json`
+
+```text
+{"appId": "com.example.app", "webDir": "dist"}
+```
+
+`package.json`
+
+```text
+{"devDependencies": {"@capacitor/ios": "^8.5.2"}}
+```
+
+`src/auth.js`
+
+```text
+export const signIn = () => db.auth.signInWithOAuth({
+  provider: 'google', options: { redirectTo: location.origin + '/app/' } });
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Capacitor, nativer Rücksprung mit URL-Schema</summary>
+
+`capacitor.config.json`
+
+```text
+{"appId": "com.example.app", "webDir": "dist"}
+```
+
+`src/auth.js`
+
+```text
+export const signIn = (redirectTo) => db.auth.signInWithOAuth({
+  provider: 'google', options: { redirectTo, skipBrowserRedirect: true } });
+```
+
+`ios/App/App/Info.plist`
+
+```text
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.example.app</string>
+			</array>
+		</dict>
+	</array>
+</dict>
 ```
 
 </details>

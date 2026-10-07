@@ -24,6 +24,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Remote browser hosts must use a Supabase URL reachable from the browser."),
     ("docs/GUIDELINES.md § REST-Attrappe ohne select-Projektion", "rest-mock-select",
      "A PostgREST mock must project rows onto the requested select columns like the real server."),
+    ("docs/GUIDELINES.md § Anbieter-Anmeldung in der Capacitor-Hülle", "capacitor-oauth-native-return",
+     "OAuth in a Capacitor shell needs a native return URL; otherwise Supabase silently falls back to the Site URL."),
     ("docs/GUIDELINES.md § Mail-Anmeldung ohne eigenen SMTP", "supabase-email-login-smtp",
      "Email login needs its own SMTP; Supabase's default sender is rate-limited and team-only."),
     ("GUIDELINES.md § Server-only boundary", "server-only-boundary",

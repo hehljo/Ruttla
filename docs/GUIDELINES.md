@@ -482,6 +482,20 @@ ob `select` überhaupt ausgewertet wird, nicht ob die Projektion Aliasse und
 Einbettungen richtig behandelt.
 Referenzen: <https://postgrest.org/en/stable/references/api/tables_views.html#vertical-filtering>.
 
+<a id="capacitor-oauth-native-return"></a>
+### Anbieter-Anmeldung in der Capacitor-Hülle
+
+In der App-Hülle ist die Seite `capacitor://localhost`. Ein `redirectTo` aus
+`location.origin` kennt Supabase nicht und fällt **still** auf die Site URL
+zurück: der Nutzer landet nach der Google-Anmeldung in Safari auf der
+Webseite statt angemeldet in der App (belegt am 07.10.2026, Merkma). Die Regel
+meldet in einem Capacitor-Projekt `signInWithOAuth` ohne `skipBrowserRedirect`
+im Code, und — wo eine iOS-Hülle existiert — einen nativen Rücksprung ohne
+`CFBundleURLSchemes` in der Info.plist. Kopien des Web-Stands unter `ios/` und
+`android/` zählen nicht. Nicht offline messbar ist, ob die Rücksprungadresse
+in Supabase unter *Redirect URLs* steht; fehlt sie, ist das Bild dasselbe — die
+App öffnet nach der Anmeldung die Startseite im Browserfenster.
+
 <a id="supabase-email-login-smtp"></a>
 ### Mail-Anmeldung ohne eigenen SMTP
 
