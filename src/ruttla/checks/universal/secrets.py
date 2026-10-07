@@ -30,14 +30,30 @@ from ._common import _is_git_ignored, SOURCE_EXTS
 # Secrets
 # ===========================================================================
 
-def _demo_jwt(role: str, iss: str) -> str:
+def _demo_jwt(role: str, iss: str, payload: str | None = None) -> str:
     """Prüf-Token für die Selbsttests, erst zur Laufzeit gebaut — als Literal
-    im Quelltext meldet dieser Check seine eigenen Testdaten."""
-    def enc(obj: dict) -> str:
-        return base64.urlsafe_b64encode(json.dumps(obj).encode()).decode().rstrip("=")
-    return (enc({"alg": "HS256", "typ": "JWT"}) + "."
-            + enc({"iss": iss, "ref": "abcdefghijklmnop", "role": role, "iat": 1700000000})
+    im Quelltext meldet dieser Check seine eigenen Testdaten. `payload`
+    setzt die Nutzlast roh (für doppelte Schlüssel)."""
+    def enc(text: str) -> str:
+        return base64.urlsafe_b64encode(text.encode()).decode().rstrip("=")
+    body = payload or json.dumps(
+        {"iss": iss, "ref": "abcdefghijklmnop", "role": role, "iat": 1700000000})
+    return (enc(json.dumps({"alg": "HS256", "typ": "JWT"})) + "." + enc(body)
             + ".c2lnbmF0dXJlLWRlci1rZXk")
+
+
+# Aussteller der öffentlichen Supabase-Schlüssel: gehostet und lokale CLI.
+# Genau diese, kein Präfix — "supabase-irgendwas" ist ein fremder Dienst.
+_SUPABASE_ISSUERS = {"supabase", "supabase-demo"}
+
+
+def _no_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
+    keys = [k for k, _ in pairs]
+    if len(keys) != len(set(keys)):
+        # {"role":"service_role","role":"anon"} liest json.loads als anon,
+        # ein anderer Parser als service_role — so ein Token ist nie öffentlich.
+        raise ValueError("doppelter Schlüssel in der JWT-Nutzlast")
+    return dict(pairs)
 
 
 def _is_public_supabase_key(token: str) -> bool:
@@ -46,9 +62,10 @@ def _is_public_supabase_key(token: str) -> bool:
     try:
         payload = token.split(".")[1]
         payload += "=" * (-len(payload) % 4)
-        data = json.loads(base64.urlsafe_b64decode(payload))
+        data = json.loads(base64.urlsafe_b64decode(payload),
+                          object_pairs_hook=_no_duplicate_keys)
         return (isinstance(data, dict) and data.get("role") == "anon"
-                and str(data.get("iss", "")).startswith("supabase"))
+                and data.get("iss") in _SUPABASE_ISSUERS)
     except Exception:  # noqa: BLE001 — auch RecursionError: im Zweifel melden
         return False
 
@@ -89,6 +106,32 @@ def _is_public_supabase_key(token: str) -> bool:
             expect_finding_contains="JWT",
         ),
         SelfTestCase(
+            name="Aussteller mit Supabase-Präfix ist nicht Supabase",
+            files={"keys.env": "TOKEN_Y=" + _demo_jwt("anon", "supabase-fremd") + "\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="JWT",
+        ),
+        SelfTestCase(
+            name="Doppelte Rolle in der Nutzlast ist nie öffentlich",
+            files={"keys.env": "TOKEN_Z=" + _demo_jwt("", "", payload=(
+                '{"iss":"supabase","role":"service_role","ref":"abcdefghijklmnop",'
+                '"role":"anon"}')) + "\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="JWT",
+        ),
+        SelfTestCase(
+            name="Neuer Supabase-Secret-Key",
+            files={"keys.env": "SUPABASE_KEY=sb_" + "secret_" + "Ab3" * 12 + "\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="Supabase-Secret-Key",
+        ),
+        SelfTestCase(
+            name="Lokaler CLI-anon-Key (supabase-demo) ist öffentlich",
+            files={"supabase.public.env": "SUPABASE_ANON_KEY="
+                   + _demo_jwt("anon", "supabase-demo") + "\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
             name="Key aus der Umgebung",
             files={"src/a.ts": 'const t = process.env.GITHUB_TOKEN;\n'},
             expect=Status.PASS,
@@ -109,6 +152,9 @@ def check_secrets(ctx: Context) -> CheckResult:
         (re.compile(r"xox[baprs]-[A-Za-z0-9\-]{10,}"), "Slack Token", Severity.ERROR),
         (re.compile(r"-----BEGIN (RSA |EC |OPENSSH |PGP |DSA )?PRIVATE KEY-----"),
          "Privater Schlüssel", Severity.ERROR),
+        # Neue Supabase-Schlüssel (seit 2025) sind keine JWTs mehr; der
+        # geheime trägt sein Präfix, der öffentliche heißt sb_publishable_.
+        (re.compile(r"sb_secret_[A-Za-z0-9_\-]{20,}"), "Supabase-Secret-Key", Severity.ERROR),
         (re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{10,}"),
          "JWT mit Nutzdaten", Severity.WARNING),
         # Der blosse Rollenname ist ein SQL-Bezeichner und kommt in jedem
