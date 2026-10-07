@@ -6,6 +6,8 @@ shared helpers in _common.py.
 
 from __future__ import annotations
 
+import base64
+import json
 import os
 import re
 
@@ -28,6 +30,16 @@ from ._common import _is_git_ignored, SOURCE_EXTS
 # Secrets
 # ===========================================================================
 
+def _jwt_role(token: str) -> str | None:
+    """Rolle aus der Nutzlast eines JWT, ohne Signaturprüfung."""
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        return json.loads(base64.urlsafe_b64decode(payload)).get("role")
+    except (IndexError, ValueError, AttributeError):
+        return None
+
+
 @register(
     "secrets.hardcoded_credential",
     "Geheimnis oder Schlüssel steht im Quelltext",
@@ -39,6 +51,17 @@ from ._common import _is_git_ignored, SOURCE_EXTS
             name="GitHub-Token im Code",
             files={"src/a.ts": 'const t = "ghp_' + "a" * 36 + '";\n'},
             expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Supabase-anon-Key ist öffentlich",
+            files={"supabase.public.env": "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicmVmIjogImFiY2RlZmdoaWprbG1ub3AiLCAicm9sZSI6ICJhbm9uIiwgImlhdCI6IDE3MDAwMDAwMDB9.c2lnbmF0dXJlLWRlci1rZXk\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="service_role-JWT bleibt ein Befund",
+            files={"supabase.public.env": "SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicmVmIjogImFiY2RlZmdoaWprbG1ub3AiLCAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLCAiaWF0IjogMTcwMDAwMDAwMH0.c2lnbmF0dXJlLWRlci1rZXk\n"},
+            expect=Status.FAIL,
+            expect_finding_contains="JWT",
         ),
         SelfTestCase(
             name="Key aus der Umgebung",
@@ -109,6 +132,13 @@ def check_secrets(ctx: Context) -> CheckResult:
             for pat, label, sev in patterns:
                 m = pat.search(raw)
                 if not m:
+                    continue
+                # Ein Supabase-anon-Key ist öffentlich (Schutz über RLS) und
+                # gehört in jeden Client. Belegt am 08.10.2026 (Merkma): die
+                # eingecheckten öffentlichen Werte für Xcode-Builds wurden
+                # blockierend gemeldet. Entschieden wird an der Rolle im
+                # Token, nicht am Dateinamen — ein service_role-JWT bleibt rot.
+                if label == "JWT mit Nutzdaten" and _jwt_role(m.group(0)) == "anon":
                     continue
                 # service_role nur melden, wenn es ein Wert ist, kein Kommentar
                 # über die Regel oder eine Server-seitige Umgebungsvariable.
