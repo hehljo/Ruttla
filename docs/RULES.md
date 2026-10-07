@@ -6988,12 +6988,12 @@ const t = "ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 </details>
 
-<details><summary>Healthy probe (must PASS): Key aus der Umgebung</summary>
+<details><summary>Healthy probe (must PASS): Supabase-anon-Key ist öffentlich</summary>
 
-`src/a.ts`
+`supabase.public.env`
 
 ```text
-const t = process.env.GITHUB_TOKEN;
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicmVmIjogImFiY2RlZmdoaWprbG1ub3AiLCAicm9sZSI6ICJhbm9uIiwgImlhdCI6IDE3MDAwMDAwMDB9.c2lnbmF0dXJlLWRlci1rZXk
 ```
 
 </details>
