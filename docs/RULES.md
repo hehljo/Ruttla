@@ -295,9 +295,12 @@ Belegt am 06.10.2026 (SynologyPhotos/Lugga): der Login schickte `passwd=` per
 GET; ein Nutzer kopierte das Xcode-Log in einen Chat, beide Passwörter standen
 darin, je Fehlversuch mehrfach. Der Fix ist ein POST mit form-urlencoded Body.
 
-Geprüft wird die Zuweisung an `queryItems` (direkt, per `append` oder als
-gleichnamige Sammelvariable). Ein Array, das in einen Body kodiert wird,
-heißt anders und ist kein Befund.
+Geprüft wird die Zuweisung an die Eigenschaft `.queryItems` (direkt oder per
+`append`) und eine Sammelvariable `queryItems`, die danach an `.queryItems`
+zugewiesen wird. Eine gleichnamige Variable, die in einen Body kodiert wird,
+ist kein Befund — belegt am 08.10.2026 in einem zweiten Projekt: nach dem Umbau auf POST
+meldete die erste Fassung der Regel den Fix weiter als Fehler, nur wegen des
+Variablennamens.
 ```
 
 </details>
