@@ -440,6 +440,12 @@ def check_bundle_module(ctx: Context) -> CheckResult:
             expect=Status.PASS,
         ),
         SelfTestCase(
+            name="VisionKit ist ein Systemmodul",
+            files={"P.xcodeproj/project.pbxproj": "isa = PBXNativeTarget;\n",
+                   "Scan/Plugin.swift": "import UIKit\nimport VisionKit\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
             name="Unbekanntes Modul neben Grafikframeworks",
             files={"P.xcodeproj/project.pbxproj": "isa = PBXNativeTarget;\n",
                    "App/Renderer.swift": "import QuartzCore\nimport MetalKit\nimport AppCore\n"},
@@ -482,6 +488,10 @@ def check_module_import(ctx: Context) -> CheckResult:
         # https://developer.apple.com/documentation/quartzcore
         # https://developer.apple.com/documentation/metalkit
         "QuartzCore", "MetalKit",
+        # Kamera-Scanner (DataScannerViewController), belegt an Merkma
+        # native/barcode-scanner am 08.10.2026:
+        # https://developer.apple.com/documentation/visionkit
+        "VisionKit",
     }
     findings: list[Finding] = []
     for sf in swift:
