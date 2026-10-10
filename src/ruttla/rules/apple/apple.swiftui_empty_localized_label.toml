@@ -1,0 +1,83 @@
+format = "ruttla-rule/0"
+id = "apple.swiftui_empty_localized_label"
+title = "SwiftUI-Element mit leerem Text-Literal erzeugt leeren Katalogschlüssel"
+platform = "apple"
+severity = "warning"
+guideline = "CLAUDE.md § Grundsatz C — Katalog ohne leere, unübersetzte Schlüssel"
+tags = ["i18n", "xcstrings", "swiftui"]
+references = ["https://developer.apple.com/documentation/xcode/localizing-and-varying-text-with-a-string-catalog"]
+rationale = """
+Ein String-Literal in `Button("")`, `Text("")` usw. ist ein `LocalizedStringKey`.
+Xcode extrahiert ihn beim Bauen in `Localizable.xcstrings` — als Schlüssel `""`
+ohne Übersetzung. Ein Katalogtest, der je Schlüssel einen de/en-Text verlangt,
+wird damit rot, obwohl im Code nichts Sichtbares geändert wurde.
+
+Belegt am 10.10.2026 (SynologyPhotos/Lugga): unsichtbare Tastenkürzel-Knöpfe
+`Button("") { … }.keyboardShortcut(…)`. Der Mac-Build schrieb `""` (und `HTTP`)
+ohne Lokalisierung in den Katalog, der Commit „local build“ landete in Build 3,
+`swift test` war rot. Fix: `Button { … } label: { EmptyView() }` — ohne Literal
+wird nichts extrahiert. `Text(verbatim: "")` ist ebenfalls kein Schlüssel."""
+
+[scope]
+extensions = [".swift"]
+unit_label = "Swift-Dateien"
+no_files_reason = "Keine Swift-Dateien gefunden."
+
+[match]
+per_line = true
+pattern = '''\b(Button|Text|Toggle|Label|Menu|Section|Picker|TextField|SecureField|Link)\([ \t]*""[ \t]*[,)]'''
+message = "{1}(\"\") legt beim Bauen einen leeren, unübersetzten Schlüssel in Localizable.xcstrings an."
+fix = "Ohne Literal schreiben: `Button { … } label: { EmptyView() }`, bzw. `Text(verbatim: \"\")`."
+
+[[fixtures]]
+name = "unsichtbare Tastenkürzel-Knöpfe (Original-Fehler)"
+expect = "fail"
+expect_findings = 2
+expect_finding_contains = "Button"
+[fixtures.files]
+"Sources/App/MainView.swift" = """
+Group {
+    Button("") { store.openNewTab() }
+        .keyboardShortcut("t", modifiers: .command)
+    Button("") { store.closeTab() }
+        .keyboardShortcut("w", modifiers: .command)
+}
+"""
+
+[[fixtures]]
+name = "zwei Treffer in einer Zeile ergeben einen Befund"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"Sources/App/A.swift" = """
+HStack { Text(""); Button("", action: go) }
+"""
+
+[[fixtures]]
+name = "Leerraum im Aufruf"
+expect = "fail"
+expect_findings = 1
+expect_finding_contains = "Toggle"
+[fixtures.files]
+"Sources/App/B.swift" = "Toggle( \t\"\" , isOn: $flag)\n"
+
+[[fixtures]]
+name = "Formfeed trennt Zeilen: Befund steht in der eigenen Zeile"
+expect = "fail"
+expect_findings = 1
+expect_finding_contains = "Text(\"\")"
+[fixtures.files]
+"Sources/App/C.swift" = "let a = 1\fText(\"\")\n"
+
+[[fixtures]]
+name = "Fix: Label-Closure, verbatim, echte Texte und leere Variablen"
+expect = "pass"
+[fixtures.files]
+"Sources/App/MainView.swift" = """
+Button { store.openNewTab() } label: { EmptyView() }
+    .keyboardShortcut("t", modifiers: .command)
+Text(verbatim: "")
+Button("login.profile.save") { save() }
+let empty = ""
+MyButton("")
+"""

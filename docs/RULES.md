@@ -3,11 +3,11 @@
 
 # Rule catalog
 
-169 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+170 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 47 | 9 |
+| apple | 48 | 9 |
 | dotnet | 10 | 0 |
 | godot | 31 | 0 |
 | python | 7 | 0 |
@@ -2673,6 +2673,63 @@ struct Grid { @FocusState private var focusedId: String?; private func loadConte
 @FocusState private var focusedId: String?
 @State private var items: [String] = []
 private func loadContent() async { let fresh = await fetchItems(); items = fresh }
+```
+
+</details>
+
+### `apple.swiftui_empty_localized_label`
+
+**SwiftUI-Element mit leerem Text-Literal erzeugt leeren Katalogschlüssel**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Grundsatz C — Katalog ohne leere, unübersetzte Schlüssel
+- Public rationale: [GUIDELINES.md › principle-c-visible-text-lives-in-a-catalog](GUIDELINES.md#principle-c-visible-text-lives-in-a-catalog)
+- Reference: <https://developer.apple.com/documentation/xcode/localizing-and-varying-text-with-a-string-catalog>
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein String-Literal in `Button("")`, `Text("")` usw. ist ein `LocalizedStringKey`.
+Xcode extrahiert ihn beim Bauen in `Localizable.xcstrings` — als Schlüssel `""`
+ohne Übersetzung. Ein Katalogtest, der je Schlüssel einen de/en-Text verlangt,
+wird damit rot, obwohl im Code nichts Sichtbares geändert wurde.
+
+Belegt am 10.10.2026 (SynologyPhotos/Lugga): unsichtbare Tastenkürzel-Knöpfe
+`Button("") { … }.keyboardShortcut(…)`. Der Mac-Build schrieb `""` (und `HTTP`)
+ohne Lokalisierung in den Katalog, der Commit „local build“ landete in Build 3,
+`swift test` war rot. Fix: `Button { … } label: { EmptyView() }` — ohne Literal
+wird nichts extrahiert. `Text(verbatim: "")` ist ebenfalls kein Schlüssel.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): unsichtbare Tastenkürzel-Knöpfe (Original-Fehler)</summary>
+
+`Sources/App/MainView.swift`
+
+```text
+Group {
+    Button("") { store.openNewTab() }
+        .keyboardShortcut("t", modifiers: .command)
+    Button("") { store.closeTab() }
+        .keyboardShortcut("w", modifiers: .command)
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Fix: Label-Closure, verbatim, echte Texte und leere Variablen</summary>
+
+`Sources/App/MainView.swift`
+
+```text
+Button { store.openNewTab() } label: { EmptyView() }
+    .keyboardShortcut("t", modifiers: .command)
+Text(verbatim: "")
+Button("login.profile.save") { save() }
+let empty = ""
+MyButton("")
 ```
 
 </details>
