@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-170 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+173 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 48 | 9 |
 | dotnet | 10 | 0 |
-| godot | 31 | 0 |
+| godot | 34 | 0 |
 | python | 7 | 0 |
 | raspberry | 6 | 0 |
 | universal | 37 | 6 |
@@ -4444,6 +4444,47 @@ func return_to_menu() -> void:
 
 </details>
 
+### `godot.number_in_catalog_text`
+
+**Spielwert fest im Katalogtext**
+
+- Default severity: `info`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Grundsatz C (Katalogpflicht / i18n)
+- Public rationale: [GUIDELINES.md › principle-c-visible-text-lives-in-a-catalog](GUIDELINES.md#principle-c-visible-text-lives-in-a-catalog)
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt 13.10.2026 (BrauhausTycoon): Ausbaupreise standen in UPGRADES und zusätzlich wörtlich im Katalog ('Flyer (150 M.)'). Eine Preisänderung im Code hätte im Menü den alten Preis gezeigt.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Preis im Text</summary>
+
+`localization/ui.csv`
+
+```text
+keys,de,en
+UI_FLYER,Flyer (150 M.),Flyer (150 C.)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Platzhalter</summary>
+
+`localization/ui.csv`
+
+```text
+keys,de,en
+UI_FLYER,Flyer,Flyer
+UI_PRICE,%s (%d M.),%s (%d C.)
+UI_FIELD,2. Hopfenfeld,2nd Hop Field
+```
+
+</details>
+
 ### `godot.physics_movement_in_process`
 
 **Area2D oder Physics-Knoten wird in _process() bewegt (verursacht Kollisionstunneln)**
@@ -4536,6 +4577,53 @@ func spawn_all():
 
 </details>
 
+### `godot.private_call_on_other_object`
+
+**Private Methode eines anderen Objekts aufgerufen**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Arcade Idle & Tycoon (Stationen buchen über eine öffentliche Stelle)
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt 13.10.2026 (BrauhausTycoon): Knechte schrieben Kessel-/Theken-Bestände direkt und riefen _update_ui()/_add_mug_to_table() von außen; dieselbe Buchung lag dadurch an drei Stellen, eine davon bezahlte doppelt.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Knecht bucht am Kessel vorbei</summary>
+
+`scripts/worker.gd`
+
+```text
+extends Node
+func deliver(active_kettle):
+	active_kettle.stored_hops += 1
+	active_kettle._update_ui()
+	active_kettle._update_ui()
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): öffentliche Methode und eigene Interna</summary>
+
+`scripts/worker.gd`
+
+```text
+extends Node
+func deliver(kettle):
+	kettle.deposit_hops(1)
+	_update_ui()
+	self._update_ui()
+	super._ready()
+	signal_source.connect(kettle._on_full)
+```
+
+</details>
+
 ### `godot.root_directory_pollution`
 
 **Szenen- oder Skriptdatei liegt direkt im Projekt-Root**
@@ -4620,6 +4708,63 @@ func submit(data: Dictionary) -> void:
 func submit(data: Dictionary) -> void:
 	var s := multiplayer.get_remote_sender_id()
 	process_data(s, data)
+```
+
+</details>
+
+### `godot.save_per_booking`
+
+**Spielstand wird bei jeder Buchung geschrieben**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Frequenz mal Kardinalität
+- Public rationale: [GUIDELINES.md › frequency-times-cardinality](GUIDELINES.md#frequency-times-cardinality)
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt 13.10.2026 (BrauhausTycoon): add_coins()/spend_coins() riefen save_game(); die Ausbauzone buchte alle 0,08 s, 30 Gäste zahlten laufend — dutzende Dateischreibvorgänge pro Sekunde auf dem Handy.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Speichern pro Münze</summary>
+
+`scripts/save_service.gd`
+
+```text
+extends Node
+func add_coins(amount: int) -> void:
+	current_coins += amount
+	save_game()
+
+func spend_coins(amount: int) -> bool:
+	if current_coins >= amount:
+		current_coins -= amount
+
+		save_game()
+		return true
+	return false
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gebündelt gespeichert</summary>
+
+`scripts/save_service.gd`
+
+```text
+extends Node
+func add_coins(amount: int) -> void:
+	current_coins += amount
+	request_save()
+
+func flush() -> void:
+	save_game()
+
+func save_game() -> void:
+	pass
 ```
 
 </details>

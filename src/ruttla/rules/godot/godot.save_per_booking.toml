@@ -1,0 +1,55 @@
+format = "ruttla-rule/0"
+id = "godot.save_per_booking"
+title = "Spielstand wird bei jeder Buchung geschrieben"
+platform = "godot"
+severity = "warning"
+guideline = "CLAUDE.md § Frequenz mal Kardinalität"
+rationale = "Belegt 13.10.2026 (BrauhausTycoon): add_coins()/spend_coins() riefen save_game(); die Ausbauzone buchte alle 0,08 s, 30 Gäste zahlten laufend — dutzende Dateischreibvorgänge pro Sekunde auf dem Handy."
+
+[scope]
+extensions = [".gd"]
+unit_label = "GDScript-Dateien"
+no_files_reason = "Keine GDScript-Dateien gefunden."
+require_text = "save"
+
+[match]
+pattern = '(?m)^func[ \t]+((?:add|spend|remove|take|give|grant|consume|earn|pay)_[A-Za-z0-9_]*)[ \t]*\([^)\n]*\)[^:\n]*:[ \t]*\n(?:(?:[ \t]+[^\n]*)?\n)*?[ \t]+(?:[A-Za-z_][A-Za-z0-9_]*\.)?save(?:_game|_data|_state)?[ \t]*\('
+message = "'{1}()' schreibt den Spielstand bei jeder Buchung."
+fix = "Nur als ungespeichert markieren und gebündelt schreiben (Zeitgeber + beim Pausieren/Beenden); die Anzeige über ein eigenes Signal aktualisieren."
+
+[[fixtures]]
+name = "Speichern pro Münze"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"scripts/save_service.gd" = """
+extends Node
+func add_coins(amount: int) -> void:
+\tcurrent_coins += amount
+\tsave_game()
+
+func spend_coins(amount: int) -> bool:
+\tif current_coins >= amount:
+\t\tcurrent_coins -= amount
+
+\t\tsave_game()
+\t\treturn true
+\treturn false
+"""
+
+[[fixtures]]
+name = "gebündelt gespeichert"
+expect = "pass"
+[fixtures.files]
+"scripts/save_service.gd" = """
+extends Node
+func add_coins(amount: int) -> void:
+\tcurrent_coins += amount
+\trequest_save()
+
+func flush() -> void:
+\tsave_game()
+
+func save_game() -> void:
+\tpass
+"""

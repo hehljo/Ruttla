@@ -1,0 +1,65 @@
+format = "ruttla-rule/0"
+id = "godot.private_call_on_other_object"
+title = "Private Methode eines anderen Objekts aufgerufen"
+platform = "godot"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_GAMEDEV.md § Arcade Idle & Tycoon (Stationen buchen über eine öffentliche Stelle)"
+rationale = "Belegt 13.10.2026 (BrauhausTycoon): Knechte schrieben Kessel-/Theken-Bestände direkt und riefen _update_ui()/_add_mug_to_table() von außen; dieselbe Buchung lag dadurch an drei Stellen, eine davon bezahlte doppelt."
+
+[scope]
+extensions = [".gd"]
+unit_label = "GDScript-Dateien"
+no_files_reason = "Keine GDScript-Dateien gefunden."
+
+[match]
+pattern = '\b([A-Za-z_][A-Za-z0-9_]*)\._([a-z][A-Za-z0-9_]*)[ \t]*\('
+message = "'{1}._{2}()' greift von außen in die Interna eines anderen Objekts."
+fix = "Eine öffentliche Methode am Zielobjekt anbieten, die Buchung und Anzeige gemeinsam erledigt — dann gibt es nur eine Buchungsstelle."
+
+# self/super sind das eigene Objekt.
+[[match.exclude]]
+group = 1
+pattern = '^(self|super)$'
+
+# Tests rufen Callbacks bewusst direkt auf, um Zustände herzustellen.
+[[match.exclude]]
+on = "path"
+pattern = '(^|/)tests?/'
+
+[[fixtures]]
+name = "Knecht bucht am Kessel vorbei"
+expect = "fail"
+expect_findings = 2
+expect_finding_contains = "active_kettle._update_ui"
+[fixtures.files]
+"scripts/worker.gd" = """
+extends Node
+func deliver(active_kettle):
+\tactive_kettle.stored_hops += 1
+\tactive_kettle._update_ui()
+\tactive_kettle._update_ui()
+"""
+
+[[fixtures]]
+name = "öffentliche Methode und eigene Interna"
+expect = "pass"
+[fixtures.files]
+"scripts/worker.gd" = """
+extends Node
+func deliver(kettle):
+\tkettle.deposit_hops(1)
+\t_update_ui()
+\tself._update_ui()
+\tsuper._ready()
+\tsignal_source.connect(kettle._on_full)
+"""
+
+[[fixtures]]
+name = "Test ruft Callback direkt"
+expect = "pass"
+[fixtures.files]
+"tests/probe.gd" = """
+extends Node
+func run(field, player):
+\tfield._on_body_entered(player)
+"""

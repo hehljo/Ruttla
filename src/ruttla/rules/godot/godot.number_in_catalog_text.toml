@@ -1,0 +1,59 @@
+format = "ruttla-rule/0"
+id = "godot.number_in_catalog_text"
+title = "Spielwert fest im Katalogtext"
+platform = "godot"
+severity = "info"
+guideline = "CLAUDE.md § Grundsatz C (Katalogpflicht / i18n)"
+rationale = "Belegt 13.10.2026 (BrauhausTycoon): Ausbaupreise standen in UPGRADES und zusätzlich wörtlich im Katalog ('Flyer (150 M.)'). Eine Preisänderung im Code hätte im Menü den alten Preis gezeigt."
+
+[scope]
+extensions = [".csv"]
+unit_label = "Lokalisierungskataloge"
+no_files_reason = "Kein CSV-Katalog gefunden."
+
+[match]
+pattern = '\((\d{2,})[ \t]*[A-Za-zÄÖÜäöü€$]{1,4}\.?\)'
+per_line = true
+message = "Wert '{1}' steht wörtlich im Katalogtext."
+fix = "Platzhalter verwenden (%d bzw. {cost}) und den Wert aus derselben Datenquelle einsetzen, die das Spiel rechnet."
+
+[[fixtures]]
+name = "Preis im Text"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"localization/ui.csv" = """
+keys,de,en
+UI_FLYER,Flyer (150 M.),Flyer (150 C.)
+"""
+
+[[fixtures]]
+name = "Platzhalter"
+expect = "pass"
+[fixtures.files]
+"localization/ui.csv" = """
+keys,de,en
+UI_FLYER,Flyer,Flyer
+UI_PRICE,%s (%d M.),%s (%d C.)
+UI_FIELD,2. Hopfenfeld,2nd Hop Field
+"""
+
+[[fixtures]]
+name = "Zeilengrenze: zwei Preise in einer Zeile sind ein Befund"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"localization/ui.csv" = "keys,de,en\nUI_A,A (10 M.) B (20 M.),A\n"
+
+[[fixtures]]
+name = "Zeilengrenze: Formfeed trennt Zeilen"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"localization/ui.csv" = "keys,de,en\nUI_A,A (10 M.)\fUI_B,B (20 M.)\n"
+
+[[fixtures]]
+name = "Zeilengrenze: Leerzeichen über Zeilenumbruch zählt nicht"
+expect = "pass"
+[fixtures.files]
+"localization/ui.csv" = "keys,de,en\nUI_A,A (10\nM.),A\n"
