@@ -479,6 +479,11 @@ def check_literal_text(ctx: Context) -> CheckResult:
             "tools/b.py": 'label = "Neue Version = " + number\n'}, expect=Status.FAIL),
         SelfTestCase(name="defekt: Schlüsselpräfix verdeckt keinen Anzeigetext", files={
             "tools/b.py": 'line = "BUILD_NUMBER = " + n; label = "Bitte warten " + name\n'}, expect=Status.FAIL),
+        # Belegt 2026-10-13 (Brauhaus wonky_figur.gd): Godot-Entwicklerausgaben.
+        SelfTestCase(name="gesund: Godot push_warning ist Entwicklertext", files={
+            "src/a.gd": 'func f(basis):\n\tpush_warning("Clip nicht gefunden: " + basis)\n'}, expect=Status.PASS),
+        SelfTestCase(name="defekt: push_warning verdeckt keinen Anzeigetext", files={
+            "src/a.gd": 'func f(n):\n\tpush_warning("Clip fehlt: " + n); label.text = "Es sind noch " + str(n)\n'}, expect=Status.FAIL),
     ],
 )
 def check_string_concat(ctx: Context) -> CheckResult:
@@ -509,6 +514,8 @@ def check_string_concat(ctx: Context) -> CheckResult:
                 continue  # A JS assignment prefix is program syntax, not UI text.
             if re.fullmatch(r"[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\s*=\s*", content):
                 continue  # snake/SCREAMING_SNAKE-Schlüssel mit '=': Konfigurations-, kein Anzeigetext.
+            if sf.ext == ".gd" and re.search(r"\b(?:push_warning|push_error|printerr|prints|printt)\(\s*$", prefix):
+                continue  # Godot-Entwicklerausgabe; geprüft an der Fundstelle, nicht an der Zeile.
             if re.search(r"(console\.|print\(|log\w*\(|logger|throw |Error\(|assert)", raw, re.I):
                 continue  # Entwicklertext, gehört nicht in den Katalog
             findings.append(Finding(
