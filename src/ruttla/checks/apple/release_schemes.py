@@ -18,6 +18,7 @@ from ruttla.core import (
     ok,
     register,
     result_for,
+    strip_comments,
     SelfTestCase,
     Severity,
     Status,
@@ -45,6 +46,27 @@ from ._release_common import (
 _TEST_PRODUCT_TYPE = re.compile(
     r'\bproductType\s*=\s*"?com\.apple\.product-type\.bundle\.(?:unit-test|ui-testing)"?\s*;'
 )
+
+
+def _only_test_buildables(path: str, root) -> bool:
+    """Exempt an explicit test-only scheme, never a name-based assumption."""
+    entries = _elements(root, "BuildActionEntry")
+    if not entries or _elements(root, "LaunchAction") or _elements(root, "ArchiveAction"):
+        return False
+    for entry in entries:
+        if entry.get("buildForArchiving") != "NO" or entry.get("buildForTesting") != "YES":
+            return False
+        references = _elements(entry, "BuildableReference")
+        if not references:
+            return False
+        for reference in references:
+            project = _referenced_project(path, reference.get("ReferencedContainer", ""))
+            text = _read_project(project) if project else None
+            targets = dict(_pbx_objects(text, "PBXNativeTarget")) if text else {}
+            target = targets.get(reference.get("BlueprintIdentifier"))
+            if target is None or not _TEST_PRODUCT_TYPE.search(strip_comments(target, ".swift")):
+                return False
+    return True
 
 
 @register(
@@ -443,6 +465,15 @@ def check_scheme_target_reference(ctx: Context) -> CheckResult:
             },
             expect=Status.FAIL,
         ),
+        SelfTestCase(name="gesund: reines Test-Scheme braucht kein Archiv", files={
+            "P.xcodeproj/project.pbxproj": _HEALTHY_PROJECT.replace('name = App;',
+                'name = App; productType = "com.apple.product-type.bundle.unit-test";'),
+            "P.xcodeproj/xcshareddata/xcschemes/Tests.xcscheme":
+                '<Scheme><BuildAction><BuildActionEntries><BuildActionEntry '
+                'buildForTesting="YES" buildForArchiving="NO"><BuildableReference '
+                'BlueprintIdentifier="AAA111" ReferencedContainer="container:P.xcodeproj"/>'
+                '</BuildActionEntry></BuildActionEntries></BuildAction><TestAction/></Scheme>',
+        }, expect=Status.PASS),
     ],
 )
 def check_archive_action(ctx: Context) -> CheckResult:
@@ -460,6 +491,8 @@ def check_archive_action(ctx: Context) -> CheckResult:
             unknown += 1
             continue
         valid_schemes += 1
+        if _only_test_buildables(path, root):
+            continue
         archive_actions = _elements(root, "ArchiveAction")
         if len(archive_actions) != 1:
             findings.append(Finding(

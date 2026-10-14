@@ -104,6 +104,11 @@ _OBS_CLASS = re.compile(
 )
 _STORED_VAR = re.compile(r"^[ \t]*(?:@\w+[ \t]+)*(?:(?:public|private|fileprivate|internal|package|open)(?:\(set\))?\s+)*var\s+(\w+)", re.MULTILINE)
 _ASYNC_FUNC = re.compile(r"\bfunc\s+\w+\s*(?:<[^>]*>)?\s*\([^{]*?\)\s*async\b[^{]*\{")
+_MAINACTOR_METHOD_PREFIX = re.compile(
+    r"@MainActor\b[ \t\n]*"
+    r"(?:@[A-Za-z_]\w*(?:\([^\n()]*\))?[ \t\n]*)*"
+    r"(?:(?:public|private|fileprivate|internal|package|open|final|override|static|class)\b[ \t\n]*)*$"
+)
 
 
 def _block_end(text: str, open_idx: int) -> int:
@@ -164,6 +169,16 @@ def _top_level(body: str) -> str:
                    "    busy = !busy\n  }\n  func work() async -> Bool { true }\n}\n"},
             expect=Status.PASS,
         ),
+        SelfTestCase(
+            name="gesund: nur die async-Methode ist MainActor-isoliert",
+            files={"App/VM.swift": "import Observation\n@Observable\nclass VM {\n var value = 0\n @MainActor\n func run() async {\n await work()\n value = 1\n }\n}\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="defekt: MainActor auf Nachbarmethode isoliert run nicht",
+            files={"App/VM.swift": "import Observation\n@Observable\nclass VM {\n var value = 0\n @MainActor func other() {}\n func run() async {\n await work()\n value = 1\n }\n}\n"},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_observable_mutated_off_main(ctx: Context) -> CheckResult:
@@ -196,8 +211,11 @@ def check_observable_mutated_off_main(ctx: Context) -> CheckResult:
             if not stored:
                 continue
             for fm in _ASYNC_FUNC.finditer(body):
-                before = body[max(0, fm.start() - 80):fm.start()].splitlines()
-                if before and "@MainActor" in before[-1]:
+                # Attributes may occupy earlier lines, followed by modifiers.
+                # Match the declaration suffix only; another member's attribute
+                # must not suppress this method's mutation.
+                before = body[max(0, fm.start() - 1024):fm.start()]
+                if _MAINACTOR_METHOD_PREFIX.search(before):
                     continue
                 fopen = fm.end() - 1
                 fbody = body[fopen + 1:_block_end(body, fopen)]

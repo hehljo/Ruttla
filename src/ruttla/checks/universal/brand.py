@@ -119,6 +119,32 @@ from ._common import _brand_candidates, MARKUP_EXTS, SOURCE_EXTS
             },
             expect=Status.PASS,
         ),
+        SelfTestCase(name="gesund: Dateipfad und Maschinenkennungen", files={
+            "package.json": '{"name":"acme-web"}',
+            "probe.swift": 'let url = root.appendingPathComponent("Acme-Probe")\n',
+            "probe.py": 'name = "Acme-Test-" + family\nif parent != "Acme-Test": pass\n',
+            "probe.js": 'run(callback, "acme_storage_key");\n',
+        }, expect=Status.PASS),
+        SelfTestCase(name="defekt: SwiftUI zeigt dieselbe Maschinenkennung", files={
+            "package.json": '{"name":"acme-web"}',
+            "probe.swift": 'Text("Acme-Probe")\n',
+        }, expect=Status.FAIL),
+        SelfTestCase(name="defekt: JSX zeigt dieselbe Maschinenkennung", files={
+            "package.json": '{"name":"acme-web"}',
+            "probe.tsx": 'const a = <h1>Acme-Probe</h1>;\n',
+        }, expect=Status.FAIL),
+        SelfTestCase(name="defekt: Pfad auf gleicher Zeile verdeckt keinen Text", files={
+            "package.json": '{"name":"acme-web"}',
+            "probe.swift": 'root.appendingPathComponent("Acme-Probe"); Text("Acme-Probe")\n',
+        }, expect=Status.FAIL),
+        SelfTestCase(name="gesund: interpolierter Swift-Dateipfad", files={
+            "package.json": '{"name":"acme-web"}',
+            "probe.swift": 'root.appendingPathComponent("Acme-Test-\\(UUID().uuidString)")\n',
+        }, expect=Status.PASS),
+        SelfTestCase(name="defekt: interpolierter Swift-Anzeigetext", files={
+            "package.json": '{"name":"acme-web"}',
+            "probe.swift": 'Text("Acme-Test-\\(UUID().uuidString)")\n',
+        }, expect=Status.FAIL),
     ],
 )
 def check_brand_hardcoded(ctx: Context) -> CheckResult:
@@ -132,7 +158,7 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
     keine Textänderung — sie werden nicht gemeldet.
     """
     title = "Markenname steht fest im Anzeigepfad"
-    brands = _brand_candidates(ctx)
+    brands = list({name.casefold(): name for name in _brand_candidates(ctx)}.values())
     if not brands:
         return unmeasured(
             "brand.hardcoded_in_display", title,
@@ -175,6 +201,11 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
         r"|assert(?:ionFailure)?|precondition(?:Failure)?|console\.\w+"
         r"|logger\.\w+|log\.\w+)\s*\([^()]*$"
     )
+    machine_literal = re.compile(r'''["']([A-Za-z0-9]+(?:[_./:-][A-Za-z0-9]*)+)["']''')
+    display_sink = re.compile(
+        r"\b(?:Text|Label|Button|title|caption|header|subheader|markdown|write|"
+        r"navigationTitle|navigationSubtitle|tooltip|help|setText)\s*\([^()]*$"
+        r"|\b(?:text|textContent|innerText|label|title|placeholder|aria-label|alt)\s*[:=]\s*$", re.I)
     findings: list[Finding] = []
     units = 0
     for sf in ctx.files(*SOURCE_EXTS, *MARKUP_EXTS):
@@ -182,6 +213,7 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
             continue
         units += 1
         body = strip_comments(sf.text, sf.ext)
+        identifiers = list(machine_literal.finditer(body))
         is_package_manifest = os.path.basename(sf.rel) == "Package.swift" and re.search(r"\bimport\s+PackageDescription\b", body)
         package_identifier = re.compile(r'\b(?:name|targets|dependencies|path)\s*:\s*(?:\[[^\]]*)?"[^"\n]*$')
         for brand in brands:
@@ -199,6 +231,20 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
                 # gehören nicht in den Katalog). Geprüft wird der Aufruf, der
                 # den Treffer UMSCHLIESST, nicht die ganze Zeile.
                 line_start = body.rfind("\n", 0, m.start()) + 1
+                # Direct path-component literals can contain Swift interpolation.
+                # Bound this to the call before the brand, never the entire line.
+                if sf.ext == ".swift" and re.search(
+                    r'\.appendingPathComponent\(\s*"[^"\n]*$',
+                    body[max(0, m.start() - 200):m.start()],
+                ):
+                    continue
+                # Structured storage/path/CLI identifiers are technical literals.
+                # An explicit display sink still makes the same literal visible.
+                identifier = next((value for value in identifiers
+                                   if value.start(1) <= m.start() < value.end(1)), None)
+                if (identifier and sf.ext in (".py", ".swift", ".mjs", ".js", ".ts")
+                        and not display_sink.search(body[max(0, identifier.start() - 200):identifier.start()])):
+                    continue
                 if dev_output.search(body[line_start:m.start()]):
                     continue
                 if is_package_manifest and package_identifier.search(body[line_start:m.start()]):

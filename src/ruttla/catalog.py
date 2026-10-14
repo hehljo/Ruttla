@@ -38,6 +38,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Apple developer documentation for the named key, entitlement or file format."),
     ("Apple Asset Catalog", "apple-platform-documentation",
      "Apple developer documentation for the named key, entitlement or file format."),
+    ("CLAUDE.md § Fremde APIs", "keep-the-rejection-reason",
+     "A failing external call keeps the provider's full reason; output is shortened from the end."),
     ("CLAUDE.md § Zugangsdaten gehören nie in eine URL", "credentials-never-in-a-url",
      "Passwords and one-time codes travel in a request body or header, never in a URL."),
     ("CLAUDE.md § Architektur-Grundsatz A", "principle-a-single-source-of-truth",

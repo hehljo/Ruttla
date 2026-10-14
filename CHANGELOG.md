@@ -1,5 +1,85 @@
 # Changelog
 
+## Godot: typed lambda over freed objects (2026-10-14)
+
+- New TOML rule `godot.typed_lambda_on_freed_objects` (error): a `filter`/`any`/`all`
+  lambda with a typed parameter that checks `is_instance_valid` fails on the
+  conversion of a freed object before the check runs. `Variant` is excluded.
+- Fail and pass fixtures; old project state reports one finding, the fix none.
+
+## Explicit XCFramework architecture inspection (2026-10-13)
+
+- Added an opt-in offline Mach-O/fat/ar-to-XCFramework metadata checker and
+  operation guide, preserving normal inventory and size limits. Unknown inputs
+  remain unmeasured; no target execution or default rule registration.
+- Added six tests and actual healthy/single-defect controls. Native build,
+  installation, start, interaction and screenshot evidence remain separate.
+
+## Integration evidence and storage guidance (2026-10-10)
+
+- Added authenticated Realtime/cross-account controls, account cache isolation,
+  independent UI persistence checks and bounded native replay evidence.
+- Documented canonical contract freeze, recovered-worker failures, real Android
+  compiler versus runtime proof and measured, permission-bound cache retention.
+- Documentation only; no new rule, runtime execution, exemption or publication.
+
+## Simulator environment evidence (2026-10-09)
+
+- Public guidance distinguishes SSH/device-list readiness from an actual bounded
+  simulator boot, records host/session symptoms without claiming a root cause,
+  and requires explicit authorization for shared-service restarts.
+- Cleanup diagnostics preserve the primary error and remain separate from test
+  success. Local runner controls do not establish remote OS responsiveness.
+- Terminal migration failure with exit zero is now documented. Project runtime
+  contracts require named boot-complete cases; healthy and isolated defective
+  output probes reject false success. No global host-cause heuristic was added.
+- Actual app UI additionally requires complete resources, real test targets and
+  device-bound screenshot attachments. Final scans wait for stable receipts; a
+  concurrent receipt replacement invalidated an intermediate input snapshot.
+- Documentation only: no new check, runtime execution, native-evidence exemption,
+  commit or push. Existing rule/code changes remain untouched.
+
+## Native test project and technical-string scopes (2026-10-09)
+
+- Fixed false positives for machine identifiers containing the configured brand,
+  duplicate case variants of that brand, and parseable Python bootstrap snippets.
+  Explicit UI literals still produce findings, including multiline sinks; this is
+  bounded source analysis, not runtime data-flow proof.
+- Pure XCTest schemes may omit ArchiveAction only when real referenced test
+  targets, testing-enabled/non-archiving entries and absence of launch/archive
+  actions are verified. Missing targets and app/archive variants stay findings.
+- Missing DEVELOPMENT_TEAM is exempt only for real test-only projects whose
+  every build configuration explicitly disables signing. Metadata requirements
+  remain active; app projects and comment-only flags remain findings.
+- Healthy controls preceded isolated defect probes. Self-test: 769/769;
+  unittest suite: 312 tests, three optional skips. Strict self-scan and changed
+  scan: 16 PASS, 28 UNMEASURED, zero findings. Rule catalogue check passed.
+  No new rule IDs, network execution, commit or push.
+
+## Swift method isolation (2026-10-09)
+
+- Fixed `apple.observable_state_mutated_off_main` false positives for method-level
+  `@MainActor`, including a preceding availability attribute and access modifier.
+  An attribute on a neighbouring method/property or in a comment still cannot
+  hide a mutation after `await`. No new check ID or execution of target code.
+- Verified healthy controls before isolated attribute-removal/neighbor defects.
+  Full self-test: 757/757; unittest suite: 308 tests, three optional skips.
+  Strict self-scan: 16 PASS, 28 UNMEASURED, no findings.
+
+## WPF dialog scroll topology (2026-10-08)
+
+- Added advisory `dotnet.wpf_dialog_unscrollable_auto_content`: XML topology
+  detects simple height-limited, content-sized auto forms without a scroll path.
+  Whole-content ScrollViewer and star content rows are healthy structural controls.
+  Disabled, collapsed and resource/template-only scroll paths do not hide defects.
+  Dynamic sizing, custom controls and local list-only scrolling remain unmeasured.
+  Python is necessary for ancestry/row relationships; regex rule v0 cannot express
+  that scope safely. No target code is executed, and no native UI approval claimed.
+- Public WPF guidance covers viewport/button reachability, staged cancellation,
+  persistent-board snapshots and atomic slot-safe writes. Existing runtime-proof
+  contracts cover source freshness for project database tests, not native UI.
+- Local branch only; no commit or push.
+
 ## Capacitor plugin thenable and required-reason APIs (2026-10-07)
 
 - Added `web.capacitor_plugin_resolved_from_promise` (warning, TOML). A

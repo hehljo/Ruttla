@@ -1,0 +1,106 @@
+format = "ruttla-rule/0"
+id = "web.anonymous_testimonial"
+title = "Kundenstimme mit anonymer Zuschreibung — Quelle belegen oder entfernen"
+platform = "web"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_WEB.md § Rechtstexte und Nutzerhandlungen"
+tags = ["legal", "uwg", "marketing", "testimonial"]
+rationale = """
+Eine Kundenstimme, die nur einer Rolle zugeschrieben ist („Eine Mutter,
+Beta-Testerin“, „— Ein Vater aus München“), ist auf der Landing-Page der
+typische Platzhalter aus dem Entwurf, der live geht. Erfundene oder nicht
+überprüfte Bewertungen sind nach UWG Anhang Nr. 23b/23c irreführend und ein
+häufiger Abmahngrund.
+
+Belegt am 12.10.2026 (Kinder-Web-App): das Zitat „Mein Sohn hat sein eigenes
+Abenteuerbuch bekommen …“ mit „Eine Mutter, Beta-Testerin“ stand seit dem
+Landing-Entwurf auf der Seite und wäre mit der Öffnung der Registrierung live
+gegangen — eine solche Testerin gab es nicht. Aufgefallen nur beim Durchsehen
+der Beta-Texte, kein Gate kannte den Fall.
+
+Warnung statt Fehler: echte Stimmen werden aus Datenschutzgründen ebenfalls
+oft anonymisiert. Dann gehört die Quelle (Freigabe der Person, Datum) neben
+den Code, nicht in den Kopf."""
+
+[scope]
+extensions = [".tsx", ".jsx", ".html", ".vue", ".svelte", ".astro", ".ts", ".js"]
+unit_label = "Dateien mit Anzeigetext"
+no_files_reason = "Keine Web-Quelldatei gefunden."
+
+[match]
+# Die Zuschreibung ist ein eigener kurzer Textknoten oder String: Rolle allein,
+# Rolle + ", Zusatz", Rolle + " aus Ort", oder "Name, Beta-Testerin". Ein Satz,
+# der mit derselben Rolle nur beginnt ("Ein Kunde kann …"), endet nicht am
+# Begrenzer und trifft nicht.
+per_line = true
+pattern = '''(?i)[>"'`]\s*[—–-]?\s*((?:eine?\s+(?:mutter|vater|mama|papa|oma|opa|kundin|kunde|nutzerin|nutzer|leserin|leser)(?:\s*,\s*[^<>"'`\n]{1,40}|\s+aus\s+[^<>"'`\n]{1,30})?|[^<>"'`\n,]{1,30},\s*beta-?tester(?:in)?))\s*[<"'`]'''
+message = "Kundenstimme mit anonymer Zuschreibung: „{1:60}“ — gibt es die Person und ihre Freigabe?"
+fix = "Nur echte Stimmen mit dokumentierter Freigabe zeigen; die Quelle im Kommentar daneben nennen. Ohne Beleg den Block entfernen."
+
+[[fixtures]]
+name = "Landingpage: Eine Mutter, Beta-Testerin (12.10.2026)"
+expect = "fail"
+expect_finding_contains = "Eine Mutter, Beta-Testerin"
+expect_findings = 1
+[fixtures.files]
+"src/components/LandingPage.tsx" = """
+<section className="quote">
+  <p>„Mein Sohn blättert es jeden Abend durch.“</p>
+  <span>Eine Mutter, Beta-Testerin</span>
+</section>
+"""
+
+[[fixtures]]
+name = "Zuschreibung im Katalog-String mit Ort"
+expect = "fail"
+[fixtures.files]
+"src/lib/locales/de.ts" = """
+export const de = { testimonialAuthor: "— Ein Vater aus München" };
+"""
+
+[[fixtures]]
+name = "Vorname mit Beta-Testerin"
+expect = "fail"
+[fixtures.files]
+"src/Quote.jsx" = """
+export const Quote = () => <cite>Anna K., Beta-Testerin</cite>;
+"""
+
+[[fixtures]]
+name = "Satz, der mit einer Rolle beginnt, ist keine Zuschreibung"
+expect = "pass"
+[fixtures.files]
+"src/components/Faq.tsx" = """
+<p>Ein Kunde kann sein Konto jederzeit löschen.</p>
+<button>Werde Beta-Tester</button>
+<blockquote>„Jedes Kind verdient ein Buch, in dem es selbst die Hauptrolle spielt.“</blockquote>
+"""
+
+[[fixtures]]
+name = "Erklärender Kommentar zum entfernten Zitat"
+expect = "pass"
+[fixtures.files]
+"src/components/LandingPage.tsx" = """
+{/* Hier stand eine Kundenstimme ("Eine Mutter, Beta-Testerin"), die es nie gab. */}
+<section className="steps"></section>
+"""
+
+[[fixtures]]
+name = "Zwei Zuschreibungen in einer Zeile ergeben einen Befund"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"src/a.tsx" = "<span>Eine Mutter</span><span>Ein Vater</span>\n"
+
+[[fixtures]]
+name = "Formfeed trennt die Zeilen"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"src/a.tsx" = "<span>Eine Mutter</span>\f<span>Ein Vater</span>\n"
+
+[[fixtures]]
+name = "Leerraum läuft nicht über den Zeilenumbruch"
+expect = "pass"
+[fixtures.files]
+"src/a.tsx" = "<span>\nEine Mutter\n</span>\n"

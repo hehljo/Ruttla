@@ -28,6 +28,17 @@ from ruttla.core import (
 )
 
 from ._common import _MIN_LAST_UPGRADE_CHECK, _pbx_text, PLATFORM
+from ._release_common import _pbx_objects
+
+
+def _unsigned_test_project(text: str) -> bool:
+    text = strip_comments(text, ".swift")  # OpenStep has C-style comments.
+    targets = _pbx_objects(text, "PBXNativeTarget")
+    configurations = _pbx_objects(text, "XCBuildConfiguration")
+    test_type = re.compile(r'\bproductType\s*=\s*"?com\.apple\.product-type\.bundle\.(?:unit-test|ui-testing)"?\s*;')
+    return bool(targets and configurations) and all(test_type.search(body) for _, body in targets) and all(
+        re.search(r'\bCODE_SIGNING_ALLOWED\s*=\s*NO\s*;', body)
+        for _, body in configurations)
 
 
 # ===========================================================================
@@ -135,6 +146,15 @@ def check_bundle_id(ctx: Context) -> CheckResult:
             files={"P.xcodeproj/project.pbxproj": "TargetAttributes = {};\nDEVELOPMENT_TEAM = ABC;\n{ path = Localizable.xcstrings; lastKnownFileType = text.json.xcstrings; };\n"},
             expect=Status.PASS,
         ),
+        SelfTestCase(name="gesund: explizit unsigniertes Testprojekt", files={
+            "P.xcodeproj/project.pbxproj": 'TargetAttributes = {};\nobjects = {\nT = { isa = PBXNativeTarget; productType = "com.apple.product-type.bundle.unit-test"; };\nC = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGNING_ALLOWED = NO; }; };\n};\n',
+        }, expect=Status.PASS),
+        SelfTestCase(name="defekt: App-Target braucht weiterhin Team", files={
+            "P.xcodeproj/project.pbxproj": 'TargetAttributes = {};\nobjects = {\nT = { isa = PBXNativeTarget; productType = "com.apple.product-type.application"; };\nC = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGNING_ALLOWED = NO; }; };\n};\n',
+        }, expect=Status.FAIL),
+        SelfTestCase(name="defekt: Signierflag nur im Kommentar", files={
+            "P.xcodeproj/project.pbxproj": 'TargetAttributes = {};\nobjects = {\nT = { isa = PBXNativeTarget; productType = "com.apple.product-type.bundle.unit-test"; };\nC = { isa = XCBuildConfiguration; buildSettings = { /* CODE_SIGNING_ALLOWED = NO; */ }; };\n};\n',
+        }, expect=Status.FAIL),
     ],
 )
 def check_project_settings(ctx: Context) -> CheckResult:
@@ -153,7 +173,8 @@ def check_project_settings(ctx: Context) -> CheckResult:
             file=rel,
             fix="In Xcode einmal 'Update to recommended settings' ausführen.",
         ))
-    if not re.search(r"\bDEVELOPMENT_TEAM\b|\bDevelopmentTeam\b", content):
+    if (not re.search(r"\bDEVELOPMENT_TEAM\b|\bDevelopmentTeam\b", content)
+            and not _unsigned_test_project(content)):
         findings.append(Finding(
             check_id="apple.project_settings", severity=Severity.WARNING,
             message="DEVELOPMENT_TEAM fehlt — kann zu CodeSign-Fehlern führen.",

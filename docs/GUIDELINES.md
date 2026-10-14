@@ -15,6 +15,121 @@ a second, hand-maintained list. The mapping lives in code
 
 ## Cross-cutting principles
 
+### Isolated database test evidence
+
+A test runner must refuse an existing container, use a fresh owned name and bind
+test database ports to loopback. Stop only its own container; preserve data and
+primary failure status. A successful suite total cannot hide an empty section:
+require each declared case exactly once and check both database-client and report
+parser exits. FATAL/PANIC and setup failures remain failures even beside positive
+verdicts. Historical migration exceptions need the measured SQL exit and exact
+error signature; connection failures and different errors in that file stay red.
+Healthy reports/runner I/O precede independent defective probes. PostgreSQL with
+stub auth/Storage functions proves local SQL/RLS, not HTTP auth, Storage, Realtime
+or hosted permissions. These are runner guidance, not a speculative source rule.
+
+### Authenticated integration and resource evidence
+
+Distinguish stub-based SQL/RLS, real local Auth/REST/Storage/Realtime, authenticated
+browser actions, native repository replay and physical devices. Complete services
+are not complete business acceptance. Precisely tolerated historical migration
+errors remain coldstart defects. Verify UI writes independently through persisted
+rows, relations, money, status and UTC; test limits by a prohibited direct write too.
+Browser network-idle is not rendered authenticated readiness. Wait for concrete
+visible navigation and allowed actions before measuring absence or role restrictions.
+
+Realtime proof requires an actual production-client event at an authenticated peer,
+not just an open socket or joined channel. A foreign-account negative test needs
+its own working positive control. Test refresh, unsubscribe and late callbacks.
+Account switches must remove shared list/detail caches and pending reads before
+showing the next identity; observe transient foreign content in the same browser
+tab. A token refresh of the same identity is a separate case.
+
+Inject the real native queue/engine/repository with isolated persistence and auth;
+do not fall back to shared keychain or global HTTP clients. Queue/container
+recreation is not an application-process restart, full/delta sync or multidevice
+acceptance. SSH loss can leave an owned remote worker running after fixture
+ports close. Recover its original hashed diagnostics without changing the verdict.
+
+Freeze source/resource inventories and canonical contracts before expensive runs.
+Even whitespace in a globally hashed contract can invalidate multiple receipts.
+Never rebind an old receipt manually. The existing runtime-proof contract checks
+freshness and named coverage; it does not execute the target or independently
+establish the truth of assertions. These guidance items add no new rule or waiver.
+
+CLI status/auth payloads can contain secrets. Keep only necessary fields in
+memory, never copy complete payloads into diagnostics. Validate actual loopback
+port bindings and owned container identity before bounded cleanup.
+
+Check destination-volume space and RAM/swap before remote builds. Fresh run
+directories accumulate sources, build caches, raw result bundles and archives;
+simulator shutdown does not remove them. Measure categories and agree bounded
+retention. Remove only explicitly authorized owned caches after completed workers
+and hash-verified artifact recovery. APFS container sharing prevents attributing
+an entire free-space change to one directory without further measurements.
+External output paths need an actual mounted-volume build; GUI defaults do not
+override an explicit command-line derived-data path. No static heuristic diagnoses
+disk exhaustion, sleep, swap pressure or provider/device readiness completely.
+
+For Android, separate compile/lint from JVM, emulator and device proof. `NO-SOURCE`
+is not a test. Report warnings beside a zero-error lint result. String generators
+need actual compiler controls for literal percent text, escaped percent, argument
+positions, repeated positions and types; XML parsing alone is insufficient.
+
+### Technical text and native test scope
+
+Structured machine identifiers (paths, CLI values, storage keys) are not display
+copy. The bounded brand-literal check exempts these only outside explicit UI
+sinks; the same slug passed to a UI sink remains a finding. Later dynamic display
+needs separate runtime/data-flow review. Direct Swift path-component literals
+may include interpolation; the same interpolated literal in a UI sink remains
+a finding. Brand names differing only by case must
+not duplicate one finding. Parseable Python bootstrap assignments/calls ending
+with semicolons are code, not user-visible prose; parsing never executes them.
+Actual prose concatenation remains a finding.
+
+A test-only scheme without LaunchAction or ArchiveAction does not need an archive
+action when its actual references resolve to XCTest bundles and its entries
+explicitly enable testing while disabling archiving. Unknown targets, app
+products or archive-enabled entries cannot use that exemption. A real test-only
+project may omit DEVELOPMENT_TEAM only if every build configuration explicitly
+sets CODE_SIGNING_ALLOWED=NO. Other project metadata checks remain active.
+Simulator/XCTest success does not prove app UI, backend access, device behavior
+or release signing. These are bounded source checks with healthy/defect controls,
+not complete semantic or runtime validation.
+
+### Simulator environment and cleanup evidence
+
+A successful SSH/toolchain/device-list probe does not establish that a simulator
+can boot. Record a bounded boot result separately. If the runtime stalls, inspect
+host resources, console user and SSH/GUI session context before another test
+attempt. Resource pressure and differing sessions are observations, not proven
+causes. Restarting a shared simulator service with user IDE sessions open needs
+explicit authorization; never turn this into a device erase/reset loop.
+
+Cleanup must have its own bounded process path, logs and failure status without
+overwriting the primary test error. Local healthy/error/timeout probes validate
+runner behavior; they cannot prove control over stuck operating-system calls on
+the remote host. Preserve and hash interrupted diagnostics. A missing current
+native receipt remains a runtime-evidence blocker. No deterministic source check
+can diagnose this observed host failure, so these are guidance and unmeasured
+platform boundaries, not a new rule or an exemption for failed native tests.
+
+Observed `simctl bootstatus` exited zero for terminal `Data Migration Failed`.
+Validate the successful terminal state and completion text for the measured
+toolchain, reject unknown formats, and declare both device boot checks as named
+runtime-proof cases alongside XCTest assertions. Healthy output precedes each
+isolated failed-terminal, nonterminal, incomplete-output and nonzero-exit probe.
+A separately created owned simulator completed migration; preserve the old
+device and diagnostics rather than inferring a root cause or erasing its data.
+
+Run the final source scan after suites finish updating their receipts. A parallel
+scan observed a receipt disappearing between discovery and read; this invalidates
+the scan snapshot, not the app. Keep that diagnostic and repeat against stable
+inputs. App UI proof additionally needs actual test targets, complete resource
+inventory and device-bound screenshot attachments; do not treat a successful
+component-only target or a simulator environment image as this evidence.
+
 <a id="principle-a-single-source-of-truth"></a>
 ### Principle A — single source of truth
 
@@ -189,6 +304,16 @@ per failed attempt. The rule examines the assignment to the URL, not the
 parameter array: the same array encoded into `httpBody` is the fix.
 
 <a id="documentation-that-can-be-executed"></a>
+<a id="keep-the-rejection-reason"></a>
+### Keep the rejection reason
+
+Many command-line clients print the plan or the request first and the
+provider's verdict last. An error message cut to the first N characters of
+stdout/stderr shows the plan and drops the reason, so the next attempt is a
+guess. Shorten from the end, or write the full response to a report file
+before raising. Verify a fix with the provider's own wording, never with a
+second blind attempt.
+
 ### Documentation that can be executed
 
 Shell snippets in docs are copied verbatim. An unquoted `<HOST_IP>`
@@ -365,6 +490,29 @@ Windows build: `new Thickness(a, b)` does not compile (1 or 4 arguments);
 `PART_EditableTextBox` for editable ComboBoxes; UI scaling belongs in font
 resources, not in a bound `LayoutTransform`; `async void` is for event
 handlers only.
+
+Height-limited content-sized dialogs need an actual vertical scroll path for
+long descriptions, screenshots and forms. Auto Grid rows plus
+`SizeToContent="Height"` do not create scrolling. Prefer a bounded scrollable
+content row and a separate action footer; do not blindly enable horizontal
+Auto measurement. The XML rule is advisory and measures only explicit whole-
+content scrolling, scrollable star rows and simple non-scrollable auto forms.
+Resource/template-only scrollbars and collapsed branches do not count.
+Custom controls, dynamic sizes and local list scrollbars remain unmeasured;
+structural PASS does not prove rendered button reachability. Test low height,
+large text, mouse and keyboard on Windows.
+
+For external edits to a persistent board, flush UI changes before reading a
+snapshot, compare that snapshot immediately before the write, protect semantic
+slots and use one transaction for the complete batch. Reload after the external
+write without flushing a stale UI model. Closing/cancelling a staged adjustment
+must discard that adjustment; explicit skip is a different action. Preserve
+import identities, export locks and existing conflicts. Compare complete old/new
+profile rules, and check absences on every calendar day touched by overnight
+duties. These behaviours require project-bound database regression tests;
+a keyword check does not establish transaction or cancellation correctness.
+Source-bound receipts can guard freshness and required case coverage, but do
+not execute or authenticate target tests and do not certify native UI.
 
 <a id="unreal-engine-guidelines"></a>
 ### Unreal Engine guidelines
@@ -788,6 +936,28 @@ actual runtime hit regions. Health and touch damage constants remain covered.
 - Advertising consent UI, a loaded rewarded video, its earned-reward callback, provider app readiness and store publication are separate facts. Local gates cannot certify provider inventory or account approval. Test ads on registered devices verify the native flow; do not substitute mock rewards for native SDK proof.
 - Primary references checked 2026-10-06: https://developers.google.com/admob/ios/test-ads and https://support.google.com/admob/answer/10564477 and https://support.google.com/admob/answer/14538460 .
 
+### Native simulator and binary architecture evidence
+
+XCFramework names/metadata are claims; compare them with actual Mach-O/archive
+CPU slices. The explicit [architecture companion tool](operations/xcframework-architectures.md)
+preserves inventory exclusions and size limits, reports gaps as unmeasured and
+is not run by the ordinary scanner. Its healthy actual archive precedes one
+isolated metadata defect. CPU coverage is not platform or ABI compatibility.
+
+Build, installation, stable visible start, interaction and screenshots need
+separate evidence. Bound every remote operation, re-resolve XCTest containers
+on runner restart, require sequence-bound acknowledgements and foreground app
+state, and retain actual screenshots as XCTest attachments. Inspect every image;
+a Home screen or a game-over image cannot satisfy a gameplay scene. Real input
+and in-app locale changes must produce the photographed state. Preserve original
+pixels and hashes; no synthetic saves, invisible achievements or device claims.
+
+A compiler or silent-audio workaround used only in an isolated capture copy
+must be described as such; it does not authorize or establish a production fix.
+A process ID, successful SSH exit or compiled runner is not an executed case.
+Shared simulator/service restarts require explicit permission. Native startup,
+audio, GPU and device performance remain runtime evidence, not guessed rules.
+
 ### Godot: eigenes Startlogo und Menürückkehr (06.10.2026)
 
 - Für bestehende und neue Godot-Spiele eigene Branding-Assets verwenden: Engine-Boot-Splash, Web-Shell und nativer iOS-Launch-Screen getrennt konfigurieren und im finalen Export prüfen. Eine Boot-Splash-Einstellung allein belegt keinen angepassten nativen Launch-Screen. Bestehende Originale verwenden; keine künstliche Startverzögerung.
@@ -802,3 +972,11 @@ actual runtime hit regions. Health and touch damage constants remain covered.
 ### Vollständige Godot-Downloads in Cloud-Builds (06.10.2026)
 
 HTTP 200 und vorhandene Dateigröße beweisen keinen vollständigen Download. Ein belegter macOS-Editor-Download war 33.490 Bytes kürzer als das offizielle Release-Asset; die unveränderte SHA256-Pin-Prüfung lehnte ihn korrekt ab. Nach ausgeschöpften urllib-Retries kann ein unabhängiger curl-Client mit GET, HTTP/1.1, begrenzten Retries/Timeouts und Datei-Ausgabe einspringen. Vor atomarer Übernahme weiterhin exakt denselben offiziellen Digest prüfen; Teilantworten, Transportfehler und falsche Prüfsummen einzeln sabotieren. Keine Prüfsumme an einen kaputten Download anpassen. Reale macOS- und vollständige Cloud-Aktions-/Verteilungsprüfung bleiben eigene Nachweise.
+
+## Method-level MainActor
+
+For observable-state mutation checks, an immediately preceding method-level
+`@MainActor` is valid isolation, including intervening attributes and access
+modifiers. An annotation on a neighbouring member is not isolation for the
+current method. Healthy controls and isolated attribute-removal/neighbor probes
+cover this distinction; compiler and platform execution remain separate evidence.

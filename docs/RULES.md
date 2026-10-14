@@ -3,20 +3,95 @@
 
 # Rule catalog
 
-173 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+181 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 48 | 9 |
-| dotnet | 10 | 0 |
-| godot | 34 | 0 |
+| apple | 50 | 10 |
+| dotnet | 11 | 0 |
+| godot | 36 | 1 |
 | python | 7 | 0 |
 | raspberry | 6 | 0 |
-| universal | 37 | 6 |
+| universal | 38 | 6 |
 | unreal | 6 | 0 |
-| web | 25 | 3 |
+| web | 27 | 3 |
 
 ## Pack `apple`
+
+### `apple.ad_sdk_without_att`
+
+**Werbe-SDK eingebaut, aber kein ATT-Begründungstext**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § iOS: Werbung und App Tracking Transparency
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+- Reference: <https://developer.apple.com/app-store/user-privacy-and-data-use/>
+- Reference: <https://developers.google.com/admob/ios/privacy/idfa>
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt 14.10.2026 (Wiesn Survivors): AdMob + SKAdNetwork im Binary, ASC-Label „Tracking“, kein NSUserTrackingUsageDescription → Ablehnung 5.1.2(i). Warnung statt Fehler: wer nur nicht-personalisierte Werbung ausliefert und in ASC kein Tracking angibt, braucht keinen Dialog.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): AdMob ohne ATT-Text</summary>
+
+`ios/game.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+{ objects = { }; }
+```
+
+`ios/game/game-Info.plist`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-1~2</string>
+	<key>SKAdNetworkItems</key>
+	<array/>
+</dict>
+</plist>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): AdMob mit ATT-Text</summary>
+
+`ios/game.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+{ objects = { }; }
+```
+
+`ios/game/game-Info.plist`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-1~2</string>
+	<key>SKAdNetworkItems</key>
+	<array/>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Werbung personalisieren</string>
+</dict>
+</plist>
+```
+
+</details>
 
 ### `apple.api_availability_unguarded`
 
@@ -2869,6 +2944,98 @@ struct V: View { var body: some View { Text("x").font(.custom("Inter", size: 20,
 
 </details>
 
+### `apple.tracking_manifest_contradicts_att`
+
+**Privacy-Manifest und ATT-Begründung widersprechen sich**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § iOS: Werbung und App Tracking Transparency
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+- Reference: <https://developer.apple.com/documentation/bundleresources/privacy-manifest-files>
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt 14.10.2026 (Wiesn Survivors): NSPrivacyTracking=false neben einem Tracking-Label in ASC. Fragt die App per ATT, trackt sie; meldet das Manifest Tracking, braucht sie den ATT-Text.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): ATT-Text, Manifest false</summary>
+
+`ios/game.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+{ objects = { }; }
+```
+
+`ios/game/game-Info.plist`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Werbung personalisieren</string>
+</dict>
+</plist>
+```
+
+`ios/PrivacyInfo.xcprivacy`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+</dict>
+</plist>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): beides Tracking</summary>
+
+`ios/game.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+{ objects = { }; }
+```
+
+`ios/game/game-Info.plist`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Werbung personalisieren</string>
+</dict>
+</plist>
+```
+
+`ios/PrivacyInfo.xcprivacy`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<true/>
+</dict>
+</plist>
+```
+
+</details>
+
 ### `apple.ui_update_off_main`
 
 **UI-Zustand wird aus einem Hintergrund-Kontext gesetzt**
@@ -3410,6 +3577,45 @@ public partial class VM {
   <Button.CommandParameter><sys:Int32>2026</sys:Int32></Button.CommandParameter>
 </Button>
 </UserControl>
+```
+
+</details>
+
+### `dotnet.wpf_dialog_unscrollable_auto_content`
+
+**Höhenbegrenzter WPF-Dialog ohne Scrollweg**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WPF.md § Dialog-Scrollwege
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+- Reference: <https://learn.microsoft.com/en-us/dotnet/desktop/wpf/controls/scrollviewer>
+- Reference: <https://learn.microsoft.com/en-us/dotnet/api/system.windows.window.sizetocontent>
+
+<details><summary>Why it exists</summary>
+
+```text
+Reproduziertes Layout: SizeToContent=Height, begrenzte Höhe und ausschließlich Auto-Zeilen bzw. ein vertikales Formular ohne Scrollweg können dynamische Texte, Screenshots und Aktionsbuttons abschneiden. XML-Ancestry statt Datei-Grep; advisory, kein Pixel-/Windows-Nachweis. Benutzerdefinierte Controls, dynamische Größen und nur lokale Listen-Scrollwege bleiben ungemessen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Auto-Zeilen ohne Scrollweg</summary>
+
+`Dialog.xaml`
+
+```text
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" SizeToContent="Height" MaxHeight="650"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="{Binding InfoText}" TextWrapping="Wrap"/><Button Grid.Row="1" Content="Übernehmen"/></Grid></Window>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: kompletter Inhalt scrollbar</summary>
+
+`Dialog.xaml`
+
+```text
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" SizeToContent="Height" MaxHeight="650"><ScrollViewer VerticalScrollBarVisibility="Auto"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="{Binding InfoText}" TextWrapping="Wrap"/><Button Grid.Row="1" Content="Übernehmen"/></Grid></ScrollViewer></Window>
 ```
 
 </details>
@@ -4193,6 +4399,58 @@ build/
 
 </details>
 
+### `godot.ios_tracking_usage_in_preset`
+
+**ATT-Begründung als Godot-Exportoption — Godot verwirft sie still**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § iOS: Werbung und App Tracking Transparency
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+- Reference: <https://developer.apple.com/documentation/bundleresources/information-property-list/nsusertrackingusagedescription>
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt 14.10.2026 (Wiesn Survivors, Apple-Ablehnung 5.1.2(i)): `user_tracking/usage_description` im iOS-Preset; Godot 4.7.1 kennt für NSUserTrackingUsageDescription keine Exportoption (der Schlüssel steht nicht im Editor-Binary), die Zeile wurde ohne Meldung verworfen, die App zeigte keinen ATT-Dialog. Dieselbe erfundene Zeile stand in BrauhausTycoon, in TidyGrid als `privacy/tracking_usage_description`.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): erfundene Exportoptionen für den ATT-Text</summary>
+
+`export_presets.cfg`
+
+```text
+[preset.1]
+name="iOS"
+platform="iOS"
+
+[preset.1.options]
+user_tracking/usage_description="Mit deiner Zustimmung kann Google Werbung personalisieren."
+privacy/tracking_usage_description="Ads"
+privacy/tracking_enabled=true
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): nur echte Tracking-Optionen</summary>
+
+`export_presets.cfg`
+
+```text
+[preset.1]
+name="iOS"
+platform="iOS"
+
+[preset.1.options]
+privacy/tracking_enabled=true
+privacy/tracking_domains=""
+privacy/camera_usage_description=""
+```
+
+</details>
+
 ### `godot.missing_main_scene`
 
 **Hauptszene in project.godot existiert nicht im Dateisystem**
@@ -4933,6 +5191,52 @@ func return_home():
 extends Node2D
 func launch():
 	tween.tween_property(self, "global_position", target_pos, 0.5)
+```
+
+</details>
+
+### `godot.typed_lambda_on_freed_objects`
+
+**Typisierter Lambda-Parameter prüft auf freigegebene Objekte**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Godot Entwicklung
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+- Reference: <https://docs.godotengine.org/en/stable/classes/class_array.html#class-array-method-assign>
+- Reference: <https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html#class-globalscope-method-is-instance-valid>
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt 14.10.2026 (BrauhausTycoon): waiting_guests.filter(func(g: GuestNPC) -> bool: return is_instance_valid(g)) — sobald ein Gast freigegeben ist, scheitert schon die Umwandlung des Arguments ('Cannot convert argument 1 from Object to Object'), der Filter liefert ein untypisiertes Array und die Zuweisung an Array[GuestNPC] bricht ab. Genau der Fall, den is_instance_valid abfangen soll, kommt nie bei ihm an.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): typisierter Parameter mit Gültigkeitsprüfung</summary>
+
+`scripts/bar.gd`
+
+```text
+extends Node
+var waiting: Array[Node3D] = []
+func _process(_delta: float) -> void:
+	waiting = waiting.filter(func(g: Node3D) -> bool: return is_instance_valid(g))
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): untypisiert mit assign</summary>
+
+`scripts/bar.gd`
+
+```text
+extends Node
+var waiting: Array[Node3D] = []
+func _process(_delta: float) -> void:
+	waiting.assign(waiting.filter(func(g: Variant) -> bool: return is_instance_valid(g)))
+	var near := waiting.filter(func(g: Node3D) -> bool: return g.position.x > 0.0)
 ```
 
 </details>
@@ -6915,6 +7219,52 @@ const c = new Anthropic();
 
 </details>
 
+### `quality.child_output_head_truncated`
+
+**Ausgabe eines Kindprozesses vom Anfang her gekürzt**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Fremde APIs — Ablehnungsgrund sichern
+- Public rationale: [GUIDELINES.md › keep-the-rejection-reason](GUIDELINES.md#keep-the-rejection-reason)
+
+<details><summary>Why it exists</summary>
+
+```text
+Viele CLIs geben erst den Plan oder die Eingabe aus und ganz am Ende den
+Fehler. Wer stdout/stderr für eine Fehlermeldung auf die ersten N Zeichen
+kürzt, zeigt den Plan und schneidet den Grund ab.
+
+Belegt am 13.10.2026 (Release-Skript, `asc metadata apply`): die Meldung
+endete nach 800 Zeichen mitten in der Liste der geplanten Felder, der
+Ablehnungsgrund war unsichtbar. Gekürzt gehört vom Ende her
+(`.slice(-N)`, `[-N:]`), oder die ganze Antwort in eine Berichtsdatei.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): JS: Fehlermeldung aus dem Anfang von stderr/stdout</summary>
+
+`scripts/run.mjs`
+
+```text
+if (result.status !== 0) {
+  throw new Error(`fehlgeschlagen: ${(result.stderr || result.stdout).slice(0, 800)}`);
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Vom Ende gekürzt</summary>
+
+`scripts/run.mjs`
+
+```text
+throw new Error(`fehlgeschlagen: ${`${result.stderr}\n${result.stdout}`.trim().slice(-1500)}`);
+```
+
+</details>
+
 ### `quality.contract_expressions`
 
 **Explizite Sollwerte und Rechenfälle**
@@ -7929,6 +8279,62 @@ export const A = () => <button aria-label="Schliessen"><Icon /></button>;
 
 </details>
 
+### `web.anonymous_testimonial`
+
+**Kundenstimme mit anonymer Zuschreibung — Quelle belegen oder entfernen**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § Rechtstexte und Nutzerhandlungen
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Eine Kundenstimme, die nur einer Rolle zugeschrieben ist („Eine Mutter,
+Beta-Testerin“, „— Ein Vater aus München“), ist auf der Landing-Page der
+typische Platzhalter aus dem Entwurf, der live geht. Erfundene oder nicht
+überprüfte Bewertungen sind nach UWG Anhang Nr. 23b/23c irreführend und ein
+häufiger Abmahngrund.
+
+Belegt am 12.10.2026 (Kinder-Web-App): das Zitat „Mein Sohn hat sein eigenes
+Abenteuerbuch bekommen …“ mit „Eine Mutter, Beta-Testerin“ stand seit dem
+Landing-Entwurf auf der Seite und wäre mit der Öffnung der Registrierung live
+gegangen — eine solche Testerin gab es nicht. Aufgefallen nur beim Durchsehen
+der Beta-Texte, kein Gate kannte den Fall.
+
+Warnung statt Fehler: echte Stimmen werden aus Datenschutzgründen ebenfalls
+oft anonymisiert. Dann gehört die Quelle (Freigabe der Person, Datum) neben
+den Code, nicht in den Kopf.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Landingpage: Eine Mutter, Beta-Testerin (12.10.2026)</summary>
+
+`src/components/LandingPage.tsx`
+
+```text
+<section className="quote">
+  <p>„Mein Sohn blättert es jeden Abend durch.“</p>
+  <span>Eine Mutter, Beta-Testerin</span>
+</section>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Satz, der mit einer Rolle beginnt, ist keine Zuschreibung</summary>
+
+`src/components/Faq.tsx`
+
+```text
+<p>Ein Kunde kann sein Konto jederzeit löschen.</p>
+<button>Werde Beta-Tester</button>
+<blockquote>„Jedes Kind verdient ein Buch, in dem es selbst die Hauptrolle spielt.“</blockquote>
+```
+
+</details>
+
 ### `web.capacitor_oauth_without_native_return`
 
 **Anbieter-Anmeldung in der Capacitor-App springt nicht in die App zurück**
@@ -8192,6 +8598,66 @@ ersten ein Knopf mit längerer Beschriftung saß.
 
 ```text
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+```
+
+</details>
+
+### `web.grid_overlay_without_column`
+
+**Grid-Kind soll überlagern, hat aber nur eine Zeile und keine Spalte**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § 0 · Ein Grid-Kind mit fester Zeile verdrängt die automatisch platzierten
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+- Reference: <https://www.w3.org/TR/css-grid-1/#auto-placement-algo>
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein Grid-Kind mit `grid-row`, aber ohne Spalte, wird vor allen anderen
+gesetzt, und die Geschwister weichen ihm aus, statt die Zelle zu teilen.
+Wer so ein Element über ein anderes legen will (erkennbar am `z-index`),
+bekommt stattdessen eine neue Zeile oder eine implizite zweite Spalte:
+der Inhalt wird zur Seite gequetscht, das Overlay steht daneben.
+
+Belegt am 14.10.2026 (Merkma): eine Hinweis-Pille im Dialog. Erst rutschte
+der Rumpf in eine dritte Zeile, nach dem Nachziehen der Zeilen legte der
+Browser eine zweite Spalte an. Beide Male war das Layout-Gate grün, weil es
+nur die Lage der Pille maß, nicht die des überlagerten Rumpfs.
+
+Warnung, kein Fehler: `z-index` an einem Grid-Kind ist ein Indiz für die
+Absicht zu überlagern, kein Beweis.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Hinweis-Pille mit Zeile, ohne Spalte (Merkma, zweiter Anlauf)</summary>
+
+`styles/app.css`
+
+```text
+.sheet__form > .sheet__body { grid-row: 2; }
+.sheet__form > .sheet__status {
+  grid-row: 2;
+  align-self: end;
+  z-index: 1;
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): vollständige Zelle per grid-area</summary>
+
+`styles/app.css`
+
+```text
+.sheet__form > .sheet__body { grid-area: 2 / 1; }
+.sheet__form > .sheet__status {
+  grid-area: 2 / 1;
+  align-self: end;
+  z-index: 1;
+}
 ```
 
 </details>

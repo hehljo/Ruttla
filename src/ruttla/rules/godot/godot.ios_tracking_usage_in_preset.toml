@@ -1,0 +1,52 @@
+format = "ruttla-rule/0"
+id = "godot.ios_tracking_usage_in_preset"
+title = "ATT-Begründung als Godot-Exportoption — Godot verwirft sie still"
+platform = "godot"
+severity = "error"
+safe_by_default = true
+guideline = "CODE_QUALITY_GUIDELINES_GAMEDEV.md § iOS: Werbung und App Tracking Transparency"
+rationale = "Belegt 14.10.2026 (Wiesn Survivors, Apple-Ablehnung 5.1.2(i)): `user_tracking/usage_description` im iOS-Preset; Godot 4.7.1 kennt für NSUserTrackingUsageDescription keine Exportoption (der Schlüssel steht nicht im Editor-Binary), die Zeile wurde ohne Meldung verworfen, die App zeigte keinen ATT-Dialog. Dieselbe erfundene Zeile stand in BrauhausTycoon, in TidyGrid als `privacy/tracking_usage_description`."
+references = ["https://developer.apple.com/documentation/bundleresources/information-property-list/nsusertrackingusagedescription"]
+
+[scope]
+extensions = [".cfg"]
+unit_label = "Godot-Exportpresets mit iOS"
+no_files_reason = "Kein Godot-Exportpreset für iOS gefunden."
+require_text = 'platform="iOS"'
+skip_comments = false
+
+[match]
+pattern = '(?m)^([a-z0-9_/]*track[a-z0-9_/]*(?:usage|description)[a-z0-9_/]*)[ \t]*='
+message = "'{1}' ist keine Godot-Exportoption — der ATT-Text landet nicht in der Info.plist, iOS zeigt keinen Tracking-Dialog."
+fix = "Zeile entfernen; NSUserTrackingUsageDescription im Export-Nachlauf in Info.plist und InfoPlist.strings schreiben (Text aus dem Katalog) und dort prüfen. NSPrivacyTracking kommt aus `privacy/tracking_enabled`."
+
+[[fixtures]]
+name = "erfundene Exportoptionen für den ATT-Text"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"export_presets.cfg" = """
+[preset.1]
+name="iOS"
+platform="iOS"
+
+[preset.1.options]
+user_tracking/usage_description="Mit deiner Zustimmung kann Google Werbung personalisieren."
+privacy/tracking_usage_description="Ads"
+privacy/tracking_enabled=true
+"""
+
+[[fixtures]]
+name = "nur echte Tracking-Optionen"
+expect = "pass"
+[fixtures.files]
+"export_presets.cfg" = """
+[preset.1]
+name="iOS"
+platform="iOS"
+
+[preset.1.options]
+privacy/tracking_enabled=true
+privacy/tracking_domains=""
+privacy/camera_usage_description=""
+"""

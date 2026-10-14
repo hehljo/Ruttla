@@ -55,6 +55,7 @@ include = [
     "docs",
     "scripts/gen_rule_docs.py",
     "scripts/collect_host_snapshot.py",
+    "scripts/check_xcframework_architectures.py",
     "master_gate.py",
     "core.py",
     "README.md",

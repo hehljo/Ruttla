@@ -1,0 +1,89 @@
+format = "ruttla-rule/0"
+id = "quality.child_output_head_truncated"
+title = "Ausgabe eines Kindprozesses vom Anfang her gekürzt"
+platform = "universal"
+severity = "warning"
+guideline = "CLAUDE.md § Fremde APIs — Ablehnungsgrund sichern"
+rationale = """
+Viele CLIs geben erst den Plan oder die Eingabe aus und ganz am Ende den
+Fehler. Wer stdout/stderr für eine Fehlermeldung auf die ersten N Zeichen
+kürzt, zeigt den Plan und schneidet den Grund ab.
+
+Belegt am 13.10.2026 (Release-Skript, `asc metadata apply`): die Meldung
+endete nach 800 Zeichen mitten in der Liste der geplanten Felder, der
+Ablehnungsgrund war unsichtbar. Gekürzt gehört vom Ende her
+(`.slice(-N)`, `[-N:]`), oder die ganze Antwort in eine Berichtsdatei."""
+tags = ["fehlerausgabe", "subprocess"]
+
+[scope]
+extensions = [".js", ".mjs", ".cjs", ".ts", ".py"]
+unit_label = "Skript-Dateien"
+
+[match]
+# Je Zeile: der Kürzungsaufruf muss auf derselben Zeile wie stdout/stderr stehen.
+per_line = true
+pattern = '\b(stderr|stdout)\b[^\n]{0,80}?(\.slice\(\s*0\s*,|\.substring\(\s*0\s*,|\[\s*0?\s*:\s*\d+\s*\])'
+message = "{1} wird vom Anfang her gekürzt — der Fehler steht meist am Ende."
+fix = "Vom Ende kürzen oder die vollständige Antwort in eine Berichtsdatei schreiben."
+
+[[fixtures]]
+name = "JS: Fehlermeldung aus dem Anfang von stderr/stdout"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"scripts/run.mjs" = """
+if (result.status !== 0) {
+  throw new Error(`fehlgeschlagen: ${(result.stderr || result.stdout).slice(0, 800)}`);
+}
+"""
+
+[[fixtures]]
+name = "Python: proc.stderr[:500]"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"tools/run.py" = """
+proc = subprocess.run(cmd, capture_output=True, text=True)
+if proc.returncode:
+    raise RuntimeError(proc.stderr[:500])
+"""
+
+[[fixtures]]
+name = "Zwei Kürzungen auf einer Zeile ergeben einen Befund"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"a.js" = """
+log(r.stdout.slice(0, 100), r.stderr.slice(0, 100));
+"""
+
+[[fixtures]]
+name = "Vom Ende gekürzt"
+expect = "pass"
+[fixtures.files]
+"scripts/run.mjs" = """
+throw new Error(`fehlgeschlagen: ${`${result.stderr}\\n${result.stdout}`.trim().slice(-1500)}`);
+"""
+
+[[fixtures]]
+name = "Python vom Ende"
+expect = "pass"
+[fixtures.files]
+"tools/run.py" = """
+raise RuntimeError(proc.stderr[-500:])
+"""
+
+[[fixtures]]
+name = "Kürzung auf anderer Zeile als stdout"
+expect = "pass"
+[fixtures.files]
+"a.js" = """
+const out = r.stdout;
+const title = name.slice(0, 40);
+"""
+
+[[fixtures]]
+name = "Keine Skriptdatei"
+expect = "unmeasured"
+[fixtures.files]
+"README.md" = "stderr.slice(0, 10)"

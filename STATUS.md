@@ -1,5 +1,107 @@
 # STATUS
 
+## Explicit XCFramework architecture inspection (2026-10-13)
+
+- Added an explicit offline companion tool and operation guide. It compares
+  inventoried Mach-O/fat/archive CPU slices with XCFramework metadata; ordinary
+  scan exclusions and byte limits remain effective. This is not a registered
+  default rule, native execution or a build/boot receipt.
+- Actual healthy simulator archive passed before an isolated metadata defect
+  failed; the originally observed absent-CPU mismatch was detected too.
+- Six binary/coverage/path tests passed; existing self-tests 787/787 passed.
+  Strict self-scan and changed scan: 16 PASS, 28 UNMEASURED, no findings.
+- Full suite: 318 tests, 314 passed, three skipped, one provenance failure in
+  existing foreign rule/catalogue edits. Those files were not changed here.
+  Generated rule catalogue check passed. No commit or push.
+
+## Authenticated integration and storage guidance (2026-10-10)
+
+- Documented production-client Realtime events with foreign positive controls,
+  account-switch cache isolation, independent persisted UI results, and isolated
+  native repository/queue replay versus process restart/full sync/device proof.
+- Recorded canonical inventory freeze, global contract invalidation, recovered
+  remote-worker failures, secret-safe fixture transport, and destination-space
+  checks with measured category sizes and explicitly authorized cache retention.
+- Android compile/lint, `NO-SOURCE`, literal-percent generation and real compiler
+  controls remain separate from emulator/device acceptance.
+- Guidance only; existing runtime-proof check covers source freshness/named cases.
+  No new rule, receipt exemption, target execution, commit or push. Existing local
+  code changes are preserved. Changed scan: 16 PASS, 28 UNMEASURED, no findings.
+  Generated rule catalogue refreshed and its check passed; diff whitespace clean.
+
+## Local database runner evidence (2026-10-09)
+
+- Independent Astra review found destructive container reuse, public test-port
+  binding and swallowed empty/failed SQL sections in Vylea's existing runner.
+- Project fixes require fresh containers, loopback, bounded own cleanup, positive
+  complete named sections, client/parser exits and exact historical SQL errors.
+  Healthy/defect controls and an isolated 87-check PostgreSQL run passed.
+- Source triage distinguishes keychain identifiers/PEM-marker regex false
+  positives from a real hardcoded API auth comparison. Ignored local credentials
+  require actual Git verification; this scanner's ignore helper is conservative.
+  No credential values are documented and no rotation/deployment inferred.
+- Documentation only here; existing rules and edits preserved. User explicitly
+  leaves all Ruttla changes uncommitted and unpushed. No HTTP/native acceptance.
+
+## Simulator environment evidence (2026-10-09)
+
+- Public guidance distinguishes SSH/device-list readiness from an actual bounded
+  simulator boot, records host/session symptoms without claiming a root cause,
+  and requires explicit authorization for shared-service restarts.
+- Cleanup diagnostics preserve the primary error and remain separate from test
+  success. Local runner controls do not establish remote OS responsiveness.
+- Terminal migration failure with exit zero is now documented. Project runtime
+  contracts require named boot-complete cases; healthy and isolated defective
+  output probes reject false success. No global host-cause heuristic was added.
+- Actual app UI additionally requires complete resources, real test targets and
+  device-bound screenshot attachments. Final scans wait for stable receipts; a
+  concurrent receipt replacement invalidated an intermediate input snapshot.
+- Documentation only: no new check, runtime execution, native-evidence exemption,
+  commit or push. Existing rule/code changes remain untouched.
+
+## Native test project and technical-string scopes (2026-10-09)
+
+- Fixed false positives for machine identifiers containing the configured brand,
+  duplicate case variants of that brand, and parseable Python bootstrap snippets.
+  Explicit UI literals still produce findings, including multiline sinks; this is
+  bounded source analysis, not runtime data-flow proof.
+- Pure XCTest schemes may omit ArchiveAction only when real referenced test
+  targets, testing-enabled/non-archiving entries and absence of launch/archive
+  actions are verified. Missing targets and app/archive variants stay findings.
+- Missing DEVELOPMENT_TEAM is exempt only for real test-only projects whose
+  every build configuration explicitly disables signing. Metadata requirements
+  remain active; app projects and comment-only flags remain findings.
+- Healthy controls preceded isolated defect probes. Self-test: 769/769;
+  unittest suite: 312 tests, three optional skips. Strict self-scan and changed
+  scan: 16 PASS, 28 UNMEASURED, zero findings. Rule catalogue check passed.
+  No new rule IDs, network execution, commit or push.
+
+## Swift method isolation (2026-10-09)
+
+- Fixed `apple.observable_state_mutated_off_main` false positives for method-level
+  `@MainActor`, including a preceding availability attribute and access modifier.
+  An attribute on a neighbouring method/property or in a comment still cannot
+  hide a mutation after `await`. No new check ID or execution of target code.
+- Verified healthy controls before isolated attribute-removal/neighbor defects.
+  Full self-test: 757/757; unittest suite: 308 tests, three optional skips.
+  Strict self-scan: 16 PASS, 28 UNMEASURED, no findings.
+
+## WPF dialog scroll topology (2026-10-08)
+
+- [x] Added XML advisory `dotnet.wpf_dialog_unscrollable_auto_content`: simple
+  height-limited, content-sized auto forms without a reachable scroll path.
+  Whole-content scrolling and scrollable star content rows are structural
+  healthy controls; no Windows/pixel approval. Dynamic/custom/local-list-only
+  layouts stay unmeasured; template/collapsed/disabled probes stay detected.
+- [x] 15 healthy/isolated-defect/unknown self-test controls; five CLI regression
+  tests. Full self-test 753/753; full suite 306 tests, 303 passed, three optional
+  skips. Generated catalogue current; strict self-scan no failures/advisories.
+- [x] Public WPF guidance covers staged cancellation, snapshots, semantic slots
+  and atomic writes. Existing source-bound proof contracts integrated with a
+  project's isolated real-database regression runner: 35 checks. Healthy receipt
+  before five separate missing/zero/failure/case/stale-source probes; all rejected.
+- [x] Local branch `fix/wpf-dialog-scroll-20261008`; no commit or push.
+
 ## Godot scene ownership ordering (2026-10-07)
 
 - [x] Corrected a reproducible false positive in `godot.add_child_before_configure`: native `Node.owner` must be set after parenting because its owner must be an ancestor.

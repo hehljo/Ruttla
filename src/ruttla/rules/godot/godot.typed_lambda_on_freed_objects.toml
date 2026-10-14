@@ -1,0 +1,48 @@
+format = "ruttla-rule/0"
+id = "godot.typed_lambda_on_freed_objects"
+title = "Typisierter Lambda-Parameter prüft auf freigegebene Objekte"
+platform = "godot"
+severity = "error"
+guideline = "CODE_QUALITY_GUIDELINES_GAMEDEV.md § Mobile Godot Entwicklung"
+references = ["https://docs.godotengine.org/en/stable/classes/class_array.html#class-array-method-assign", "https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html#class-globalscope-method-is-instance-valid"]
+rationale = "Belegt 14.10.2026 (BrauhausTycoon): waiting_guests.filter(func(g: GuestNPC) -> bool: return is_instance_valid(g)) — sobald ein Gast freigegeben ist, scheitert schon die Umwandlung des Arguments ('Cannot convert argument 1 from Object to Object'), der Filter liefert ein untypisiertes Array und die Zuweisung an Array[GuestNPC] bricht ab. Genau der Fall, den is_instance_valid abfangen soll, kommt nie bei ihm an."
+
+[scope]
+extensions = [".gd"]
+unit_label = "GDScript-Dateien"
+no_files_reason = "Keine GDScript-Dateien gefunden."
+require_text = "is_instance_valid"
+
+[match]
+pattern = '\.(filter|any|all)\([ \t]*func[ \t]*\([ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*:[ \t]*([A-Z][A-Za-z0-9_]*)[ \t]*\)[^\n]*is_instance_valid\('
+message = "'{1}' prüft mit is_instance_valid(), aber der Parameter '{2}' ist typisiert — ein freigegebenes Objekt scheitert schon an der Typumwandlung."
+fix = "Parameter untypisiert (Variant) lassen und das Ergebnis mit assign() in das typisierte Array schreiben."
+
+# Variant ist untypisiert — genau die richtige Bauform
+[[match.exclude]]
+group = 3
+pattern = '^Variant$'
+
+[[fixtures]]
+name = "typisierter Parameter mit Gültigkeitsprüfung"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"scripts/bar.gd" = """
+extends Node
+var waiting: Array[Node3D] = []
+func _process(_delta: float) -> void:
+\twaiting = waiting.filter(func(g: Node3D) -> bool: return is_instance_valid(g))
+"""
+
+[[fixtures]]
+name = "untypisiert mit assign"
+expect = "pass"
+[fixtures.files]
+"scripts/bar.gd" = """
+extends Node
+var waiting: Array[Node3D] = []
+func _process(_delta: float) -> void:
+\twaiting.assign(waiting.filter(func(g: Variant) -> bool: return is_instance_valid(g)))
+\tvar near := waiting.filter(func(g: Node3D) -> bool: return g.position.x > 0.0)
+"""

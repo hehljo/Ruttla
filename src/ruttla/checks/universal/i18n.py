@@ -7,6 +7,7 @@ shared helpers in _common.py.
 from __future__ import annotations
 
 import csv
+import ast
 import io
 import re
 
@@ -484,6 +485,10 @@ def check_literal_text(ctx: Context) -> CheckResult:
             "src/a.gd": 'func f(basis):\n\tpush_warning("Clip nicht gefunden: " + basis)\n'}, expect=Status.PASS),
         SelfTestCase(name="defekt: push_warning verdeckt keinen Anzeigetext", files={
             "src/a.gd": 'func f(n):\n\tpush_warning("Clip fehlt: " + n); label.text = "Es sind noch " + str(n)\n'}, expect=Status.FAIL),
+        SelfTestCase(name="gesund: Python-Bootstrap enthält Programmstatements", files={
+            "src/probe.py": 'bootstrap = "root.mkdir(parents=True); " + suffix\n'}, expect=Status.PASS),
+        SelfTestCase(name="defekt: Programmstatement verdeckt keinen Anzeigetext", files={
+            "src/probe.py": 'bootstrap = "root.mkdir(parents=True); " + suffix; text = "Bitte warten " + name\n'}, expect=Status.FAIL),
     ],
 )
 def check_string_concat(ctx: Context) -> CheckResult:
@@ -509,6 +514,17 @@ def check_string_concat(ctx: Context) -> CheckResult:
             if not suffix.match(haystack, m.end()):
                 continue
             prefix = haystack[haystack.rfind("\n", 0, m.start()) + 1:m.start()]
+            if sf.ext == ".py" and content.rstrip().endswith(";"):
+                try:
+                    statements = ast.parse(content.strip()).body
+                except SyntaxError:
+                    statements = []
+                if statements and all(
+                    isinstance(node, ast.Assign)
+                    or (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call))
+                    for node in statements
+                ):
+                    continue  # Parsed program syntax, never executed here.
             if (sf.ext == ".gd" and re.search(r"JavaScriptBridge\.eval\(\s*$", prefix)
                     and re.fullmatch(r"window\.[A-Za-z_$][\w$]*\s*=\s*", content)):
                 continue  # A JS assignment prefix is program syntax, not UI text.
