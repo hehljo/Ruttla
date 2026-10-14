@@ -1,0 +1,100 @@
+format = "ruttla-rule/0"
+id = "web.grid_overlay_without_column"
+title = "Grid-Kind soll überlagern, hat aber nur eine Zeile und keine Spalte"
+platform = "web"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_WEB.md § 0 · Ein Grid-Kind mit fester Zeile verdrängt die automatisch platzierten"
+tags = ["css", "grid", "layout", "dialog"]
+references = ["https://www.w3.org/TR/css-grid-1/#auto-placement-algo"]
+introduced_in = "0.1.0"
+rationale = """
+Ein Grid-Kind mit `grid-row`, aber ohne Spalte, wird vor allen anderen
+gesetzt, und die Geschwister weichen ihm aus, statt die Zelle zu teilen.
+Wer so ein Element über ein anderes legen will (erkennbar am `z-index`),
+bekommt stattdessen eine neue Zeile oder eine implizite zweite Spalte:
+der Inhalt wird zur Seite gequetscht, das Overlay steht daneben.
+
+Belegt am 14.10.2026 (Merkma): eine Hinweis-Pille im Dialog. Erst rutschte
+der Rumpf in eine dritte Zeile, nach dem Nachziehen der Zeilen legte der
+Browser eine zweite Spalte an. Beide Male war das Layout-Gate grün, weil es
+nur die Lage der Pille maß, nicht die des überlagerten Rumpfs.
+
+Warnung, kein Fehler: `z-index` an einem Grid-Kind ist ein Indiz für die
+Absicht zu überlagern, kein Beweis."""
+
+[scope]
+extensions = [".css", ".scss"]
+unit_label = "Stylesheets"
+
+[match]
+# Ein Regelblock, der grid-row und z-index setzt (in beliebiger Reihenfolge).
+# Gruppe 1 = Selektor, Gruppe 2 = Blockinhalt.
+pattern = '''([^{}]+)\{([^{}]*\bgrid-row\s*:[^{}]*\bz-index\s*:[^{}]*|[^{}]*\bz-index\s*:[^{}]*\bgrid-row\s*:[^{}]*)\}'''
+message = "{1:60} legt sich per grid-row und z-index über ein Geschwister, nennt aber keine Spalte — der Browser legt eine neue Spalte an."
+fix = "Overlay und überlagertes Element in dieselbe vollständige Zelle legen (`grid-area: 2 / 1`), allen Geschwistern ihre Zelle ausdrücklich geben."
+
+# Mit Spalte ist die Zelle vollständig — dann überlagern sich die Kinder wirklich.
+[[match.exclude]]
+group = 2
+pattern = '''\bgrid-column\s*:|\bgrid-area\s*:[^;]*/'''
+
+[[fixtures]]
+name = "Hinweis-Pille mit Zeile, ohne Spalte (Merkma, zweiter Anlauf)"
+expect = "fail"
+expect_findings = 1
+expect_finding_contains = ".sheet__status"
+[fixtures.files]
+"styles/app.css" = """
+.sheet__form > .sheet__body { grid-row: 2; }
+.sheet__form > .sheet__status {
+  grid-row: 2;
+  align-self: end;
+  z-index: 1;
+}
+"""
+
+[[fixtures]]
+name = "z-index vor grid-row"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"overlay.scss" = """
+.badge {
+  z-index: 2;
+  grid-row: 1 / 2;
+}
+"""
+
+[[fixtures]]
+name = "vollständige Zelle per grid-area"
+expect = "pass"
+[fixtures.files]
+"styles/app.css" = """
+.sheet__form > .sheet__body { grid-area: 2 / 1; }
+.sheet__form > .sheet__status {
+  grid-area: 2 / 1;
+  align-self: end;
+  z-index: 1;
+}
+"""
+
+[[fixtures]]
+name = "Zeile und Spalte einzeln"
+expect = "pass"
+[fixtures.files]
+"styles/app.css" = """
+.hero__caption {
+  grid-row: 1;
+  grid-column: 1;
+  z-index: 1;
+}
+"""
+
+[[fixtures]]
+name = "grid-row ohne z-index ist gewöhnliche Platzierung"
+expect = "pass"
+[fixtures.files]
+"styles/app.css" = """
+.card__footer { grid-row: 3; }
+.modal { z-index: 10; }
+"""
