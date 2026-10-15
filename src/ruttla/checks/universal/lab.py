@@ -43,6 +43,21 @@ from ruttla.core import (
             files={"src/lab.ts": "export const isLabEnabled = import.meta.env.VITE_ENABLE_LAB !== 'false';\n"},
             expect=Status.PASS,
         ),
+        # Belegt am 14.10.2026 (Passma): `const label = (index) => ...` wurde als Labor-Flag gemeldet,
+        # weil IGNORECASE die camelCase-Grenze `[A-Z]` auch für das kleine 'e' gelten ließ.
+        SelfTestCase(
+            name="Hilfsfunktion label neben Labor-Konstante",
+            files={
+                "src/lab.ts": "export const isLabEnabled = import.meta.env.VITE_ENABLE_LAB !== 'false';\n",
+                "src/format.ts": "const label = (index: number) => `${index}`;\nexport function labelFor(value: string) { return value; }\n",
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Flag als Pfeilfunktion in camelCase",
+            files={"src/lab.ts": "export const labMode = () => import.meta.env.VITE_ENABLE_LAB !== 'false';\n"},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_lab_flag(ctx: Context) -> CheckResult:
@@ -54,11 +69,13 @@ def check_lab_flag(ctx: Context) -> CheckResult:
     # 'lab' muss an einer Wortgrenze oder camelCase-Grenze enden. Belegt an
     # einer realen Web-App: 'buildCheckerLabel' und 'mirrorLabel' wurden als
     # Labor-Flags gemeldet.
+    # Groß-/Kleinschreibung nur für die Wörter selbst: die camelCase-Grenze `[A-Z]` muss
+    # case-sensitiv bleiben, sonst gilt 'label' als 'lab' + Grenze. Python-Check statt TOML,
+    # weil die Grenze ein Lookahead ist (die Rust-regex-Crate kennt keine Lookarounds).
     name_pat = re.compile(
-        r"(?:^|_|\b)(?:is|enable|use|with)?_?"
-        r"(?:lab|labor|playground|sandbox|experimental)"
-        r"(?:_?(?:enabled|mode|flag|only)|(?=[A-Z_]|$))",
-        re.IGNORECASE,
+        r"(?:^|_|\b)(?i:is|enable|use|with)?_?"
+        r"(?i:lab|labor|playground|sandbox|experimental)"
+        r"(?:_?(?i:enabled|mode|flag|only)|(?=[A-Z_]|$))",
     )
     fn_decl = re.compile(
         r"^\s*(export\s+)?(async\s+)?function\s+(\w*(?:[Ll]ab|[Ll]abor|[Pp]layground|[Ss]andbox)\w*)\s*\(",
