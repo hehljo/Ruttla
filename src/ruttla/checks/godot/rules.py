@@ -365,6 +365,11 @@ def check_hot_loop_alloc(ctx: Context) -> CheckResult:
     self_tests=[
         SelfTestCase("gesund: Touch-Mindestfläche ist UI-Geometrie", {"src/a.gd": "extends RefCounted\nconst MIN_TOUCH_SIZE := 164.0\nconst MIN_TOUCH_WIDTH: float = 164.0\nconst MAX_TOUCH_HEIGHT = 240\n"}, Status.PASS),
         SelfTestCase("defekt: Touch-Schaden bleibt Balance", {"src/a.gd": "extends Node\nconst MIN_TOUCH_DAMAGE := 20\n"}, Status.FAIL),
+        # Belegt 13./15.10.2026 (Brauhaus ResourceBar.MIN_WIDTH): ein Maß in einem
+        # UI-Control ist Layout, kein Balancing.
+        SelfTestCase("gesund: Mindestbreite eines UI-Controls", {"src/ui/bar.gd": "extends PanelContainer\nconst MIN_WIDTH: float = 360.0\nconst MAX_ROW_HEIGHT := 120\n"}, Status.PASS),
+        SelfTestCase("defekt: Sprunghöhe außerhalb der UI bleibt Balance", {"src/a.gd": "extends CharacterBody3D\nconst MAX_JUMP_HEIGHT := 3.0\n"}, Status.FAIL),
+        SelfTestCase("defekt: Lebenspunkte im UI-Control bleiben Balance", {"src/ui/hud.gd": "extends Control\nconst MAX_HEALTH := 100\n"}, Status.FAIL),
         SelfTestCase(
             name="Balancewert als const",
             files={"src/a.gd": "extends Node\nconst MAX_HEALTH := 100\n"},
@@ -393,15 +398,26 @@ def check_balance_values(ctx: Context) -> CheckResult:
         # gefunden — der Regex war für sich richtig und traf trotzdem nie.
         re.IGNORECASE | re.MULTILINE,
     )
+    # Die Ausnahme hängt an der Basisklasse der Datei (Zustand über die Datei),
+    # deshalb bleibt der Check in Python statt als TOML-Muster.
+    ui_base = re.compile(
+        r"^extends[ \t]+(?:Control|Container|\w+Container|\w*Button|Label|RichTextLabel|"
+        r"Panel|\w*Rect|\w+Bar|\w+Slider|LineEdit|TextEdit|ItemList|Tree|Range|SpinBox)\b",
+        re.MULTILINE,
+    )
+    layout_name = re.compile(r"(?:MIN|MAX)_(?:\w+_)?(?:WIDTH|HEIGHT|SIZE)", re.I)
     has_data = any(
         sf.ext in (".tres", ".json", ".cfg") or "data" in sf.rel.lower()
         for sf in ctx.all_files()
     )
     findings: list[Finding] = []
     for sf in files:
+        is_ui = ui_base.search(sf.text) is not None
         for line_no, m, raw in iter_matches(sf, pat):
             if re.fullmatch(r"(?:MIN|MAX)_TOUCH_(?:SIZE|WIDTH|HEIGHT)", m.group(1), re.I):
                 continue  # UI units, not gameplay balancing; runtime size remains unmeasured.
+            if is_ui and layout_name.fullmatch(m.group(1)):
+                continue  # Maß eines UI-Controls: Layout, kein Balancing
             findings.append(Finding(
                 check_id="godot.balance_value_in_code", severity=Severity.INFO,
                 message=f"Balancewert '{m.group(1)}' als Konstante im Code.",
