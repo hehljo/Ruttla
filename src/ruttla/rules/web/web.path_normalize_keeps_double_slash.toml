@@ -1,0 +1,92 @@
+format = "ruttla-rule/0"
+id = "web.path_normalize_keeps_double_slash"
+title = "Pfad-Normalisierung lässt „//fremde.domain“ durch — führende Schrägstriche auf einen kürzen"
+platform = "web"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_WEB.md § Sicherheit"
+tags = ["security", "open-redirect", "url"]
+references = ["https://url.spec.whatwg.org/#scheme-relative-special-url-string", "https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html"]
+rationale = """
+Die Form `p.startsWith("/") ? p : `/${p}`` sieht nach Absicherung aus, prüft
+aber nur, ob MINDESTENS ein Schrägstrich vorne steht. „//boese.example“ geht
+unverändert durch — für den Browser eine protokollrelative URL, also eine
+fremde Domain. Stammt `p` aus der Adresszeile (Sprachumschalter, Rücksprung,
+`?next=`), ist das ein Open Redirect.
+
+Belegt am 16.10.2026 (Kinder-Web-App, Commit-Sicherheitsprüfung): der
+Sprachknopf auf der 404-Seite reichte den Pfad durch; `/en//boese.example`
+ergab den Link `//boese.example`. Behoben mit genau einem führenden
+Schrägstrich: `/${p.replace(/^[/\\\\]+/, "")}` (Backslash zählt mit, Browser
+lesen ihn als „/“).
+
+Warnung statt Fehler: mit konstanten Pfaden ist die Form harmlos. Dann reicht
+ein Kommentar, woher der Wert kommt."""
+
+[scope]
+extensions = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".vue", ".svelte"]
+unit_label = "Web-Quelldateien"
+no_files_reason = "Keine Web-Quelldatei gefunden."
+
+[match]
+# Bedingung prüft nur EINEN führenden Schrägstrich, der Ja-Zweig gibt den Wert
+# unverändert zurück: genau die Lücke für "//host".
+per_line = true
+pattern = '''(\w+)\.startsWith\(\s*["'`]/["'`]\s*\)\s*\?\s*(\w+)\s*:\s*`/\$\{\s*\w+\s*\}`'''
+message = "Pfad-Normalisierung von „{1:40}“ prüft nur einen führenden Schrägstrich und lässt „//fremde.domain“ durch."
+fix = "Führende / und \\ auf genau einen kürzen: `/${p.replace(/^[/\\\\]+/, \"\")}`."
+
+[[fixtures]]
+name = "Sprachlink der 404-Seite (16.10.2026)"
+expect = "fail"
+expect_findings = 1
+expect_finding_contains = "„rest“"
+[fixtures.files]
+"src/lib/localePath.ts" = """
+export function localizePath(locale: string, rest: string): string {
+  const pfad = rest.startsWith("/") ? rest : `/${rest}`;
+  return pfad;
+}
+"""
+
+[[fixtures]]
+name = "Einfache Anführungszeichen und Leerraum"
+expect = "fail"
+[fixtures.files]
+"src/next.js" = "const ziel = next.startsWith( '/' ) ?  next :`/${next}`;\n"
+
+[[fixtures]]
+name = "Reparierte Form kürzt auf einen Schrägstrich"
+expect = "pass"
+[fixtures.files]
+"src/lib/localePath.ts" = """
+export function localizePath(locale: string, rest: string): string {
+  const pfad = `/${rest.replace(/^[/\\\\]+/, "")}`;
+  return pfad;
+}
+"""
+
+[[fixtures]]
+name = "Andere Prüfung auf startsWith ist kein Befund"
+expect = "pass"
+[fixtures.files]
+"src/a.ts" = "const absolut = url.startsWith(\"/\") ? base + url : url;\n"
+
+[[fixtures]]
+name = "Zwei Treffer in einer Zeile ergeben einen Befund"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"src/a.ts" = "const a = x.startsWith(\"/\") ? x : `/${x}`, b = y.startsWith(\"/\") ? y : `/${y}`;\n"
+
+[[fixtures]]
+name = "Formfeed trennt die Zeilen"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"src/a.ts" = "const a = x.startsWith(\"/\") ? x : `/${x}`;\fconst b = y.startsWith(\"/\") ? y : `/${y}`;\n"
+
+[[fixtures]]
+name = "Leerraum läuft nicht über den Zeilenumbruch"
+expect = "pass"
+[fixtures.files]
+"src/a.ts" = "const a = x.startsWith(\"/\") ?\n  x : `/${x}`;\n"
