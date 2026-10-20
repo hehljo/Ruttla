@@ -163,6 +163,12 @@ def _is_public_supabase_key(token: str) -> bool:
             expect=Status.FAIL,
         ),
         SelfTestCase(
+            name="Geheimnis in derselben Zeile wie der Site-Token bleibt ein Befund",
+            files={"src/analytics.ts": "export const BEACON_URL = 'https://static.cloudflareinsights.com/beacon.min.js';\n"
+                   "export const ANALYTICS_TOKEN = '" + "0123456789abcdef" * 2 + "'; const password = 'S0mmerSonne2026xyzAB';\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
             name="Hex-Token ohne Beacon bleibt ein Befund",
             files={"src/a.ts": "export const ANALYTICS_TOKEN = '" + "0123456789abcdef" * 2 + "';\n"},
             expect=Status.FAIL,
@@ -262,9 +268,15 @@ def check_secrets(ctx: Context) -> CheckResult:
                     if not offen:
                         continue
                     m = offen[0]
-                if (label == "Zugangsdaten im Klartext" and laedt_beacon
-                        and ANALYTICS_TOKEN_ZUWEISUNG.search(raw)):
-                    continue
+                # Ausgenommen wird nur die Analytics-Zuweisung selbst: steht in derselben
+                # Zeile noch ein Geheimnis, bleibt die Zeile rot (Prüfbereich = Fundstelle).
+                am = ANALYTICS_TOKEN_ZUWEISUNG.search(raw) if (
+                    label == "Zugangsdaten im Klartext" and laedt_beacon) else None
+                if am:
+                    rest = raw[:am.start()] + " " * (am.end() - am.start()) + raw[am.end():]
+                    m = pat.search(rest)
+                    if not m:
+                        continue
                 # service_role nur melden, wenn es ein Wert ist, kein Kommentar
                 # über die Regel oder eine Server-seitige Umgebungsvariable.
                 if label.startswith("Supabase") and re.search(
