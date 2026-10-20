@@ -25,6 +25,13 @@ from ruttla.core import (
 
 from ._common import _is_git_ignored, SOURCE_EXTS
 
+# Cloudflare-Web-Analytics: Beacon-URL als String-Wert, und der Site-Token nur unter
+# einem eindeutigen Analytics-Namen (nicht irgendein *_TOKEN wie GITHUB_TOKEN).
+BEACON_LITERAL = re.compile(r"[\"'`]https://static\.cloudflareinsights\.com/beacon\.min\.js")
+ANALYTICS_TOKEN_ZUWEISUNG = re.compile(
+    r"(?<![\w])(?:CF_|CLOUDFLARE_)?(?:WEB_)?(?:ANALYTICS|BEACON|SITE)_TOKEN\s*[:=]\s*[\"'][0-9a-f]{32}[\"']",
+    re.IGNORECASE)
+
 
 # ===========================================================================
 # Secrets
@@ -144,6 +151,18 @@ def _is_public_supabase_key(token: str) -> bool:
             expect=Status.FAIL,
         ),
         SelfTestCase(
+            name="Beacon-URL nur im Kommentar schaltet nichts frei",
+            files={"src/analytics.ts": "// https://static.cloudflareinsights.com/beacon.min.js\n"
+                   "export const ANALYTICS_TOKEN = '" + "0123456789abcdef" * 2 + "';\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Anderer *_TOKEN in der Beacon-Datei bleibt ein Befund",
+            files={"src/analytics.ts": "export const BEACON_URL = 'https://static.cloudflareinsights.com/beacon.min.js';\n"
+                   "export const GITHUB_TOKEN = '" + "0123456789abcdef" * 2 + "';\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
             name="Hex-Token ohne Beacon bleibt ein Befund",
             files={"src/a.ts": "export const ANALYTICS_TOKEN = '" + "0123456789abcdef" * 2 + "';\n"},
             expect=Status.FAIL,
@@ -219,7 +238,10 @@ def check_secrets(ctx: Context) -> CheckResult:
         # ein Supabase-anon-Key. Belegt am 20.10.2026 (Vylea, analytics.ts). Ausgenommen
         # nur ein 32-stelliger Hex-Wert unter einem *TOKEN-Namen in einer Datei, die den
         # Beacon lädt; jedes andere Geheimnis dort bleibt rot.
-        laedt_beacon = any("static.cloudflareinsights.com/beacon" in z for z in sf.lines)
+        # Der Beacon zählt nur als String-Wert außerhalb eines Kommentars — sonst
+        # schaltete eine Kommentarzeile mit der URL die Prüfung für die Datei ab.
+        laedt_beacon = any(BEACON_LITERAL.search(z) and not z.lstrip().startswith(("//", "#", "*", "/*"))
+                           for z in sf.lines)
         for idx, raw in enumerate(sf.lines, start=1):
             if placeholder.search(raw):
                 continue
@@ -241,8 +263,7 @@ def check_secrets(ctx: Context) -> CheckResult:
                         continue
                     m = offen[0]
                 if (label == "Zugangsdaten im Klartext" and laedt_beacon
-                        and re.search(r"(?i)token\s*[:=]\s*[\"'][0-9a-f]{32}[\"']", m.group(0))
-                        and not re.search(r"(?i)(password|passwd|secret|api[_-]?key)", m.group(0))):
+                        and ANALYTICS_TOKEN_ZUWEISUNG.search(raw)):
                     continue
                 # service_role nur melden, wenn es ein Wert ist, kein Kommentar
                 # über die Regel oder eine Server-seitige Umgebungsvariable.
