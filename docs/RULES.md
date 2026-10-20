@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-181 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+184 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -12,9 +12,9 @@
 | godot | 36 | 1 |
 | python | 7 | 0 |
 | raspberry | 6 | 0 |
-| universal | 38 | 6 |
+| universal | 40 | 6 |
 | unreal | 6 | 0 |
-| web | 27 | 3 |
+| web | 28 | 3 |
 
 ## Pack `apple`
 
@@ -7683,6 +7683,67 @@ rollback;
 
 </details>
 
+### `sql.trigger_skip_if_row_exists`
+
+**Schutz-Trigger springt aus, wenn die Zeile schon existiert**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: ~/.claude/guides/supabase-deploy.md § Server-Felder schützen
+- Public rationale: [GUIDELINES.md › supabase-server-fields](GUIDELINES.md#supabase-server-fields)
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt am 20.10.2026 (Vylea Mig 135, Commit-Sicherheitsprüfung): ein BEFORE-INSERT-
+Trigger setzte Abo-Felder für Clients auf Grundwerte, sprang aber mit
+`IF EXISTS (SELECT 1 FROM … WHERE id = NEW.id) THEN RETURN NEW` aus, damit ein
+Upsert auf die eigene Zeile durchläuft. Das ist ein Zeitfenster zwischen Prüfung und
+Einfügen: Zeile parallel löschen, dann mit Abo-Status neu anlegen. Die Reparatur ist
+die Bauform: im INSERT-Trigger immer Grundwerte, im UPDATE-Schutz still festhalten.
+Warnung, weil die Form auch in Triggern ohne Schutzzweck vorkommen kann.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Ausnahme für bestehende Zeile im Schutz-Trigger</summary>
+
+`migrations/135.sql`
+
+```text
+CREATE OR REPLACE FUNCTION public.neue_org_ohne_abo()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM public.organisations o WHERE o.id = NEW.id) THEN
+        RETURN NEW;
+    END IF;
+    NEW.team_subscription_status := 'none';
+    RETURN NEW;
+END;
+$$;
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Grundwerte ohne Ausnahme</summary>
+
+`migrations/135.sql`
+
+```text
+CREATE OR REPLACE FUNCTION public.neue_org_ohne_abo()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF current_setting('role', TRUE) NOT IN ('authenticated', 'anon') THEN
+        RETURN NEW;
+    END IF;
+    NEW.team_subscription_status := 'none';
+    RETURN NEW;
+END;
+$$;
+```
+
+</details>
+
 ### `store.apple_trademark_in_description`
 
 **Apple-Marke in Beschreibung oder Werbetext**
@@ -7811,6 +7872,62 @@ freigegeben — schwaches Signal, daher Warnung statt Abbruch.
 
 ```text
 {"locales": {"de-DE": {"name": "{app}", "subtitle": "Synology Photos am Desktop", "keywords": "Fotoverwaltung,Album,Finder", "description": "Läuft auf jedem Mac mit macOS 15.", "reviewNotes": "Sign in with the demo account below.", "demoAccountName": "appreview"}}}
+```
+
+</details>
+
+### `supabase.verify_jwt_off_without_signature_check`
+
+**Edge Function ohne verify_jwt prüft keine Signatur**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: ~/.claude/guides/supabase-deploy.md § Edge Function als Webhook fremder Dienste
+- Public rationale: [GUIDELINES.md › supabase-webhook-verify-jwt](GUIDELINES.md#supabase-webhook-verify-jwt)
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt am 20.10.2026 (Vylea): `handle-play-rtdn` sollte wie der Apple-Webhook
+ohne verify_jwt laufen, prüfte aber das OIDC-Token des Pub/Sub-Push nicht — jeder
+hätte die Funktion anonym auslösen können. Gezählt wird jede Funktion mit
+verify_jwt = false (der Kandidat), nicht nur die durchgefallenen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): verify_jwt aus, Funktion prüft den Absender nicht</summary>
+
+`supabase/config.toml`
+
+```text
+[functions.play-rtdn]
+verify_jwt = false
+```
+
+`supabase/functions/play-rtdn/index.ts`
+
+```text
+Deno.serve(async (req) => { const msg = await req.json(); return new Response('ok'); });
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): verify_jwt aus, Funktion prüft die Apple-Signatur</summary>
+
+`supabase/config.toml`
+
+```text
+[functions.apple-webhook]
+verify_jwt = false
+```
+
+`supabase/functions/apple-webhook/index.ts`
+
+```text
+import { SignedDataVerifier } from 'npm:@apple/app-store-server-library';
+const v = new SignedDataVerifier(roots, true, env, bundleId);
+const n = await v.verifyAndDecodeNotification(body.signedPayload);
 ```
 
 </details>
@@ -8939,6 +9056,64 @@ x
 
 ```text
 x
+```
+
+</details>
+
+### `web.path_normalize_keeps_double_slash`
+
+**Pfad-Normalisierung lässt „//fremde.domain“ durch — führende Schrägstriche auf einen kürzen**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § Sicherheit
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+- Reference: <https://url.spec.whatwg.org/#scheme-relative-special-url-string>
+- Reference: <https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html>
+
+<details><summary>Why it exists</summary>
+
+```text
+Die Form `p.startsWith("/") ? p : `/${p}`` sieht nach Absicherung aus, prüft
+aber nur, ob MINDESTENS ein Schrägstrich vorne steht. „//boese.example“ geht
+unverändert durch — für den Browser eine protokollrelative URL, also eine
+fremde Domain. Stammt `p` aus der Adresszeile (Sprachumschalter, Rücksprung,
+`?next=`), ist das ein Open Redirect.
+
+Belegt am 16.10.2026 (Kinder-Web-App, Commit-Sicherheitsprüfung): der
+Sprachknopf auf der 404-Seite reichte den Pfad durch; `/en//boese.example`
+ergab den Link `//boese.example`. Behoben mit genau einem führenden
+Schrägstrich: `/${p.replace(/^[/\\]+/, "")}` (Backslash zählt mit, Browser
+lesen ihn als „/“).
+
+Warnung statt Fehler: mit konstanten Pfaden ist die Form harmlos. Dann reicht
+ein Kommentar, woher der Wert kommt.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Sprachlink der 404-Seite (16.10.2026)</summary>
+
+`src/lib/localePath.ts`
+
+```text
+export function localizePath(locale: string, rest: string): string {
+  const pfad = rest.startsWith("/") ? rest : `/${rest}`;
+  return pfad;
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Reparierte Form kürzt auf einen Schrägstrich</summary>
+
+`src/lib/localePath.ts`
+
+```text
+export function localizePath(locale: string, rest: string): string {
+  const pfad = `/${rest.replace(/^[/\\]+/, "")}`;
+  return pfad;
+}
 ```
 
 </details>

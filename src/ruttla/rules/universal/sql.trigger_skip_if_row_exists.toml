@@ -1,0 +1,60 @@
+format = "ruttla-rule/0"
+id = "sql.trigger_skip_if_row_exists"
+title = "Schutz-Trigger springt aus, wenn die Zeile schon existiert"
+platform = "universal"
+severity = "warning"
+guideline = "~/.claude/guides/supabase-deploy.md § Server-Felder schützen"
+rationale = """
+Belegt am 20.10.2026 (Vylea Mig 135, Commit-Sicherheitsprüfung): ein BEFORE-INSERT-
+Trigger setzte Abo-Felder für Clients auf Grundwerte, sprang aber mit
+`IF EXISTS (SELECT 1 FROM … WHERE id = NEW.id) THEN RETURN NEW` aus, damit ein
+Upsert auf die eigene Zeile durchläuft. Das ist ein Zeitfenster zwischen Prüfung und
+Einfügen: Zeile parallel löschen, dann mit Abo-Status neu anlegen. Die Reparatur ist
+die Bauform: im INSERT-Trigger immer Grundwerte, im UPDATE-Schutz still festhalten.
+Warnung, weil die Form auch in Triggern ohne Schutzzweck vorkommen kann.
+"""
+introduced_in = "0.1.0"
+
+[scope]
+extensions = [".sql"]
+unit_label = "SQL-Dateien"
+
+[match]
+pattern = '''(?i)IF\s+EXISTS\s*\(\s*SELECT\b[^;]*?=\s*NEW\.id\s*\)\s*THEN\s+RETURN\s+NEW\s*;'''
+message = "Trigger überspringt seine Prüfung, wenn die Zeile schon existiert — Zeitfenster zwischen Prüfung und Einfügen."
+fix = "Im INSERT-Trigger ohne Ausnahme die Grundwerte setzen; den Upsert-Fall im UPDATE-Trigger durch stilles Festhalten der alten Werte lösen."
+
+[[fixtures]]
+name = "Ausnahme für bestehende Zeile im Schutz-Trigger"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"migrations/135.sql" = """
+CREATE OR REPLACE FUNCTION public.neue_org_ohne_abo()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM public.organisations o WHERE o.id = NEW.id) THEN
+        RETURN NEW;
+    END IF;
+    NEW.team_subscription_status := 'none';
+    RETURN NEW;
+END;
+$$;
+"""
+
+[[fixtures]]
+name = "Grundwerte ohne Ausnahme"
+expect = "pass"
+[fixtures.files]
+"migrations/135.sql" = """
+CREATE OR REPLACE FUNCTION public.neue_org_ohne_abo()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF current_setting('role', TRUE) NOT IN ('authenticated', 'anon') THEN
+        RETURN NEW;
+    END IF;
+    NEW.team_subscription_status := 'none';
+    RETURN NEW;
+END;
+$$;
+"""

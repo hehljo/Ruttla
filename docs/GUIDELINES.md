@@ -980,3 +980,25 @@ For observable-state mutation checks, an immediately preceding method-level
 modifiers. An annotation on a neighbouring member is not isolation for the
 current method. Healthy controls and isolated attribute-removal/neighbor probes
 cover this distinction; compiler and platform execution remain separate evidence.
+
+<a id="supabase-server-fields"></a>
+### Server-Felder: INSERT zählt mit, ohne Ausnahme
+
+Ein BEFORE-UPDATE-Trigger, der Abo- oder Zahlfelder vor Clients schützt, lässt das
+Anlegen offen: wer per INSERT-Policy eine eigene Zeile anlegen darf, setzt die Felder
+mit. Der Schutz gehört deshalb zusätzlich in einen BEFORE-INSERT-Trigger, der für
+Clients **immer** Grundwerte setzt. Eine Ausnahme „Zeile gibt es schon“
+(`IF EXISTS (… = NEW.id) THEN RETURN NEW`) ist ein Zeitfenster zwischen Prüfung und
+Einfügen; den Upsert-Fall löst stattdessen ein UPDATE-Schutz, der die alten Werte
+still festhält, statt zu werfen. Belegt am 20.10.2026 (Vylea Mig 135, Commit-
+Sicherheitsprüfung). Regel: `sql.trigger_skip_if_row_exists` (Warnung).
+
+<a id="supabase-webhook-verify-jwt"></a>
+### Edge Function ohne verify_jwt
+
+`verify_jwt = false` ist für Webhooks fremder Dienste nötig (sie senden kein
+Supabase-JWT), aber nur zulässig, wenn die Funktion die Echtheit selbst prüft:
+signierter JWS (Apple), OIDC-Token über JWKS (Google Pub/Sub) oder Webhook-HMAC.
+Belegt am 20.10.2026 (Vylea): die Play-Funktion prüfte nichts und wäre anonym
+auslösbar gewesen. Regel: `supabase.verify_jwt_off_without_signature_check` liest
+`config.toml` und den Quelltext der Funktion; fehlender Quelltext ist ein Befund.
