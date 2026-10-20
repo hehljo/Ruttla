@@ -132,6 +132,23 @@ def _is_public_supabase_key(token: str) -> bool:
             expect=Status.PASS,
         ),
         SelfTestCase(
+            name="Cloudflare-Web-Analytics-Site-Token ist öffentlich",
+            files={"src/analytics.ts": "export const BEACON_URL = 'https://static.cloudflareinsights.com/beacon.min.js';\n"
+                   "export const ANALYTICS_TOKEN = '" + "0123456789abcdef" * 2 + "';\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Beacon-Datei deckt kein anderes Geheimnis",
+            files={"src/analytics.ts": "export const BEACON_URL = 'https://static.cloudflareinsights.com/beacon.min.js';\n"
+                   "export const API_KEY = '" + "0123456789abcdef" * 2 + "';\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Hex-Token ohne Beacon bleibt ein Befund",
+            files={"src/a.ts": "export const ANALYTICS_TOKEN = '" + "0123456789abcdef" * 2 + "';\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
             name="Key aus der Umgebung",
             files={"src/a.ts": 'const t = process.env.GITHUB_TOKEN;\n'},
             expect=Status.PASS,
@@ -197,6 +214,12 @@ def check_secrets(ctx: Context) -> CheckResult:
             r"(?i)(^|/)(test|tests|scripts?|tools?|bench|examples?|fixtures?)(/|$)"
             r"|\.(test|spec)\.", sf.rel))
         units += 1
+        # Der Site-Token von Cloudflare Web Analytics steht per Bauform in jeder
+        # ausgelieferten Seite (data-cf-beacon / beacon.min.js?token=) — öffentlich wie
+        # ein Supabase-anon-Key. Belegt am 20.10.2026 (Vylea, analytics.ts). Ausgenommen
+        # nur ein 32-stelliger Hex-Wert unter einem *TOKEN-Namen in einer Datei, die den
+        # Beacon lädt; jedes andere Geheimnis dort bleibt rot.
+        laedt_beacon = any("static.cloudflareinsights.com/beacon" in z for z in sf.lines)
         for idx, raw in enumerate(sf.lines, start=1):
             if placeholder.search(raw):
                 continue
@@ -217,6 +240,10 @@ def check_secrets(ctx: Context) -> CheckResult:
                     if not offen:
                         continue
                     m = offen[0]
+                if (label == "Zugangsdaten im Klartext" and laedt_beacon
+                        and re.search(r"(?i)token\s*[:=]\s*[\"'][0-9a-f]{32}[\"']", m.group(0))
+                        and not re.search(r"(?i)(password|passwd|secret|api[_-]?key)", m.group(0))):
+                    continue
                 # service_role nur melden, wenn es ein Wert ist, kein Kommentar
                 # über die Regel oder eine Server-seitige Umgebungsvariable.
                 if label.startswith("Supabase") and re.search(
