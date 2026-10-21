@@ -101,3 +101,17 @@ tokenfrei erledigt.
 | 5.8 | Private Projektnamen, Bundle-ID, Team-ID und persönliche E-Mail in Code und Historie | Anonymisieren vor Veröffentlichung; neue Historie beim Public-Start | `tests/test_provenance.py`, History-Audit |
 | 5.9 | SARIF ohne Location lässt GitHub den **ganzen** Upload verwerfen | Jeder Befund bekommt eine Location | `tests/test_sarif.py` |
 | 5.10 | Beispiel-Workflow hätte `pip install ruttla` von PyPI empfohlen, bevor der Name uns gehört | Commit pinnen bis zum Release | `docs/integrations/github-actions.md` |
+
+## 6 · Warteheld & Web/Fintech/API Zero-Click Architektur (2026-10-21)
+
+| # | Fehler / Erkenntnis | Wie verhindert | Zukünftiger Check / Regel |
+|---|---|---|---|
+| 6.1 | Web-Push auf iOS bricht bei Laufkundschaft (85–95 % Drop-off): Safari verlangt Standalone-PWA ("Zum Home-Bildschirm") | Push-First mit SMS (Seven.io) / WhatsApp oder Apple Wallet Pass absichern | `web.ios_push_without_walkin_fallback` |
+| 6.2 | Stripe Kaution: Sofortabbuchung mit Erstattung verbrannte bei jedem erschienenen Kunden 0,55 € Transaktionsgebühr | Reiner Hold (`capture_method: "manual"`): Storno kostet exakt 0,00 € bei Stripe | `fintech.stripe_deposit_immediate_capture` |
+| 6.3 | BaFin/ZAG-Gefahr: Kundengelder auf Plattform-Sammelkonto erfordert Bankerlaubnis | Stripe Connect Destination Charges nutzen (Gelder fließen direkt zum Betrieb) | `fintech.bafin_platform_pooling_risk` |
+| 6.4 | Deutsche AGB-Falle (§ 309 Nr. 5b BGB): No-Show-Klausel ohne Schadensnachweis-Klausel abmahnfähig | Pflichtsatz ergänzen: „Dem Kunden bleibt der Nachweis gestattet, dass kein/geringerer Schaden entstanden ist“ | `legal.no_show_bgb_309_clause` |
+| 6.5 | GSM-7-Kostenfalle: Ein Emoji in Benachrichtigungs-SMS verdoppelte die Kosten (Schaltung auf UCS-2 halbiert Limit von 160 auf 70 Zeichen) | Keine Emojis in System-SMS; „20 EUR“ statt „20 €“ schreiben | `telecom.sms_gsm7_unicode_overflow` |
+| 6.6 | Google Calendar Webhook: Synchrone Verarbeitung im Webhook-Handler führte zu Timeouts und Google-Drosselung | Dumb-Ping-Entkopplung: Handler antwortet < 200 ms mit 200 OK und enqueued Delta-Worker | `api.webhook_synchronous_sync_call` |
+| 6.7 | Google Webhook Renewal: Kanäle laufen nach 7 Tagen ab; naives Beenden erzeugte Ausfallfenster | Make-Before-Break: Neuen Kanal 24 h vorher registrieren, erst nach 200 OK alten per channels.stop beenden | `api.google_watch_channel_gap` |
+| 6.8 | HTTP 410 GONE löste Fehlalarme aus: Vollständiger Neuabruf feuerte alte Stornierungen erneut an Kunden | Set-Difference Reconciliation: Snapshot nur gegen lokale Shadow-Tabelle abgleichen, keine Events generieren | `api.google_410_cancellation_storm` |
+| 6.9 | Token-Verschwendung im Coding-Agent: High-Reasoning-Modell (Sol High) für 1.100 i18n-Strings verbrannt | Mechanische Text- und Attributextraktion strikt an lokale Skripte oder Sparmodelle delegieren | `agent.high_reasoning_mechanical_bulk` |
