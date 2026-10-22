@@ -1,0 +1,45 @@
+format = "ruttla-rule/0"
+id = "web.ios_push_prompt_on_mount"
+title = "Push-Berechtigung wird beim Start/Mount abgefragt statt nach Nutzerinteraktion"
+platform = "web"
+severity = "error"
+guideline = "CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 2"
+tags = ["capacitor", "ios", "push", "store-review"]
+references = ["https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage"]
+rationale = "Apple lehnt Apps nach Guideline 5.1.1(v) ab, wenn direkt beim Kaltstart der Push-Dialog aufpoppt."
+
+[scope]
+extensions = [".vue", ".ts", ".tsx", ".js", ".jsx"]
+unit_label = "Dateien mit Push-Berechtigungen"
+require_text = "PushNotifications.requestPermissions"
+no_files_reason = "Keine PushNotifications.requestPermissions-Aufrufe gefunden."
+
+[match]
+pattern = 'onMounted[^{]*\{[^}]*?PushNotifications\.requestPermissions'
+message = "PushNotifications.requestPermissions() wird direkt im Lifecycle-Hook aufgerufen."
+fix = "Push-Berechtigung erst nach einem Value-Moment per Button-Klick anfordern (Soft-Primer)."
+
+[[fixtures]]
+name = "Push in onMounted"
+expect = "fail"
+[fixtures.files]
+"src/App.vue" = """
+<script setup>
+import { onMounted } from 'vue';
+onMounted(() => {
+  PushNotifications.requestPermissions();
+});
+</script>
+"""
+
+[[fixtures]]
+name = "Push in Button-Handler"
+expect = "pass"
+[fixtures.files]
+"src/views/Settings.vue" = """
+<script setup>
+function onEnable() {
+  PushNotifications.requestPermissions();
+}
+</script>
+"""
