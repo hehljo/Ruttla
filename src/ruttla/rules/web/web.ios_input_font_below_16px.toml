@@ -1,0 +1,85 @@
+format = "ruttla-rule/0"
+id = "web.ios_input_font_below_16px"
+title = "Eingabefeld mit Schrift unter 16px — iOS zoomt beim Antippen"
+platform = "web"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 14 · Eingabefelder mindestens 16px"
+tags = ["ios", "capacitor", "forms", "tailwind", "viewport"]
+references = ["https://webkit.org/blog/5610/more-responsive-tapping-on-ios/"]
+introduced_in = "0.1.0"
+rationale = """
+Safari und WKWebView zoomen in ein Eingabefeld hinein, wenn seine Schrift
+kleiner als 16px ist. In einer Capacitor-App verschiebt das den Viewport:
+nach dem Schließen der Tastatur stand die feste Tab-Leiste versetzt über der
+Unterkante, bis man wieder scrollte.
+
+Belegt am 23.10.2026 (Warteheld, echtes iPhone 12 Pro): Login-Felder mit
+Tailwind `text-sm` (14px). Mit `text-base` und dem Keyboard-Plugin im
+Resize-Modus `native` blieb die Leiste am Gerät an der Kante.
+
+Erkannt werden Tailwind-Klassen am Element selbst (`text-xs`, `text-sm`,
+`text-[10px]` … `text-[15px]`) ohne Präfix. Ein Breakpoint-Präfix wie
+`md:text-sm` gilt erst ab dieser Breite und wird nicht gemeldet. CSS-Regeln
+für Eingabefelder werden nicht erkannt. Warnung, weil eine Seite den Zoom auch
+anders abfangen kann."""
+
+[scope]
+extensions = [".vue", ".tsx", ".jsx", ".html", ".svelte"]
+unit_label = "Oberflächendateien"
+
+[match]
+# Gruppe 1 = das ganze öffnende Tag eines Eingabeelements, dessen Klassen
+# (ohne Breakpoint-Präfix) eine Schrift unter 16px setzen.
+pattern = '''(<(?:input|textarea|select)\b[^>]*\bclass="(?:[^"]*\s)?text-(?:xs|sm|\[(?:[0-9]|1[0-5])px\])(?:\s[^"]*)?"[^>]*>)'''
+message = "Eingabefeld mit Schrift unter 16px — iOS zoomt beim Antippen und verschiebt den Viewport."
+fix = "Schrift im Feld auf mindestens 16px setzen (Tailwind `text-base`); kleinere Beschriftungen gehören ins Label."
+
+# Felder ohne Texteingabe lösen keinen Zoom aus.
+[[match.exclude]]
+group = 1
+pattern = '''\btype="(?:checkbox|radio|hidden|submit|button|reset|range|color|file|image)"'''
+
+[[fixtures]]
+name = "Login-Feld mit text-sm über mehrere Zeilen (Warteheld vorher)"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"src/views/LoginView.vue" = """
+<template>
+  <input
+    id="email"
+    type="email"
+    class="w-full border-2 p-3 text-sm rounded-none"
+  />
+  <textarea class="text-[14px] w-full"></textarea>
+</template>
+"""
+
+[[fixtures]]
+name = "Auswahlfeld mit text-xs in JSX"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"src/Filter.tsx" = """
+export const F = () => <select class="text-xs border">{options}</select>;
+"""
+
+[[fixtures]]
+name = "16px und Breakpoint-Präfix"
+expect = "pass"
+[fixtures.files]
+"src/views/LoginView.vue" = """
+<template>
+  <input type="email" class="w-full p-3 text-base md:text-sm" />
+  <select class="text-[16px]"></select>
+  <label class="text-sm">E-Mail</label>
+</template>
+"""
+
+[[fixtures]]
+name = "Checkbox mit kleiner Schrift"
+expect = "pass"
+[fixtures.files]
+"src/Consent.vue" = """
+<template><input type="checkbox" class="text-sm accent-green-700" /></template>
+"""
