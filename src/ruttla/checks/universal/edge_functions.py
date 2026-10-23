@@ -32,7 +32,11 @@ AUS = re.compile(r"^\s*verify_jwt\s*=\s*false\b")
 PRUEFUNG = re.compile(
     r"SignedDataVerifier|verifyAndDecode|jwtVerify\s*\(|createRemoteJWKSet\s*\(|"
     r"crypto\.subtle\.verify\s*\(|timingSafeEqual\s*\(|constructEvent(?:Async)?\s*\(|"
-    r"verifySignature\s*\(|verifyWebhook\w*\s*\("
+    r"verifySignature\s*\(|verifyWebhook\w*\s*\(|"
+    # Benutzer-JWT gegen den Auth-Server (Supabase): belegt am 23.10.2026 (Warteheld
+    # google-calendar-connect) — Start prüft das JWT selbst, der Callback läuft per
+    # Einmal-State; ohne diese Form war das ein falsch-positiver ERROR.
+    r"\.auth\.getUser\s*\(|\.auth\.getClaims\s*\("
 )
 
 # Lokale Importe (Adapter → `_shared/...`). Verfolgt werden nur die importierten
@@ -228,6 +232,23 @@ _GUT_FN = ("import { SignedDataVerifier } from 'npm:@apple/app-store-server-libr
             expect=Status.PASS,
         ),
         SelfTestCase(
+            name="Benutzer-JWT per auth.getUser im Shared-Handler zählt (belegt Warteheld connect)",
+            files={"supabase/config.toml": "[functions.connect]\nverify_jwt = false\n",
+                   "supabase/functions/connect/index.ts":
+                       "import { handle } from \"../_shared/c.ts\";\nDeno.serve((r) => handle(r));\n",
+                   "supabase/functions/_shared/c.ts":
+                       "export async function handle(r) {\n"
+                       "  const { data } = await db.auth.getUser(token(r));\n  return data ? ok() : deny();\n}\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="getUser ohne Auth-Client ist keine Tokenprüfung",
+            files={"supabase/config.toml": "[functions.connect]\nverify_jwt = false\n",
+                   "supabase/functions/connect/index.ts":
+                       "Deno.serve(async (r) => { const u = await repo.getUser(id(r)); return ok(u); });\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
             name="verify_jwt an braucht keine eigene Prüfung",
             files={"supabase/config.toml": "[functions.intern]\nverify_jwt = true\n",
                    "supabase/functions/intern/index.ts": "Deno.serve(() => new Response('ok'));\n"},
@@ -274,7 +295,7 @@ def check_verify_jwt_off(ctx: Context) -> CheckResult:
                 message=f"Funktion '{name}' läuft ohne verify_jwt und {grund} — anonym auslösbar.",
                 file=sf.rel, line=idx, evidence=snippet(zeile.strip()),
                 fix="verify_jwt = true lassen, bis die Funktion die Echtheit selbst prüft "
-                    "(signierter JWS, OIDC-Token über JWKS oder Webhook-HMAC).",
+                    "(signierter JWS, OIDC-Token über JWKS, Webhook-HMAC oder Benutzer-JWT per auth.getUser).",
                 guideline="~/.claude/guides/supabase-deploy.md § Edge Function als Webhook fremder Dienste",
             ))
     if units == 0:

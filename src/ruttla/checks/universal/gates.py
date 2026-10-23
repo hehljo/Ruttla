@@ -278,6 +278,18 @@ def check_zero_tests(ctx: Context) -> CheckResult:
         SelfTestCase(name="defekt: Inline-Probe verdeckt keinen Read derselben Zeile", files={
             ".gitignore": "build/\n", "checks/check_rule.py": "SelfTestCase(files={'x': \"read('build/old.json')\"}); read('build/current.json')\n"}, expect=Status.FAIL),
         SelfTestCase(
+            name="gesund: Containerpfad eines docker-Mounts ist kein Repo-Artefakt",
+            files={".gitignore": "out/\n", "scripts/pruefstand/run.sh":
+                   "docker run -v \"$W/fake:/fake/out\" node node /fake/x.mjs /fake/out/port\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="defekt: Containerpfad verdeckt keinen Repo-Read derselben Zeile",
+            files={".gitignore": "out/\n", "scripts/pruefstand/run.sh":
+                   "docker run -v \"$W:/fake/out\" node /fake/out/port; cat \"$ROOT/out/port\"\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
             name="Gate liest ignoriertes Artefakt",
             files={".gitignore": ".build/\n", "gates/check_x.mjs": "import { render } from '../.build/renderer.js';\n"},
             expect=Status.FAIL,
@@ -363,6 +375,12 @@ def check_gate_artifact(ctx: Context) -> CheckResult:
                 # A freshly written screenshot/report is an output, not a
                 # stale dependency. Keep reads elsewhere on the line visible.
                 if re.search(r"\b(?:writeFile(?:Sync)?|mkdir(?:Sync)?)\s*\(\s*$", prefix) or re.search(r"\.screenshot\s*\(\s*\{[^{};]*\bpath\s*:\s*$", prefix):
+                    continue
+                # A literal absolute path (`/fake/out/port`, the container side of a
+                # `docker -v` mount) is not the repo's ignored directory. Belegt am
+                # 23.10.2026 (Warteheld run.sh). `$ROOT/out/`, `./out/`, `../out/` bleiben.
+                token = re.split(r"[\s\"'`(:=,]", prefix)[-1] + body[m.start():m.start() + 1].strip("\"'`(: ")
+                if token.startswith("/"):
                     continue
                 line_no = body.count("\n", 0, m.start()) + 1
                 raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""

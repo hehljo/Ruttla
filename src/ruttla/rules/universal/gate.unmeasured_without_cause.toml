@@ -1,0 +1,97 @@
+format = "ruttla-rule/0"
+id = "gate.unmeasured_without_cause"
+title = "Prüfstand meldet „nicht gemessen“ ohne Ursache"
+platform = "universal"
+severity = "warning"
+guideline = "~/.claude/guides/supabase-deploy.md § Lokaler Stack: CORS ist hinter dem CLI-Gateway nicht messbar"
+tags = ["gates", "diagnostics"]
+rationale = """
+Ein Abbruch, der als *nicht gemessen* endet, ist ehrlich — aber ohne Ursache
+ist er nicht reparierbar. Belegt am 23.10.2026 (Warteheld, Connect-Prüfstand):
+`catch { report.notMeasured("Abbruch …") }` verschluckte einen trivialen
+Fixture-Fehler (Ressourcenname verletzte einen Check-Constraint). Erst ein
+zweiter Stacklauf mit ausgegebener Ursache zeigte ihn; danach kamen 20 echte
+rote Prüfungen zum Vorschein, die der Abbruch verdeckt hatte.
+
+Geprüft wird die Bauform, die die Ursache gar nicht erst greifbar macht:
+JS/TS `catch {` ohne Bindung und Python `except:` / `except Exception:` ohne
+`as`, deren Block unmittelbar „nicht gemessen“ meldet. Ein typisierter
+`except OSError:` benennt die Ursache schon im Typ und ist kein Befund. Nicht
+erkannt: eine Bindung, die gebunden, aber nicht weitergegeben wird.
+Die Ursache gehört sicher ausgegeben — eigene Schrittlabels, die erste
+`ERROR:`-Zeile von psql, die Fehlerklasse; nie die Kommandozeile eines
+Kindprozesses (sie trägt Verbindungs-URLs)."""
+
+[scope]
+extensions = [".js", ".mjs", ".cjs", ".ts", ".py"]
+unit_label = "Skripte"
+no_files_reason = "Keine JS/TS/Python-Dateien gefunden."
+
+[match]
+pattern = '''\bcatch[ \t]*\{\s*(?://[^\n]*\n\s*)*(?:\w+\.)?(?:notMeasured|not_measured|unmeasured)\s*\(|\bexcept(?:[ \t]+\(?(?:Exception|BaseException)\)?)?[ \t]*:[ \t]*\r?\n\s*(?:#[^\n]*\n\s*)*(?:return[ \t]+)?(?:\w+\.)?(?:not_measured|unmeasured|notMeasured)\s*\('''
+message = "Abbruch wird als „nicht gemessen“ gemeldet, ohne die Ursache zu fassen."
+fix = "Den Fehler im catch/except binden und eine sichere Ursache mitmelden: Schrittlabel, erste SQL-ERROR-Zeile oder Fehlerklasse, nie Kommandozeile oder Secrets."
+
+[[fixtures]]
+name = "JS: catch ohne Bindung meldet nicht gemessen (Original Warteheld)"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"scripts/pruefstand/connect-edge.mjs" = """
+try {
+  await run();
+} catch {
+  // Never expose child-process SQL in diagnostics.
+  report.notMeasured("Abbruch im Connect-Edge-Prüfstand");
+}
+"""
+
+[[fixtures]]
+name = "Python: except Exception ohne as meldet unmeasured"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"checks/probe.py" = """
+def check():
+    try:
+        data = load()
+    except Exception:
+        return unmeasured(CHECK_ID, TITLE, "Laden fehlgeschlagen.")
+"""
+
+[[fixtures]]
+name = "JS: gebundener Fehler wird als Ursache weitergegeben"
+expect = "pass"
+[fixtures.files]
+"scripts/pruefstand/connect-edge.mjs" = """
+try {
+  await run();
+} catch (error) {
+  report.notMeasured("Abbruch im Connect-Edge-Prüfstand", error);
+}
+"""
+
+[[fixtures]]
+name = "Python: typisierter except benennt die Ursache"
+expect = "pass"
+[fixtures.files]
+"checks/probe.py" = """
+def check():
+    try:
+        text = open(path).read()
+    except OSError:
+        return unmeasured(CHECK_ID, TITLE, ".gitignore nicht lesbar.")
+"""
+
+[[fixtures]]
+name = "catch ohne Bindung, aber ohne nicht-gemessen-Meldung"
+expect = "pass"
+[fixtures.files]
+"src/parse.ts" = """
+let json = null;
+try {
+  json = JSON.parse(text);
+} catch {
+  json = null;
+}
+"""
