@@ -205,7 +205,9 @@ def strip_comments(text: str, ext: str) -> str:
 # Datei definiert Prüfungen", nicht ein Pfadname.
 _SELF_DESCRIBING = re.compile(
     r"(?:^|\n)[ \t]*(?:@register\s*\(|SelfTestCase\s*\(|def\s+test_\w+|"
-    r"class\s+Test\w+|describe\s*\(|it\s*\(\s*[\"'])"
+    r"class\s+Test\w+|describe\s*\(|it\s*\(\s*[\"']|"
+    # node:assert-Harness mit Mutationen (belegt 23.10.2026, Warteheld test-native-setup.mjs).
+    r"(?:await[ \t]+)?assert\.(?:rejects|throws)\s*\()"
     r"|" + re.escape(RULE_DOCS_MARKER)
 )
 

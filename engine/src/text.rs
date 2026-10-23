@@ -28,7 +28,7 @@ pub fn is_rule_definition(text: &str) -> bool {
     static RE: OnceLock<Regex> = OnceLock::new();
     let re = RE.get_or_init(|| {
         Regex::new(&format!(
-            r#"(?:\A|\n)[ \t]*(?:@register\s*\(|SelfTestCase\s*\(|def\s+test_\w+|class\s+Test\w+|describe\s*\(|it\s*\(\s*["'])|{}"#,
+            r#"(?:\A|\n)[ \t]*(?:@register\s*\(|SelfTestCase\s*\(|def\s+test_\w+|class\s+Test\w+|describe\s*\(|it\s*\(\s*["']|(?:await[ \t]+)?assert\.(?:rejects|throws)\s*\()|{}"#,
             regex::escape(RULE_DOCS_MARKER)
         ))
         .expect("self-describing pattern is valid")
@@ -51,5 +51,8 @@ mod tests {
         assert!(is_rule_definition("SelfTestCase(name=1)"));
         assert!(is_rule_definition("<!-- ruttla:rule-docs -->"));
         assert!(!is_rule_definition("x = 'def test_foo'"));
+        // node:assert mutation harness (Warteheld test-native-setup.mjs, 23.10.2026)
+        assert!(is_rule_definition("x\n    await assert.rejects(run, check);"));
+        assert!(!is_rule_definition("const ok = assert.rejects;"));
     }
 }
