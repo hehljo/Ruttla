@@ -69,6 +69,8 @@ def _failure(check_id: str, message: str, evidence: str) -> Finding:
 
 def _project_contracts(ctx: Context):
     """Honor nested project contracts when scanning a shared workspace."""
+    # Explicit contracts/receipts are local test inputs even when ignored.
+    ctx = ctx.including_gitignored()
     scan_root = Path(ctx.root)
     paths = {Path(sf.path) for sf in ctx.all_files() if Path(sf.rel).name == CONTRACT_FILE}
     paths.update(scan_root / skipped.rel for skipped in ctx.coverage().skipped

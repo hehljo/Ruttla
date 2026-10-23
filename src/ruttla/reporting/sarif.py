@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import hashlib
 
+from ..gitignore import git_ignore_summary
+
 SARIF_VERSION = "2.1.0"
 SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
 
@@ -95,6 +97,13 @@ def build_sarif(report: dict, rules: dict[str, dict], scanned_files: list[str]) 
 
     results = []
     notifications = []
+    coverage = report.get("coverage", {})
+    if coverage.get("git_ignore_status") not in (None, "applied"):
+        notifications.append({
+            "level": "warning",
+            "descriptor": {"id": "inventory.git_ignore"},
+            "message": {"text": git_ignore_summary(coverage)},
+        })
     for res in report["results"]:
         if res["status"] in ("unmeasured", "error"):
             notifications.append({
@@ -154,6 +163,7 @@ def build_sarif(report: dict, rules: dict[str, dict], scanned_files: list[str]) 
                 "blockingFindings": report.get("blocking_findings", 0),
                 "advisoryFindings": report.get("advisory_findings", 0),
                 "checks": report["checks"],
+                "coverage": coverage,
             },
         }],
     }

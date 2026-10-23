@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from .models import GateInputError
+from .gitignore import git_ignored
 
 if TYPE_CHECKING:  # pragma: no cover
     from .config import Config
@@ -104,6 +105,9 @@ class Coverage:
     aliases_skipped: int = 0
     broken_symlinks: list[str] = field(default_factory=list)
     max_file_bytes: int = 0
+    git_ignore_status: str = "disabled"
+    excluded_by_gitignore: int = 0
+    dirs_excluded_by_gitignore: int = 0
 
     def to_dict(self) -> dict:
         return {
@@ -115,6 +119,9 @@ class Coverage:
             "files_skipped_symlink_alias": self.aliases_skipped,
             "files_skipped_broken_symlink": list(self.broken_symlinks),
             "max_file_bytes": self.max_file_bytes,
+            "git_ignore_status": self.git_ignore_status,
+            "files_excluded_by_gitignore": self.excluded_by_gitignore,
+            "dirs_excluded_by_gitignore": self.dirs_excluded_by_gitignore,
         }
 
 
@@ -236,13 +243,27 @@ def is_capacitor_copy(parent: str, name: str) -> bool:
             and os.path.isfile(os.path.join(parent, name, "cordova_plugins.js")))
 
 
-def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
+def inventory(root: str, config: "Config", *, include_gitignored: bool = False
+              ) -> tuple[list[SourceFile], Coverage]:
     """Walk ``root`` once; every file is either handed on or accounted for."""
     found: list[SourceFile] = []
     coverage = Coverage(max_file_bytes=config.max_file_bytes)
     exclude_dirs = DEFAULT_EXCLUDE_DIRS | set(config.exclude_dirs)
     root_real = os.path.realpath(root)
     aliases: list[tuple[str, str, str, str]] = []
+    ignored = None if include_gitignored else git_ignored(root)
+    if ignored is not None:
+        coverage.git_ignore_status = ignored.status
+
+    def keep_dir(dirpath: str, name: str) -> bool:
+        if (name in exclude_dirs or name.endswith(".xcassets")
+                or is_capacitor_copy(dirpath, name)):
+            return False
+        rel = to_posix(os.path.relpath(os.path.join(dirpath, name), root))
+        if ignored is not None and rel in ignored.dirs:
+            coverage.dirs_excluded_by_gitignore += 1
+            return False
+        return True
 
     def walk_error(exc: OSError) -> None:
         raise GateInputError(
@@ -273,8 +294,7 @@ def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
         # Deterministic order on every OS and file system (FR-012).
         dirnames[:] = sorted(
             d for d in dirnames
-            if d not in exclude_dirs and not d.endswith(".xcassets")
-            and not is_capacitor_copy(dirpath, d)
+            if keep_dir(dirpath, d)
         )
         for name in sorted(filenames):
             full = os.path.join(dirpath, name)
@@ -284,6 +304,9 @@ def inventory(root: str, config: "Config") -> tuple[list[SourceFile], Coverage]:
                 continue
             if any(fnmatch.fnmatch(rel, pat) for pat in config.exclude_globs):
                 coverage.excluded_by_config += 1
+                continue
+            if ignored is not None and rel in ignored.files:
+                coverage.excluded_by_gitignore += 1
                 continue
             resolved = os.path.realpath(full)
             dangling = os.path.islink(full) and not os.path.exists(full)

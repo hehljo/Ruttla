@@ -7,6 +7,8 @@ positional parsers keep working.
 
 from __future__ import annotations
 
+from ..gitignore import git_ignore_summary
+
 
 def agent_field(value: object) -> str:
     """Ein Agent-Feld bleibt genau eine tabgetrennte Zeile."""
@@ -25,7 +27,9 @@ def print_agent(report: dict) -> None:
           f"SCHEMA={report.get('schema_version', '1.0')} "
           f"BLOCKING={report.get('blocking_findings', 0)} "
           f"ADVISORY={report.get('advisory_findings', 0)} "
-          f"SKIPPED={coverage.get('files_skipped_total', 0)}")
+          f"SKIPPED={coverage.get('files_skipped_total', 0)} "
+          f"GIT_IGNORE={coverage.get('git_ignore_status', 'unknown')}")
+    print(f"INVENTORY\tgit_ignore\t{agent_field(git_ignore_summary(coverage))}")
     for res in report["results"]:
         if res["status"] == "unmeasured":
             print(f"UNMEASURED\t{res['check_id']}\t{agent_field(res['reason'])}")

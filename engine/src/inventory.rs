@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::glob::Glob;
+use crate::gitignore::{git_ignored, GitIgnore};
 use crate::realpath::realpath;
 
 pub const DEFAULT_EXCLUDE_DIRS: &[&str] = &[
@@ -72,6 +73,9 @@ pub struct Coverage {
     pub files_skipped_symlink_alias: usize,
     pub files_skipped_broken_symlink: Vec<String>,
     pub max_file_bytes: u64,
+    pub git_ignore_status: String,
+    pub files_excluded_by_gitignore: usize,
+    pub dirs_excluded_by_gitignore: usize,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -102,6 +106,7 @@ struct Walker<'a> {
     root_real: PathBuf,
     found: Vec<SourceFile>,
     coverage: Coverage,
+    ignored: GitIgnore,
     aliases: Vec<(PathBuf, String, String, PathBuf)>,
 }
 
@@ -165,6 +170,10 @@ impl<'a> Walker<'a> {
                 self.coverage.files_excluded_by_config += 1;
                 continue;
             }
+            if self.ignored.files.contains(&rel) {
+                self.coverage.files_excluded_by_gitignore += 1;
+                continue;
+            }
             let resolved = realpath(&full);
             if !inside(&self.root_real, &resolved) {
                 return Err(InputError {
@@ -193,6 +202,10 @@ impl<'a> Walker<'a> {
                 continue;
             }
             let rel = if rel_dir.is_empty() { name.clone() } else { format!("{rel_dir}/{name}") };
+            if self.ignored.dirs.contains(&rel) {
+                self.coverage.dirs_excluded_by_gitignore += 1;
+                continue;
+            }
             self.walk(&dir.join(&name), &rel)?;
         }
         Ok(())
@@ -214,13 +227,16 @@ pub fn inventory(root: &Path, cfg: &InventoryConfig) -> Result<(Vec<SourceFile>,
     } else {
         std::env::current_dir().map(|c| c.join(root)).unwrap_or_else(|_| root.to_path_buf())
     };
+    let ignored = git_ignored(&root);
     let mut w = Walker {
         cfg,
         globs: cfg.exclude_globs.iter().map(|g| Glob::new(g)).collect(),
         exclude_dirs: DEFAULT_EXCLUDE_DIRS.iter().copied().chain(cfg.exclude_dirs.iter().map(String::as_str)).collect(),
         root_real: realpath(&root),
         found: Vec::new(),
-        coverage: Coverage { max_file_bytes: cfg.max_file_bytes, ..Coverage::default() },
+        coverage: Coverage { max_file_bytes: cfg.max_file_bytes,
+            git_ignore_status: ignored.status.clone(), ..Coverage::default() },
+        ignored,
         aliases: Vec::new(),
     };
     w.walk(&root, "")?;

@@ -54,6 +54,23 @@ class Context:
             ]
         return self._scoped_files
 
+    def including_gitignored(self) -> "Context":
+        """Explicit legacy view for checks whose subject includes local artifacts.
+
+        Retains all existing config, size and symlink boundaries. Ordinary
+        source checks must keep using the default Git-filtered inventory.
+        """
+        base = self.unscoped()
+        if base.coverage().git_ignore_status != "applied":
+            return self
+        if "including_gitignored" not in base._shared:
+            files, coverage = inventory(base.root, base.config, include_gitignored=True)
+            base._shared["including_gitignored"] = Context(
+                root=base.root, config=base.config, _files=files, _coverage=coverage,
+            )
+        view = base._shared["including_gitignored"]
+        return view.scoped(self.scope) if self.scope else view
+
     def scoped(self, platform: str) -> "Context":
         """Sicht der Plattform ``platform``; universal sieht alles."""
         if platform == "universal":

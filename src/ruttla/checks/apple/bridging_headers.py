@@ -63,7 +63,10 @@ def check_bridging_header_pragma_once(ctx: Context) -> CheckResult:
     check_id = "apple.bridging_header_pragma_once"
     title = "#pragma once im Swift-Bridging-Header"
     root = Path(ctx.root).resolve()
-    inventory = {Path(sf.path).resolve(): sf for sf in ctx.all_files()}
+    # A header explicitly selected by the build is still an input when Git
+    # ignores it (e.g. a generated bridging header).
+    inventory = {Path(sf.path).resolve(): sf
+                 for sf in ctx.including_gitignored().all_files()}
     headers = set()
     uncertain = False
     for sf in ctx.files(".pbxproj"):

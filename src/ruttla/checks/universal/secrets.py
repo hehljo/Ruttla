@@ -165,7 +165,7 @@ def _is_public_supabase_key(token: str) -> bool:
         SelfTestCase(
             name="Geheimnis in derselben Zeile wie der Site-Token bleibt ein Befund",
             files={"src/analytics.ts": "export const BEACON_URL = 'https://static.cloudflareinsights.com/beacon.min.js';\n"
-                   "export const ANALYTICS_TOKEN = '" + "0123456789abcdef" * 2 + "'; const password = 'S0mmerSonne2026xyzAB';\n"},
+                   "export const ANALYTICS_TOKEN = '" + "0123456789abcdef" * 2 + "'; const password = '" + "S0mmer" + "Sonne2026xyzAB" + "';\n"},
             expect=Status.FAIL,
         ),
         SelfTestCase(
@@ -183,6 +183,10 @@ def _is_public_supabase_key(token: str) -> bool:
 def check_secrets(ctx: Context) -> CheckResult:
     """Erkennt Geheimnisse an ihrer FORM (Präfix, Entropie, Struktur), nicht am
     Variablennamen — ein Name ist eine Existenzprüfung, kein Wert."""
+    # Ignore rules must not conceal credentials in local source/config files.
+    # Keep the existing .env/example policy below. JWT parsing, cross-line
+    # beacon state and per-finding severity need Python, not a pattern rule.
+    ctx = ctx.including_gitignored()
     title = "Geheimnis oder Schlüssel steht im Quelltext"
     patterns: list[tuple[re.Pattern, str, Severity]] = [
         (re.compile(r"ghp_[A-Za-z0-9]{36}"), "GitHub Personal Access Token", Severity.ERROR),

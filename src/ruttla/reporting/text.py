@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..gitignore import git_ignore_summary
+
 RED, GREEN, YELLOW, BLUE, GREY, BOLD, RESET = (
     "\033[91m", "\033[92m", "\033[93m", "\033[94m", "\033[90m", "\033[1m", "\033[0m"
 )
@@ -53,6 +55,7 @@ def print_text(report: dict, use_color: bool, verbose: bool) -> None:
         print()
 
     coverage = report.get("coverage", {})
+    print(git_ignore_summary(coverage))
     skipped = coverage.get("files_skipped", [])
     if skipped:
         print(f"{yellow}Nicht geprüft (größer als gate.max_file_bytes = "

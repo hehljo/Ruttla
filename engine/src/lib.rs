@@ -3,6 +3,7 @@
 pub mod detect;
 pub mod glob;
 pub mod inventory;
+mod gitignore;
 pub mod pytext;
 pub mod realpath;
 pub mod rules;
