@@ -1,0 +1,111 @@
+format = "ruttla-rule/0"
+id = "web.bottom_bar_full_safe_area_padding"
+title = "Feste untere Leiste polstert die volle Safe Area"
+platform = "web"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md · Untere Tab-Leiste und Safe Area"
+tags = ["css", "ios", "capacitor", "safe-area", "layout"]
+references = ["https://developer.mozilla.org/en-US/docs/Web/CSS/env"]
+introduced_in = "0.1.0"
+rationale = """
+Eine fest unten stehende Leiste, die `env(safe-area-inset-bottom)` voll als
+Innenabstand nimmt, addiert die 34pt des iPhones zum eigenen Unterabstand der
+Einträge. Unter den Beschriftungen entsteht ein leeres Band, und eine
+Aktiv-Fläche endet sichtbar darüber. Der Home-Indikator braucht nur das untere
+Drittel der Safe Area.
+
+Belegt am 23.10.2026 (Warteheld, echtes iPhone 12 Pro): 46pt Leerraum unter
+den Tab-Beschriftungen (12px Eintrag + 34pt Leiste), Leiste 88pt. Am Gerät
+abgenommen: Abstand im Eintrag, reduzierte Safe Area (`calc(4px +
+max(env(safe-area-inset-bottom, 0px) - 16px, 0px))`), Leiste 73pt, Aktiv-Fläche
+bis zur Kante. Laut Nutzer dasselbe Bild in den anderen eigenen Capacitor-Apps.
+
+Warnung, kein Fehler: ein Bottom-Sheet oder eine Leiste ohne eigenen
+Eintragsabstand kann die volle Safe Area brauchen. Tailwind-Klassen
+(`pb-[env(...)]`) werden nicht erkannt, nur CSS-Blöcke."""
+
+[scope]
+extensions = [".css", ".scss", ".vue", ".svelte"]
+unit_label = "Stylesheets"
+require_text = "safe-area-inset-bottom"
+
+[match]
+# Ein Regelblock mit position: fixed und einem Innenabstand, der die
+# Safe Area unten enthält (beliebige Reihenfolge). Gruppe 1 = Selektor,
+# Gruppe 2 = Blockinhalt.
+pattern = '''([^{}]+)\{([^{}]*\bposition\s*:\s*fixed\b[^{}]*\bpadding(?:-bottom)?\s*:[^;{}]*safe-area-inset-bottom[^{}]*|[^{}]*\bpadding(?:-bottom)?\s*:[^;{}]*safe-area-inset-bottom[^{}]*\bposition\s*:\s*fixed\b[^{}]*)\}'''
+message = "{1:60} steht fest unten und polstert die volle Safe Area — leeres Band unter den Einträgen."
+fix = "Abstand in die Einträge legen und die Safe Area reduzieren: `padding-bottom: calc(4px + max(env(safe-area-inset-bottom, 0px) - 16px, 0px))`; die Leiste selbst ohne Innenabstand."
+
+# Reduzierte Safe Area: max(env(...) - Npx, …) oder env(...) - Npx.
+[[match.exclude]]
+group = 2
+pattern = '''safe-area-inset-bottom[^;)]*\)\s*-\s*\d'''
+
+[[fixtures]]
+name = "Tab-Leiste mit voller Safe Area (Warteheld vorher)"
+expect = "fail"
+expect_findings = 1
+expect_finding_contains = ".wh-tabs"
+[fixtures.files]
+"src/styles/app.css" = """
+.wh-tabs {
+  display: grid;
+  position: fixed;
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.wh-tabs a { padding: 12px 4px; }
+"""
+
+[[fixtures]]
+name = "Padding vor position, calc-Zuschlag, im Vue-Style"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"src/components/TabBar.vue" = """
+<template><nav class="bar"></nav></template>
+<style scoped>
+.bar {
+  padding: 0 0 calc(12px + env(safe-area-inset-bottom));
+  left: 0;
+  position: fixed;
+}
+</style>
+"""
+
+[[fixtures]]
+name = "Reduzierte Safe Area im Eintrag (Warteheld nachher)"
+expect = "pass"
+[fixtures.files]
+"src/styles/app.css" = """
+.wh-tabs {
+  position: fixed;
+  bottom: 0;
+}
+.wh-tabs a {
+  padding: 6px 4px
+    calc(4px + max(env(safe-area-inset-bottom, 0px) - 16px, 0px));
+}
+"""
+
+[[fixtures]]
+name = "Reduzierte Safe Area direkt an der festen Leiste"
+expect = "pass"
+[fixtures.files]
+"src/styles/app.css" = """
+.bar {
+  position: fixed;
+  bottom: 0;
+  padding-bottom: max(env(safe-area-inset-bottom) - 14px, 6px);
+}
+"""
+
+[[fixtures]]
+name = "Volle Safe Area ohne feste Position (Seitenende)"
+expect = "pass"
+[fixtures.files]
+"src/styles/app.css" = """
+.page { padding-bottom: env(safe-area-inset-bottom); }
+.toast { position: fixed; bottom: 16px; }
+"""

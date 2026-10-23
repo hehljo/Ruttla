@@ -1,0 +1,99 @@
+format = "ruttla-rule/0"
+id = "web.emoji_in_display_text"
+title = "Emoji oder emojifähiges Zeichen im Anzeigetext"
+platform = "web"
+severity = "warning"
+guideline = "QUALITY_UI_GUIDELINES.md · Keine Emojis in Oberflächen"
+tags = ["ui", "ios", "capacitor", "typography"]
+references = ["https://www.unicode.org/reports/tr51/#Emoji_Properties"]
+introduced_in = "0.1.0"
+rationale = """
+Emojis in Oberflächen sind eine globale Regel: sie wirken verspielt, passen
+nicht zur Schrift und sehen auf jeder Plattform anders aus.
+
+Die unauffällige Fallgruppe sind Zeichen, die im Quelltext wie Typografie
+aussehen: Pfeile wie `↗` (U+2197), `↩`, `➡`, `⬆`, Häkchen `✔`. Sie tragen die
+Unicode-Eigenschaft `Extended_Pictographic`. Fehlt der Webschrift das Zeichen,
+weicht WebKit auf Apple Color Emoji aus und zeichnet ein buntes Symbol.
+
+Belegt am 23.10.2026 (Warteheld, echtes iPhone 12 Pro): die Footerlinks
+„Datenschutz ↗" und „Impressum ↗" zeigten in der Capacitor-App Emoji-Pfeile.
+Im Browser am Desktop sah der Pfeil normal aus.
+
+Nicht gemeldet: `©`, `®`, `™` (fast jede Schrift hat sie), `✓` (U+2713, kein
+Emoji), Entwickler-Logs. Warnung, weil die tatsächliche Darstellung von der
+Schrift abhängt, die statisch nicht messbar ist."""
+
+[scope]
+extensions = [".vue", ".tsx", ".jsx", ".html", ".svelte", ".json", ".ts"]
+unit_label = "Oberflächen- und Katalogdateien"
+
+[match]
+per_line = true
+pattern = '''([\p{Extended_Pictographic}&&[^\x{A9}\x{AE}\x{2122}]])'''
+message = "Zeichen {1} im Anzeigetext — iOS zeichnet es als Emoji, sobald die Schrift es nicht enthält."
+fix = "Durch ein SVG-Icon ersetzen oder weglassen. Der Textvariantenselektor U+FE0E ist auf iOS nicht verlässlich."
+
+# Entwickler-Logs sind kein Anzeigetext.
+[[match.exclude]]
+on = "line"
+pattern = '''\b(console|logger|log)\.\w+\('''
+
+[[fixtures]]
+name = "Pfeil nach externem Link (Warteheld-Footer)"
+expect = "fail"
+expect_findings = 1
+expect_finding_contains = "↗"
+[fixtures.files]
+"src/components/AppShell.vue" = """
+<template>
+  <a href="https://example.org/datenschutz/">{{ t("privacy") }} ↗</a>
+</template>
+"""
+
+[[fixtures]]
+name = "Emoji im Textkatalog"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"src/i18n/de.json" = """
+{
+  "cookies": "🍪 Cookie-Einstellungen",
+  "tip": "💡 So funktioniert's"
+}
+"""
+
+[[fixtures]]
+name = "Zwei Emojis in einer Zeile ergeben einen Befund"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"src/App.tsx" = "export const A = () => <p>✔ fertig ➡ weiter</p>;\n"
+
+[[fixtures]]
+name = "Formfeed trennt Zeilen"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"src/App.tsx" = "const a = \"⬆ hoch\";\fconst b = \"↩ zurück\";\n"
+
+[[fixtures]]
+name = "Typografie ohne Emoji-Eigenschaft"
+expect = "pass"
+[fixtures.files]
+"src/i18n/app-de.ts" = """
+export const de = {
+  active: "Aktiv ✓",
+  next: "Weiter →",
+  copyright: "© 2026 Beispiel GmbH™",
+};
+"""
+
+[[fixtures]]
+name = "Emoji in Entwickler-Log"
+expect = "pass"
+[fixtures.files]
+"src/lib/prefetch.ts" = """
+console.warn(`⚠️ Failed to prefetch route: ${name}`);
+logger.info("✅ ready");
+"""
