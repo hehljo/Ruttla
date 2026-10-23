@@ -1,0 +1,83 @@
+format = "ruttla-rule/0"
+id = "web.capacitor_keyboard_native_resize"
+title = "Capacitor-Keyboard mit resize native — WebView schrumpft unzuverlässig"
+platform = "web"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 14 · resize native ist für Dokument-Scroll ungeeignet"
+tags = ["capacitor", "ios", "keyboard", "forms"]
+references = ["https://github.com/ionic-team/capacitor-keyboard/blob/v8.0.6/ios/Sources/KeyboardPlugin/Keyboard.m"]
+introduced_in = "0.1.0"
+rationale = """
+`@capacitor/keyboard` verkleinert im Modus `native` den Rahmen der WKWebView
+verzögert (Tastaturanimation + 0,2 s) und überspringt die Änderung, wenn die
+gespeicherte Höhe gleich bleibt. Die Höhe wird aber schon vor dem Resize
+gespeichert. `keyboardDidShow` kommt deshalb vor dem Resize, und nach dem
+ersten Öffnen kann die WebView voll hoch bleiben.
+
+Belegt am 23.10.2026 (Warteheld, iPhone 12 Pro, SwiftKey, Messung per Log in
+der App): Beim ersten Öffnen 844 → 448, danach blieb `innerHeight` 844, und
+das Passwortfeld lag unter der Tastatur. Hinter der geschrumpften WebView war
+das Fenster sichtbar. Am Gerät abgenommen: `resize: "none"` mit eigener
+Platzreserve und eigenem Scrollen.
+
+Erkannt wird nur der ausdrücklich gesetzte Modus. Ohne `resize`-Angabe gilt
+ebenfalls `native` (Standard); das ist mit einem Muster je Datei nicht
+messbar. Warnung, weil Apps mit innerem Scroll-Container (ion-content) den
+Modus sinnvoll nutzen können."""
+
+[scope]
+extensions = [".ts", ".js", ".json"]
+unit_label = "Capacitor-Konfigurationen"
+require_text = "Keyboard"
+
+[match]
+per_line = true
+pattern = '''(\bresize["']?\s*:\s*(?:["']native["']|KeyboardResize\.Native\b))'''
+message = "Keyboard-Plugin im Modus native — die WebView schrumpft verzögert und nach dem ersten Öffnen evtl. gar nicht mehr."
+fix = "`resize: \"none\"` setzen, die zuletzt gemeldete Tastaturhöhe als Platzreserve unten einbauen und das fokussierte Feld nach dem Layout per `scrollBy` über die Tastatur schieben."
+
+[[fixtures]]
+name = "Warteheld vorher (String-Literal)"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"capacitor.config.ts" = """
+const config = {
+  plugins: {
+    Keyboard: { resize: "native" as KeyboardResize, resizeOnFullScreen: true },
+  },
+};
+"""
+
+[[fixtures]]
+name = "Enum-Wert und JSON"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"capacitor.config.ts" = """
+plugins: { Keyboard: { resize: KeyboardResize.Native } }
+"""
+"ios/App/App/capacitor.config.json" = """
+{ "plugins": { "Keyboard": { "resize": "native" } } }
+"""
+
+[[fixtures]]
+name = "Warteheld nachher"
+expect = "pass"
+[fixtures.files]
+"capacitor.config.ts" = """
+const config = {
+  plugins: {
+    Keyboard: { resize: "none" as KeyboardResize },
+  },
+};
+"""
+
+[[fixtures]]
+name = "Anderes resize ohne Keyboard-Bezug"
+expect = "pass"
+[fixtures.files]
+"src/lib/editor.ts" = """
+// Keyboard shortcuts
+export const handle = { resize: "both" };
+"""
