@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 
 from .config import Config
@@ -41,6 +42,36 @@ def _materialise(work: str, files: dict[str, str]) -> bool:
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         with open(dest, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(content)
+    # Trusted installed probes may declare Git index metadata as fixture data.
+    # Normal scans never interpret this file; no target code or hooks run.
+    # Keep the frozen export fields unchanged: the declaration is a text file.
+    declaration = files.get(".ruttla-selftest/git-index.json")
+    if declaration is not None:
+        data = json.loads(declaration)
+        modes = data["modes"]
+        if not isinstance(modes, dict):
+            return False
+        for rel, mode in modes.items():
+            if (mode not in ("100644", "100755") or rel not in files
+                    or os.path.isabs(rel) or "\\" in rel
+                    or any(p in ("", ".", "..") for p in rel.split("/"))):
+                return False
+        def git(*args: str, input: str | None = None) -> str:
+            return subprocess.run(
+                ["git", "-C", work, *args], input=input, text=True,
+                capture_output=True, timeout=30, check=True,
+            ).stdout.strip()
+        git("init", "--quiet", "--template=")
+        for rel, mode in modes.items():
+            oid = git("hash-object", "-w", "--stdin", input=files[rel])
+            git("update-index", "--add", "--cacheinfo", mode, oid, rel)
+        hooks_path = data.get("hooks_path")
+        if hooks_path is not None:
+            if (not isinstance(hooks_path, str) or not hooks_path
+                    or os.path.isabs(hooks_path) or "\\" in hooks_path
+                    or any(p in ("", ".", "..") for p in hooks_path.split("/"))):
+                return False
+            git("config", "--local", "core.hooksPath", hooks_path)
     return True
 
 

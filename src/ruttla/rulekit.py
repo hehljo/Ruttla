@@ -331,7 +331,7 @@ def stress_files(rule: dict) -> dict[str, str]:
     repeated = base * (STRESS_BYTES // max(len(base.encode()), 1) + 1)
     repeated = head + repeated.encode()[:STRESS_BYTES].decode("utf-8", "ignore")
     one_line = "".join(" " if ch in "\r\n\v\f\x1c\x1d\x1e\x85\u2028\u2029" else ch for ch in repeated)
-    return {
+    files = {
         f"stress_wiederholt{ext}": repeated,
         f"stress_eine_zeile{ext}": one_line,
         # Leerzeilen: die Eingabe, an der `(?:^|\n)\s*` in Pythons re
@@ -339,6 +339,13 @@ def stress_files(rule: dict) -> dict[str, str]:
         # Trailing-Whitespace-Regel hier zu Recht jede Zeile.
         f"stress_leerzeilen{ext}": head + "\n" * STRESS_BYTES,
     }
+    if scope.get("file_names"):
+        names = [name for name in scope["file_names"] if Path(name).suffix.lower() in exts]
+        if not names:
+            return files  # The budget must remain unmeasured for an empty scope.
+        return {f"case_{index}/{names[0]}": content
+                for index, content in enumerate(files.values())}
+    return files
 
 
 def _check_budget(binary: Path, work: Path, rules: Path, rule: dict, report: RuleReport) -> None:
@@ -347,9 +354,12 @@ def _check_budget(binary: Path, work: Path, rules: Path, rule: dict, report: Rul
         target = root / name
         # Die Endung stammt aus der Regel. Die Engine lehnt Pfadzeichen darin
         # schon beim Laden ab; hier zweite Sperre, falls eine alte Engine läuft.
-        if any(ch in name for ch in "/\\:\0") or target.resolve().parent != root.resolve():
+        if (any(ch in name for ch in "\\:\0") or Path(name).is_absolute()
+                or any(part in ("", ".", "..") for part in name.split("/"))
+                or not target.resolve().is_relative_to(root.resolve())):
             report.add("budget", REJECTED, f"Endung ergibt einen Pfad: {name!r}")
             return
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content.encode("utf-8"))
     code, raw, elapsed = _run_engine(
         binary, ["scan", str(root), "--rules", str(rules), "--view", "unscoped", "--threads", "1"],

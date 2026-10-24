@@ -55,6 +55,8 @@ struct RawRule {
 #[serde(deny_unknown_fields)]
 struct RawScope {
     extensions: Vec<String>,
+    #[serde(default)]
+    file_names: Vec<String>,
     unit_label: String,
     #[serde(default)]
     no_files_reason: Option<String>,
@@ -149,6 +151,7 @@ pub struct Rule {
     pub severity: String,
     pub guideline: String,
     pub extensions: Vec<String>,
+    pub file_names: Vec<String>,
     pub unit_label: String,
     pub no_files_reason: String,
     pub skip_comments: bool,
@@ -271,6 +274,9 @@ pub fn parse_rule(text: &str, source: &Path, known_platforms: &HashSet<String>) 
     if raw.title.trim().is_empty() || raw.scope.unit_label.trim().is_empty() || raw.match_.message.trim().is_empty() {
         return Err("title, scope.unit_label und match.message dürfen nicht leer sein".into());
     }
+    if raw.scope.file_names.iter().any(|n| n.is_empty() || n == "." || n == ".." || n.contains(PATH_CHARS)) {
+        return Err("scope.file_names: nichtleere Dateinamen ohne Pfadbestandteile".into());
+    }
     let pattern = compile("match.pattern", &raw.match_.pattern)?;
     if pattern.is_match("") {
         return Err("match.pattern passt auf den leeren Text — jede Datei wäre ein Befund".into());
@@ -329,6 +335,7 @@ pub fn parse_rule(text: &str, source: &Path, known_platforms: &HashSet<String>) 
         severity: raw.severity,
         guideline: raw.match_.guideline.clone().unwrap_or(raw.guideline),
         extensions: raw.scope.extensions,
+        file_names: raw.scope.file_names,
         unit_label,
         skip_comments: raw.scope.skip_comments,
         per_line: raw.match_.per_line,
@@ -450,6 +457,16 @@ files = { "a.gd" = "ok\n" }
         for ext in [r#"".gd/../../x.gd""#, r#"'.gd\..\x'"#, r#"".""#, r#"".c:d""#, r#"".g\u0000d""#] {
             let text = GOOD.replace(r#"extensions = [".gd"]"#, &format!("extensions = [{ext}]"));
             assert!(parse(&text).unwrap_err().contains("scope.extensions"), "{ext:?}");
+        }
+    }
+
+    #[test]
+    fn file_names_are_literal_basenames() {
+        let named = GOOD.replace("unit_label =", "file_names = [\"capacitor.config.ts\"]\nunit_label =");
+        assert_eq!(parse(&named).unwrap().file_names, vec!["capacitor.config.ts"]);
+        for name in ["", ".", "..", "../a.gd", "a/b.gd", "a\\b.gd", "C:a.gd", "a\0gd"] {
+            let text = GOOD.replace("unit_label =", &format!("file_names = [{name:?}]\nunit_label ="));
+            assert!(parse(&text).is_err(), "{name:?}");
         }
     }
 

@@ -15,6 +15,7 @@ is *not measured* — never green (`--engine auto|off|required`).
 | `title`, `platform`, `severity` | yes | `platform` from `platforms.toml`; `severity` = `error`/`warning`/`info` |
 | `guideline`, `rationale`, `tags`, `references`, `safe_by_default`, `introduced_in`, `lifecycle` | no | Catalogue metadata, same meaning as `register()` |
 | `[scope] extensions` | yes | Lower-case, with dot. One examined unit = one file of these extensions in the platform's view |
+| `[scope] file_names` | no | Additional exact, case-sensitive basename allowlist (AND with `extensions`); empty/absent means no name filter. Paths and empty names are rejected. Requires an engine with this field; older engines reject it rather than reporting green. |
 | `[scope] unit_label` | yes | e.g. `"GDScript-Dateien"` |
 | `[scope] no_files_reason` | no | Reason when no file was examined (default: `Null <label> geprüft — es gab nichts zu messen.`) |
 | `[scope] skip_comments` | no | Default `true`: match on comment-stripped text (`strip_comments`, lines preserved) |

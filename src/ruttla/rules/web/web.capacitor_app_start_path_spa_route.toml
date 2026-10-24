@@ -1,0 +1,102 @@
+format = "ruttla-rule/0"
+id = "web.capacitor_app_start_path_spa_route"
+title = "Capacitor-Startpfad verweist auf eine SPA-Route"
+platform = "web"
+severity = "error"
+safe_by_default = true
+guideline = "CODE_QUALITY_GUIDELINES_WEB.md § Web-App als native Hülle"
+tags = ["capacitor", "ios", "startup"]
+references = ["https://capacitorjs.com/docs/config", "https://github.com/ionic-team/capacitor/blob/main/ios/Capacitor/Capacitor/CAPBridgeViewController.swift"]
+rationale = """
+Reproduzierter Startabbruch am 22./23.10.2026: server.appStartPath enthielt
+/radar. Capacitor iOS prüft appStartFileURL mit fileExists vor dem Start des
+SPA-Routers und meldet Unable to load …/public//radar. Das Entfernen des
+Startpfads behebt den Fehler; der Router bestimmt danach die Startansicht.
+Gemessen werden direkte Stringliterale im flachen server-Objekt der vier
+Capacitor-Konfigurationsformate. Eine Dateiendung im letzten Pfadsegment
+wird akzeptiert; die Existenz dieser Datei wird nicht behauptet. Bewusst
+enge Konvention: echte gebündelte Dateien ohne Endung können eine explizite
+projektspezifische Ausnahme benötigen. Dynamische Werte bleiben außerhalb
+dieses Musters. Der Check belegt keinen nativen App-Start.
+"""
+
+[scope]
+extensions = [".ts", ".js", ".mjs", ".json"]
+file_names = ["capacitor.config.ts", "capacitor.config.js", "capacitor.config.mjs", "capacitor.config.json"]
+unit_label = "Capacitor-Konfigurationen"
+no_files_reason = "Keine capacitor.config.ts/js/mjs/json gefunden."
+
+[match]
+pattern = '''\bserver["']?\s*:\s*\{[^{}]*?\bappStartPath["']?\s*:\s*["']([^"'$\r\n]*)["']\s*[,}]'''
+message = "server.appStartPath = {1}: SPA-Route ohne Dateiendung; Capacitor iOS erwartet vor dem Router eine gebündelte Startdatei."
+fix = "appStartPath entfernen und den SPA-Router die Startansicht wählen lassen, oder eine tatsächlich gebündelte HTML-Datei als Startpfad angeben und den nativen Start prüfen."
+
+[[match.exclude]]
+group = 1
+pattern = '''(?:^|/)[^/?#]*\.[^/?#]+(?:[?#].*)?$'''
+
+[[match.exclude]]
+group = 1
+pattern = '''^/?$'''
+
+[[fixtures]]
+name = "gesund: kein Startpfad"
+expect = "pass"
+files = { "capacitor.config.ts" = 'export default { webDir: "dist", server: { hostname: "localhost" } };' }
+
+[[fixtures]]
+name = "gesund: absolute HTML-Datei"
+expect = "pass"
+files = { "capacitor.config.json" = '{"server":{"appStartPath":"/index.html"}}' }
+
+[[fixtures]]
+name = "gesund: relative HTML-Datei"
+expect = "pass"
+files = { "capacitor.config.js" = "export default {server: {appStartPath: 'landing.html'}}" }
+
+[[fixtures]]
+name = "gesund: verschachtelte HTML-Datei"
+expect = "pass"
+files = { "capacitor.config.mjs" = 'export default {server: {appStartPath: "/app/index.html"}}' }
+
+[[fixtures]]
+name = "gesund: leerer Standardpfad"
+expect = "pass"
+files = { "capacitor.config.ts" = 'export default {server: {appStartPath: ""}}' }
+
+[[fixtures]]
+name = "gesund: Rootpfad"
+expect = "pass"
+files = { "capacitor.config.ts" = 'export default {server: {appStartPath: "/"}}' }
+
+[[fixtures]]
+name = "defekt: SPA-Route"
+expect = "fail"
+expect_findings = 1
+expect_finding_contains = "/radar"
+files = { "capacitor.config.ts" = 'export default {webDir: "dist", server: {appStartPath: "/radar"}};' }
+
+[[fixtures]]
+name = "defekt: relative Route"
+expect = "fail"
+files = { "capacitor.config.js" = "export default {server: {appStartPath: 'radar'}}" }
+
+[[fixtures]]
+name = "defekt: Punkt im Ordner ist keine Dateiendung"
+expect = "fail"
+files = { "capacitor.config.mjs" = 'export default {server: {appStartPath: "/v1.0/radar"}}' }
+
+[[fixtures]]
+name = "defekt: mehrzeiliges JSON"
+expect = "fail"
+files = { "ios/App/App/capacitor.config.json" = "{\n\"server\": {\n\"appStartPath\": \"/radar\"\n}\n}" }
+
+[[fixtures]]
+name = "gesund: Kommentar und andere Eigenschaft"
+expect = "pass"
+files = { "capacitor.config.ts" = "// server: {appStartPath: '/radar'}\nexport default {plugins: {appStartPath: '/radar'}};" }
+
+[[fixtures]]
+name = "ungemessen: gleiches Objekt außerhalb der Konfiguration"
+expect = "unmeasured"
+files = { "src/router.ts" = 'const config = {webDir: "dist", server: {appStartPath: "/radar"}};' }

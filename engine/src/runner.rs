@@ -164,6 +164,12 @@ fn in_view(rule: &Rule, view: View, file: &SourceFile, owners: &HashMap<String, 
     if !rule.extensions.contains(&file.ext) {
         return false;
     }
+    if !rule.file_names.is_empty()
+        && !file.path.file_name().and_then(|n| n.to_str())
+            .map_or(false, |n| rule.file_names.iter().any(|allowed| allowed == n))
+    {
+        return false;
+    }
     if view == View::Unscoped || rule.platform == "universal" {
         return true;
     }
