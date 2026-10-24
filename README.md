@@ -23,7 +23,7 @@ memory for failures that normal linters miss. A real failure happens → its
 cause is proven → a deterministic rule is written → a broken **and** a healthy
 probe must both behave → from then on the failure costs no debugging or
 agent tokens. Scanning uses no LLM, network, or telemetry; target code is read,
-never executed. Network access happens only when explicitly running `ruttla update` or `ruttla hub search|add|sync|submit`.
+never executed. Network access happens only when explicitly running `ruttla update` or `ruttla hub search|add|sync|submit`, or when a scan is started with `--allow-network`: then the repository check asks the GitHub API whether the scanned repository is public (owner and repository name, nothing from the code).
 
 > Status: 0.1.0.dev0, public preview. German version: [README.de.md](README.de.md).
 
@@ -32,7 +32,7 @@ never executed. Network access happens only when explicitly running `ruttla upda
 Coding agents (Claude Code, Cursor, OpenAI Codex, GitHub Copilot, Aider, Windsurf) waste thousands of tokens looping on subtle bugs and linters' blind spots. Ruttla provides:
 
 - **Token-dense output (`--format agent`)**: One line per finding with `file`, `line`, `severity`, and an exact, non-hallucinated fix instruction (`FIX: ...`).
-- **Zero token burn**: Scans are offline and deterministic; no network calls or LLM queries unless you explicitly run `ruttla update` or a `ruttla hub` command that fetches.
+- **Zero token burn**: Scans are offline and deterministic; no network calls or LLM queries unless you explicitly run `ruttla update`, a `ruttla hub` command that fetches, or a scan with `--allow-network`.
 - **Strict exit contracts**: Differentiates between clean (`0`), blocking findings (`1`), unmeasured scopes (`2`), and runner errors (`3`). Never confuses "nothing checked" with success.
 
 ## 30-second start
