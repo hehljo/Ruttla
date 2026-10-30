@@ -1,0 +1,44 @@
+format = "ruttla-rule/0"
+id = "godot.skeleton_modifier_scale_compounding"
+title = "Akkumulierende Skalierung in SkeletonModifier3D / Knochen-Pose"
+platform = "godot"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_GAMEDEV.md § Animation & Rigging"
+references = ["https://docs.godotengine.org/en/stable/classes/class_skeleton3d.html#class-skeleton3d-method-get-bone-rest"]
+rationale = """
+In Godot 4.x liefert get_bone_pose_scale() die im vorherigen Frame modifizierte Pose.
+Ein Aufruf wie set_bone_pose_scale(id, get_bone_pose_scale(id) * faktor) akkumuliert
+den Skalierungsfaktor pro Frame exponentiell auf und führt zur Skalierungs-Explosion."""
+
+[scope]
+extensions = [".gd"]
+unit_label = "GDScript-Dateien"
+no_files_reason = "Keine GDScript-Dateien gefunden."
+
+[match]
+pattern = 'set_bone_pose_scale\s*\([^)]*get_bone_pose_scale'
+message = "set_bone_pose_scale() multipliziert get_bone_pose_scale() auf — akkumuliert pro Frame zur Skalierungs-Explosion."
+fix = "Gegen die Rest-Pose skalieren: get_bone_rest(bone_id).basis.get_scale() * faktor."
+
+[[fixtures]]
+name = "akkumulierende Skalierung"
+expect = "fail"
+[fixtures.files]
+"src/modifier.gd" = """
+extends SkeletonModifier3D
+func _process_modification():
+\tvar sk = get_skeleton()
+\tsk.set_bone_pose_scale(0, sk.get_bone_pose_scale(0) * 1.05)
+"""
+
+[[fixtures]]
+name = "saubere Rest-Pose Skalierung"
+expect = "pass"
+[fixtures.files]
+"src/modifier.gd" = """
+extends SkeletonModifier3D
+func _process_modification():
+\tvar sk = get_skeleton()
+\tvar basis_scale = sk.get_bone_rest(0).basis.get_scale()
+\tsk.set_bone_pose_scale(0, basis_scale * 1.05)
+"""

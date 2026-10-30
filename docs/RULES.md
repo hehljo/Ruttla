@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-200 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+201 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 51 | 10 |
 | dotnet | 11 | 0 |
-| godot | 36 | 1 |
+| godot | 37 | 1 |
 | python | 8 | 0 |
 | raspberry | 6 | 0 |
 | universal | 44 | 9 |
@@ -5060,6 +5060,53 @@ func flush() -> void:
 
 func save_game() -> void:
 	pass
+```
+
+</details>
+
+### `godot.skeleton_modifier_scale_compounding`
+
+**Akkumulierende Skalierung in SkeletonModifier3D / Knochen-Pose**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Animation & Rigging
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+- Reference: <https://docs.godotengine.org/en/stable/classes/class_skeleton3d.html#class-skeleton3d-method-get-bone-rest>
+
+<details><summary>Why it exists</summary>
+
+```text
+In Godot 4.x liefert get_bone_pose_scale() die im vorherigen Frame modifizierte Pose.
+Ein Aufruf wie set_bone_pose_scale(id, get_bone_pose_scale(id) * faktor) akkumuliert
+den Skalierungsfaktor pro Frame exponentiell auf und führt zur Skalierungs-Explosion.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): akkumulierende Skalierung</summary>
+
+`src/modifier.gd`
+
+```text
+extends SkeletonModifier3D
+func _process_modification():
+	var sk = get_skeleton()
+	sk.set_bone_pose_scale(0, sk.get_bone_pose_scale(0) * 1.05)
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): saubere Rest-Pose Skalierung</summary>
+
+`src/modifier.gd`
+
+```text
+extends SkeletonModifier3D
+func _process_modification():
+	var sk = get_skeleton()
+	var basis_scale = sk.get_bone_rest(0).basis.get_scale()
+	sk.set_bone_pose_scale(0, basis_scale * 1.05)
 ```
 
 </details>
