@@ -245,19 +245,26 @@ class MigrationTests(StatsCase):
 
 
 class DataDirTests(unittest.TestCase):
+    def data_dir(self, platform: str, env: dict) -> Path:
+        # Eigenes Home und leere Umgebung: läuft so auf jedem Runner-OS gleich.
+        home = Path(os.path.abspath("home-fixture"))
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch.object(stats.Path, "home", return_value=home), \
+                mock.patch.object(stats.sys, "platform", platform):
+            return stats.data_dir().relative_to(home) if not env else stats.data_dir()
+
     def test_platform_defaults(self) -> None:
-        with mock.patch.dict(os.environ, {}, clear=True), \
-                mock.patch.object(stats.os, "name", "posix"), \
-                mock.patch.object(stats.sys, "platform", "linux"):
-            os.environ["XDG_DATA_HOME"] = "relativ"
-            self.assertEqual(stats.data_dir(), Path.home() / ".local/share/ruttla")
-            os.environ["XDG_DATA_HOME"] = "/x/data"
-            self.assertEqual(stats.data_dir(), Path("/x/data/ruttla"))
-        with mock.patch.dict(os.environ, {}, clear=True), \
-                mock.patch.object(stats.os, "name", "posix"), \
-                mock.patch.object(stats.sys, "platform", "darwin"):
-            self.assertEqual(stats.data_dir(),
-                             Path.home() / "Library/Application Support/ruttla")
+        xdg = os.path.abspath("xdg-fixture")
+        self.assertEqual(self.data_dir("linux", {}), Path(".local/share/ruttla"))
+        self.assertEqual(self.data_dir("linux", {"XDG_DATA_HOME": "relativ"}),
+                         Path(os.path.abspath("home-fixture")) / ".local/share/ruttla")
+        self.assertEqual(self.data_dir("linux", {"XDG_DATA_HOME": xdg}),
+                         Path(xdg) / "ruttla")
+        self.assertEqual(self.data_dir("darwin", {}),
+                         Path("Library/Application Support/ruttla"))
+        self.assertEqual(self.data_dir("win32", {}), Path("AppData/Roaming/ruttla"))
+        self.assertEqual(self.data_dir("win32", {"APPDATA": xdg}), Path(xdg) / "ruttla")
+        self.assertEqual(self.data_dir("linux", {stats.ENV_DIR: xdg}), Path(xdg))
 
 
 if __name__ == "__main__":

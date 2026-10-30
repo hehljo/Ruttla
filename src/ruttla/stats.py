@@ -89,7 +89,7 @@ def data_dir() -> Path:
     if override:
         return Path(override)
     home = Path.home()
-    if os.name == "nt":
+    if sys.platform == "win32":
         base = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming")
     elif sys.platform == "darwin":
         base = home / "Library" / "Application Support"
