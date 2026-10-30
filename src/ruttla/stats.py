@@ -332,8 +332,7 @@ def _record(conn: sqlite3.Connection, ctx, results: list[CheckResult], exit_code
         missing = [(fp, check_id, file_key) for fp, (state, check_id, file_key)
                    in known.items() if state == "open" and fp not in seen]
         if missing:
-            covered = _covered_file_keys(salt, ctx, changed) if exit_code != EXIT_CRASH \
-                else set()
+            covered = _covered_file_keys(salt, ctx, changed)
             for fp, check_id, file_key in missing:
                 confirmed = (exit_code != EXIT_CRASH and check_id in measured
                              and (file_key == "" or file_key in covered))

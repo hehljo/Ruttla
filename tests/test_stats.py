@@ -161,6 +161,13 @@ class LifecycleTests(StatsCase):
         self.assertEqual(self.lifecycle()["indeterminate"], 1)
         self.assertEqual(self.lifecycle()["fixed"], 0)
 
+    def test_crashed_scan_never_marks_fixed(self) -> None:
+        self.scan()
+        self.write("src/a.ts", "const cfg = {};\n")
+        with mock.patch.object(cli, "apply_exit_policy", return_value=3):
+            self.assertEqual(self.scan()[0], 3)
+        self.assertEqual((self.lifecycle()["fixed"], self.lifecycle()["indeterminate"]), (0, 1))
+
     def test_deleted_file_is_indeterminate(self) -> None:
         self.scan()
         (self.repo / "src" / "a.ts").unlink()
@@ -242,6 +249,25 @@ class MigrationTests(StatsCase):
         conn.close()
         self.assertNotIn("x", cols)
         self.assertEqual(version[0], "1")
+        # Dieselbe Verbindung danach: ohne ROLLBACK stünde die halbe Migration offen.
+        conn = sqlite3.connect(stats.db_path(), isolation_level=None)
+        with mock.patch.object(stats, "MIGRATIONS", broken), \
+                self.assertRaises(sqlite3.OperationalError):
+            stats.migrate(conn)
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(scans)")]
+        conn.close()
+        self.assertNotIn("x", cols)
+
+
+class FingerprintTests(unittest.TestCase):
+    def test_line_numbers_and_whitespace_do_not_change_fingerprint(self) -> None:
+        salt = b"s" * 32
+        fp = stats.fingerprint
+        self.assertEqual(fp(salt, "r", "a.py", None, "Zeile 12: x fehlt"),
+                         fp(salt, "r", "a.py", None, "Zeile 40:  x fehlt"))
+        self.assertEqual(fp(salt, "r", "a.py", "a  =\tb", ""), fp(salt, "r", "a.py", "a = b", ""))
+        self.assertNotEqual(fp(salt, "r", "a.py", "a = b", ""), fp(salt, "r", "b.py", "a = b", ""))
+        self.assertNotEqual(fp(salt, "r", "a.py", "a = b", ""), fp(b"t" * 32, "r", "a.py", "a = b", ""))
 
 
 class DataDirTests(unittest.TestCase):
