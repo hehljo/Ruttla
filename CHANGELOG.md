@@ -1,4 +1,13 @@
 # Changelog
+## Finalized ZIP validation (2026-10-26)
+
+- Added advisory `python.zip_crc_before_writer_closed`: literal writable
+  ZipFile contexts must close before final CRC validation. Imported aliases,
+  reader shadows, rebinding and deferred scope have bounded controls.
+- Documented portable byte-exact preset restoration and separate Godot
+  packaged-resource/editor versus exported-runtime proof. Account-token and
+  public-readiness lessons remain guidance where offline inference is unsafe.
+
 ## Local Swift package prerequisites (2026-10-22)
 
 - Added advisory `apple.swift_package_local_dependency_missing` for direct

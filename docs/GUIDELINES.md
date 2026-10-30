@@ -576,6 +576,47 @@ password-like inputs and explicit non-ASCII literals: unrelated ASCII-only
 HMAC hex digests are legitimate. The heuristic is advisory because variable
 names alone cannot prove the accepted character set.
 Reference: <https://docs.python.org/3/library/hmac.html#hmac.compare_digest>.
+<a id="python-finalized-archives"></a>
+### Python finalized archives
+
+Finish and close every ZIP writer before opening the final artifact separately
+in read mode for CRC validation, hashing or publication. An actual Windows
+CPython packaging run reported a CRC failure inside an append-mode context;
+the same completed file passed when reopened. Writer state is not the final
+delivery artifact. Test healthy archives before isolated payload corruption.
+The advisory check recognizes direct calls through imported `ZipFile` contexts
+with literal modes. Dynamic modes, unknown constructors, rebinding and deferred
+callbacks are unmeasured; no archive is opened and no target code is executed.
+Reference: <https://docs.python.org/3/library/zipfile.html#zipfile.ZipFile.close>.
+
+Preserve configuration bytes exactly when temporarily overriding export presets
+on another OS: text-mode restoration can change line endings and invalidate the
+source fingerprint. Restore the original bytes and compare source hashes after
+the build. Godot release templates may silently ignore editor-only or extended
+CLI arguments such as `--script`. Inspect packaged resources with a compatible
+editor via `--main-pack`; exercise the actual exported binary separately through
+its supported application flow and demand a positive, named result.
+Reference: <https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html>.
+
+### Public service readiness and scoped credentials
+
+Cloudflare account-owned tokens use the account token verification endpoint;
+failure at the user-token endpoint alone does not establish invalid credentials.
+Verify the intended account, exact zone, actual provider error and resource
+scope before changes. Do not expand permissions from a generic 403 or an active
+token status. Public readiness probes need an honest application User-Agent;
+library defaults can receive Cloudflare1010 before reaching the origin. Preserve
+zone protections and distinguish that rejection from a disconnected tunnel.
+These are live integration requirements, not inferred static source rules.
+References: <https://developers.cloudflare.com/fundamentals/api/get-started/account-owned-tokens/>,
+<https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/>.
+
+Readiness notifications should bind the actual server instance to finalized
+download hashes and the endpoint embedded in the delivered clients. DNS, an
+enabled unit and a reachable page are separate observations. Persist duplicate
+suppression only after provider acknowledgement; a crash between send and state
+write still permits a repeat. Container restart, tunnel reconnect and host cold
+boot remain distinct proofs. No generic source scan proves those live states.
 
 <a id="python-regex"></a>
 ### Python regex

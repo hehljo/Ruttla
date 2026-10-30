@@ -1,4 +1,27 @@
 # STATUS
+## Finalized ZIP and service-readiness lessons (2026-10-26)
+
+- Added advisory `python.zip_crc_before_writer_closed` for direct CRC checks
+  inside imported ZipFile writers with literal w/a/x modes. It reads source AST
+  only; rebinding, dynamic modes and deferred callbacks remain unmeasured.
+- A real Windows packaging failure disappeared after closing and reopening
+  the same intact ZIP. Healthy read contexts precede each isolated writer-mode
+  mutation; shadows and unrelated constructors are covered separately.
+- Guidance separates exact-byte preset restoration, Godot editor/extended CLI
+  support, account-token verification, honest HTTP application identifiers and
+  source/instance-bound readiness notifications. No speculative live-state rule.
+- Four focused tests pass; self-tests 942/942 (baseline933/933), generated
+  catalogue current, strict full and changed self-scans:18 PASS/34 UNMEASURED,
+  zero findings. The real corrected packager is green; the original writer
+  defect fails a separate strict CLI probe.
+- Full unit suite:376 tests,17 failures,three optional skips. No archive test
+  failed. Nine existing web/monolith failures were reproduced in an isolated
+  copy without the new check/tests/mapping; eight missing public mappings are
+  unchanged with/without the new catalogue family. These unrelated conditions
+  remain open; no complete-suite success, commit or publication is claimed.
+- Existing edits preserved. External download, token, boot and native runtime
+  observations remain guidance and explicit integration gates.
+
 ## Local Swift package prerequisites (2026-10-22)
 
 - Added advisory `apple.swift_package_local_dependency_missing` for direct

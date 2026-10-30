@@ -116,6 +116,8 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Long-running Python services: scheduler misfires, token logging, data gaps, retries."),
     ("GUIDELINES.md § Python authentication", "python-authentication",
      "Password comparisons must handle non-ASCII Unicode without runtime errors."),
+    ("GUIDELINES.md § Python finalized archives", "python-finalized-archives",
+     "Validate finalized ZIP artifacts after closing their writer, with healthy and corrupted controls."),
     ("GUIDELINES.md § Python regex", "python-regex",
      "Regex on untrusted files must stay linear: no ^\\s* under MULTILINE."),
     ("GUIDELINES.md § Internal notes", "internal-notes-stay-local",

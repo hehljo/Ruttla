@@ -3,14 +3,14 @@
 
 # Rule catalog
 
-197 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+198 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 51 | 10 |
 | dotnet | 11 | 0 |
 | godot | 36 | 1 |
-| python | 7 | 0 |
+| python | 8 | 0 |
 | raspberry | 6 | 0 |
 | universal | 42 | 7 |
 | unreal | 6 | 0 |
@@ -5753,6 +5753,50 @@ def chart(t):
     df = frame(res)
     df.iloc[-1, 0] = res['meta']['regularMarketPrice']
     return df.dropna(subset=['Close'])
+```
+
+</details>
+
+### `python.zip_crc_before_writer_closed`
+
+**ZIP-CRC wird noch im Schreibkontext geprüft**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § Python finalized archives
+- Public rationale: [GUIDELINES.md › python-finalized-archives](GUIDELINES.md#python-finalized-archives)
+- Reference: <https://docs.python.org/3/library/zipfile.html#zipfile.ZipFile.close>
+
+<details><summary>Why it exists</summary>
+
+```text
+A Windows packaging run reported a CRC failure while its append-mode ZipFile was still open; the same closed archive passed a fresh read. Validate the finalized file after closing the writer. This advisory recognizes only imported ZipFile contexts, literal modes and direct unrebound receivers; it does not prove corruption or execute target code.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Anhängender Writer noch offen</summary>
+
+`pack.py`
+
+```text
+import zipfile
+with zipfile.ZipFile(p, 'a') as archive:
+ archive.testzip()
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Geschlossenes Archiv neu lesend prüfen</summary>
+
+`pack.py`
+
+```text
+import zipfile
+with zipfile.ZipFile(p, 'w') as writer:
+ writer.writestr('a', b'a')
+with zipfile.ZipFile(p, 'r') as reader:
+ assert reader.testzip() is None
 ```
 
 </details>
