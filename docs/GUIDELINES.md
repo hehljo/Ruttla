@@ -576,6 +576,7 @@ password-like inputs and explicit non-ASCII literals: unrelated ASCII-only
 HMAC hex digests are legitimate. The heuristic is advisory because variable
 names alone cannot prove the accepted character set.
 Reference: <https://docs.python.org/3/library/hmac.html#hmac.compare_digest>.
+
 <a id="python-finalized-archives"></a>
 ### Python finalized archives
 
@@ -1073,6 +1074,8 @@ signierter JWS (Apple), OIDC-Token über JWKS (Google Pub/Sub) oder Webhook-HMAC
 Belegt am 20.10.2026 (Vylea): die Play-Funktion prüfte nichts und wäre anonym
 auslösbar gewesen. Regel: `supabase.verify_jwt_off_without_signature_check` liest
 `config.toml` und den Quelltext der Funktion; fehlender Quelltext ist ein Befund.
+
+
 <a id="local-swift-package-prerequisites"></a>
 ## Local Swift package prerequisites
 
@@ -1087,6 +1090,16 @@ are unmeasured. File existence is not manifest validity, graph resolution,
 remote repository access, a successful build or a device launch. Healthy
 installed packages precede isolated missing-directory/manifest probes.
 
+<a id="unmeasured-needs-a-cause"></a>
+## "Not measured" needs a cause
+
+A runner that turns an abort into "not measured" must say why. A bare
+`catch {}` or `except Exception:` that reports unmeasured hides whether the
+database, the network, a missing tool or a real defect stopped the run, and
+the next attempt repeats the guess. Bind the error and report a safe cause:
+step label, first SQL `ERROR` line or error class — never the command line or
+secrets. Rule: `gate.unmeasured_without_cause` (warning).
+
 <a id="supabase-migrations-cli-chain"></a>
 ## Supabase migrations follow the CLI chain
 
@@ -1098,3 +1111,47 @@ top-level `COMMIT`/`ABORT` inside a migration leaves a half-applied state or a
 rolled-back file recorded as applied. `BEGIN`/`END` inside `$$` bodies and `DO`
 blocks is PL/pgSQL and not counted. Rules: `sql.migration_name_not_cli`,
 `sql.migration_transaction_control` (errors).
+
+<a id="bottom-bar-safe-area"></a>
+## Fixed bottom bars and the safe area
+
+A fixed bottom tab bar that pads the full `env(safe-area-inset-bottom)` shows
+an empty band below its items on devices with a home indicator. Put the spacing
+into the items and reduce the inset, e.g.
+`calc(4px + max(env(safe-area-inset-bottom, 0px) - 16px, 0px))`; full insets
+stay correct for content that is not fixed to the bottom. Rule:
+`web.bottom_bar_full_safe_area_padding` (warning).
+
+<a id="capacitor-keyboard-resize"></a>
+## Capacitor keyboard resize mode
+
+With the Keyboard plugin in `resize: "native"` the WebView shrinks late and,
+after the first opening, sometimes not at all, so fields end up under the
+keyboard in document-scrolling layouts. Use `resize: "none"`, reserve the last
+reported keyboard height at the bottom and scroll the focused field into view
+after layout. Rule: `web.capacitor_keyboard_native_resize` (warning).
+
+<a id="no-emoji-in-display-text"></a>
+## No emoji in display text
+
+Characters with an emoji presentation (including arrows and symbols that the
+UI font lacks) render as colour emoji on iOS. The text variation selector
+U+FE0E is not reliable there. Use an SVG icon or drop the character; developer
+logs are out of scope. Rule: `web.emoji_in_display_text` (warning).
+
+<a id="ios-input-font-16px"></a>
+## Input fields need at least 16px on iOS
+
+iOS zooms into any focused input, select or textarea whose font size is below
+16px and shifts the viewport. Keep the field text at 16px or more (Tailwind
+`text-base`) and put smaller captions into the label. Breakpoint-prefixed
+sizes and non-text inputs such as checkboxes are not findings. Rule:
+`web.ios_input_font_below_16px` (warning).
+
+<a id="push-permission-after-interaction"></a>
+## Ask for push permission after an interaction
+
+Requesting push permission in a lifecycle hook (mount, app start) asks before
+the user knows why, and iOS shows the system prompt only once. Request it from
+a user action after a moment of value, optionally behind a soft primer. Rule:
+`web.ios_push_prompt_on_mount` (error).

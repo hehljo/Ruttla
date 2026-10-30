@@ -126,9 +126,22 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Green CI runs with forced-runtime warnings; PowerShell 7 APIs need a version guard."),
     ("GUIDELINES.md § Documentation", "documentation-that-can-be-executed",
      "Docs snippets must be copy-paste safe and diff-clean."),
+    ("~/.claude/guides/supabase-deploy.md § Lokaler Stack: CORS ist hinter dem CLI-Gateway nicht messbar",
+     "unmeasured-needs-a-cause",
+     "A runner that reports \"not measured\" binds the error and names a safe cause."),
     ("~/.claude/guides/supabase-deploy.md § Handgepflegte Kette auf die CLI umstellen",
      "supabase-migrations-cli-chain",
      "Supabase migrations use CLI version names and leave transaction control to the CLI."),
+    ("CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md · Untere Tab-Leiste und Safe Area", "bottom-bar-safe-area",
+     "Fixed bottom bars reduce the safe-area inset instead of padding it in full."),
+    ("CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 14 · resize native", "capacitor-keyboard-resize",
+     "Capacitor keyboard resize native shrinks the WebView unreliably; reserve space instead."),
+    ("QUALITY_UI_GUIDELINES.md · Keine Emojis in Oberflächen", "no-emoji-in-display-text",
+     "Display text avoids emoji-capable characters; iOS renders them as colour emoji."),
+    ("CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 14 · Eingabefelder mindestens 16px", "ios-input-font-16px",
+     "Input fields use at least 16px text so iOS does not zoom on focus."),
+    ("CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 2", "push-permission-after-interaction",
+     "Push permission is requested after a user interaction, not on mount."),
 ]
 
 

@@ -6710,6 +6710,7 @@ fi
 - Default severity: `warning`
 - Lifecycle: stable, introduced in 0.1.0
 - Guideline: ~/.claude/guides/supabase-deploy.md § Lokaler Stack: CORS ist hinter dem CLI-Gateway nicht messbar
+- Public rationale: [GUIDELINES.md › unmeasured-needs-a-cause](GUIDELINES.md#unmeasured-needs-a-cause)
 
 <details><summary>Why it exists</summary>
 
@@ -8797,6 +8798,7 @@ den Code, nicht in den Kopf.
 - Default severity: `warning`
 - Lifecycle: stable, introduced in 0.1.0
 - Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md · Untere Tab-Leiste und Safe Area
+- Public rationale: [GUIDELINES.md › bottom-bar-safe-area](GUIDELINES.md#bottom-bar-safe-area)
 - Reference: <https://developer.mozilla.org/en-US/docs/Web/CSS/env>
 
 <details><summary>Why it exists</summary>
@@ -8909,6 +8911,7 @@ export default { webDir: "dist", server: { hostname: "localhost" } };
 - Default severity: `warning`
 - Lifecycle: stable, introduced in 0.1.0
 - Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 14 · resize native ist für Dokument-Scroll ungeeignet
+- Public rationale: [GUIDELINES.md › capacitor-keyboard-resize](GUIDELINES.md#capacitor-keyboard-resize)
 - Reference: <https://github.com/ionic-team/capacitor-keyboard/blob/v8.0.6/ios/Sources/KeyboardPlugin/Keyboard.m>
 
 <details><summary>Why it exists</summary>
@@ -9158,6 +9161,7 @@ nachziehen“.
 - Default severity: `warning`
 - Lifecycle: stable, introduced in 0.1.0
 - Guideline: QUALITY_UI_GUIDELINES.md · Keine Emojis in Oberflächen
+- Public rationale: [GUIDELINES.md › no-emoji-in-display-text](GUIDELINES.md#no-emoji-in-display-text)
 - Reference: <https://www.unicode.org/reports/tr51/#Emoji_Properties>
 
 <details><summary>Why it exists</summary>
@@ -9423,6 +9427,7 @@ Wer den Text eines [data-i18n]- oder [data-brand-name]-Elements setzt (textConte
 - Default severity: `warning`
 - Lifecycle: stable, introduced in 0.1.0
 - Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 14 · Eingabefelder mindestens 16px
+- Public rationale: [GUIDELINES.md › ios-input-font-16px](GUIDELINES.md#ios-input-font-16px)
 - Reference: <https://webkit.org/blog/5610/more-responsive-tapping-on-ios/>
 
 <details><summary>Why it exists</summary>
@@ -9484,6 +9489,7 @@ anders abfangen kann.
 - Default severity: `error`
 - Lifecycle: stable, introduced in 0.1.0
 - Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 2
+- Public rationale: [GUIDELINES.md › push-permission-after-interaction](GUIDELINES.md#push-permission-after-interaction)
 - Reference: <https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage>
 
 <details><summary>Why it exists</summary>

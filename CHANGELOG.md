@@ -1,4 +1,5 @@
 # Changelog
+
 ## Finalized ZIP validation (2026-10-26)
 
 - Added advisory `python.zip_crc_before_writer_closed`: literal writable

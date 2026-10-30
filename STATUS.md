@@ -1,4 +1,19 @@
 # STATUS
+
+## Uncommitted batch reviewed and repaired (2026-10-30)
+
+- The 2026-10-18 narrowing of `web.loading_without_null_state` was missing from
+  the working tree (test and fixture present, check unchanged since 2026-09-24).
+  Re-implemented from the test contract: only explicit `boolean | null` states
+  with literal initializers are measured; UI booleans stay unmeasured.
+- Public guideline mappings added for eight rules (six already unmapped on
+  HEAD, two new SQL migration rules); docs/RULES.md regenerated.
+- Booking/payment/SMS checks moved from `checks/web/rules.py` (1158 lines) to
+  `checks/web/booking.py`; rule IDs and probes unchanged.
+- Gates: unit suite 376 tests OK (three optional skips), self-tests 945/945,
+  engine selftest 150/150, docs current, strict self-scan 18 PASS/34 UNMEASURED,
+  zero findings. Not committed.
+
 ## Finalized ZIP and service-readiness lessons (2026-10-26)
 
 - Added advisory `python.zip_crc_before_writer_closed` for direct CRC checks
