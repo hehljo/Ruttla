@@ -310,5 +310,69 @@ class DataDirTests(unittest.TestCase):
         self.assertEqual(self.data_dir("linux", {stats.ENV_DIR: xdg}), Path(xdg))
 
 
+
+class LifecycleReportTests(StatsCase):
+    """`--lifecycle`: Anhang am Textreport; ohne Erfassung „nicht gemessen"."""
+
+    def text(self, *extra: str) -> tuple[int, str, str]:
+        return run_cli(str(self.repo), "--check", CHECK, "--no-color", *extra)
+
+    def test_report_itself_is_unchanged(self) -> None:
+        run_cli("stats", "enable")
+        plain = self.text()
+        with_lc = self.text("--lifecycle")
+        self.assertEqual(with_lc[0], plain[0])
+        self.assertTrue(with_lc[1].startswith(plain[1]), "Report vor dem Anhang muss gleich sein")
+        self.assertIn("Lebenszyklus (lokale Statistik)", with_lc[1][len(plain[1]):])
+
+    def test_off_is_not_measured_and_creates_nothing(self) -> None:
+        code, out, _ = self.text("--lifecycle")
+        self.assertEqual(code, 1)
+        self.assertIn("Lebenszyklus: nicht gemessen — lokale Statistik ist aus", out)
+        self.assertNotIn("0 neu", out)
+        self.assertFalse(self.stats_dir.exists())
+
+    def test_throwaway_is_not_measured(self) -> None:
+        run_cli("stats", "enable")
+        self.throwaway.stop()
+        try:
+            out = self.text("--lifecycle")[1]
+        finally:
+            self.throwaway.start()
+        self.assertIn("Lebenszyklus: nicht gemessen — Scans im Temp-Verzeichnis", out)
+
+    def test_new_fixed_regression_named_per_rule(self) -> None:
+        run_cli("stats", "enable")
+        out = self.text("--lifecycle")[1]
+        self.assertIn("1 neu · 0 weiter vorhanden · 0 wieder aufgetreten · 0 behoben", out)
+        self.assertIn(f"Neu: {CHECK} (1)", out)
+        self.write("src/a.ts", "const cfg = {};\n")
+        out = self.text("--lifecycle")[1]
+        self.assertIn("0 neu · 0 weiter vorhanden · 0 wieder aufgetreten · 1 behoben", out)
+        self.assertIn(f"Behoben: {CHECK} (1)", out)
+        self.write("src/a.ts", "const cfg = {\n" + LINE + "};\n")
+        out = self.text("--lifecycle")[1]
+        self.assertIn("1 wieder aufgetreten", out)
+        self.assertIn(f"Regression: {CHECK} (1)", out)
+        self.assertNotIn("Neu:", out)
+
+    def test_indeterminate_is_explained(self) -> None:
+        run_cli("stats", "enable")
+        self.text()
+        (self.repo / "src/a.ts").unlink()
+        self.write("src/b.ts", "const ok = 1;\n")
+        out = self.text("--lifecycle")[1]
+        self.assertIn("0 behoben · 1 unbestimmt", out)
+        self.assertIn("nicht als behoben gezählt", out)
+
+    def test_machine_formats_reject_the_flag(self) -> None:
+        for extra in (("--format", "json"), ("--format", "agent"), ("--format", "sarif"),
+                      ("--json",), ("--self-test",)):
+            with self.subTest(extra=extra):
+                code, out, err = run_cli(str(self.repo), "--lifecycle", *extra)
+                self.assertEqual(code, 3)
+                self.assertIn("invalid_arguments", out + err)
+
+
 if __name__ == "__main__":
     unittest.main()

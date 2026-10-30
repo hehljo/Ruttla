@@ -133,6 +133,9 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
                     help="nur Dateien, die sich gegen REF geändert haben (Vorgabe: HEAD)")
     ap.add_argument("--max-findings", type=int, default=20,
                     help="Befunde je Check (Vorgabe 20)")
+    ap.add_argument("--lifecycle", action="store_true",
+                    help="Textreport um den Lebenszyklus der Befunde ergänzen (neu, "
+                         "Regression, behoben) — braucht `ruttla stats enable`")
     ap.add_argument("--list", action="store_true", help="Checks auflisten")
     ap.add_argument("--explain", metavar="CHECK_ID",
                     help="Begründung, Referenzen und Proben eines Checks zeigen")
@@ -180,6 +183,13 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         _emit_runner_state(
             "invalid_arguments", "--format markdown gibt es nur zusammen mit --list.",
             EXIT_CRASH, args,
+        )
+        return EXIT_CRASH
+    if args.lifecycle and (args.format != "text" or args.json == "-" or args.list
+                           or args.self_test or args.explain or args.export_self_tests):
+        _emit_runner_state(
+            "invalid_arguments", "--lifecycle gibt es nur im Textreport eines Scans "
+            "(Maschinenformate bleiben unverändert).", EXIT_CRASH, args,
         )
         return EXIT_CRASH
     if args.max_findings < 0:
@@ -343,7 +353,11 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
     # und Exit nie beeinflusst. Wirft nie (Fehler = eine Warnung auf stderr).
     from .stats import record_scan
 
-    record_scan(ctx, results, exit_code, changed)
+    outcome = record_scan(ctx, results, exit_code, changed)
+    if args.lifecycle:
+        from .stats import render_lifecycle
+
+        print(render_lifecycle(outcome))
     return exit_code
 
 

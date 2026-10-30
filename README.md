@@ -33,6 +33,7 @@ Coding agents (Claude Code, Cursor, OpenAI Codex, GitHub Copilot, Aider, Windsur
 
 - **Token-dense output (`--format agent`)**: One line per finding with `file`, `line`, `severity`, and an exact, non-hallucinated fix instruction (`FIX: ...`).
 - **Zero token burn**: Scans are offline and deterministic; no network calls or LLM queries unless you explicitly run `ruttla update`, a `ruttla hub` command that fetches, or a scan with `--allow-network`.
+- **Copy-paste agent setup**: [docs/AGENT_SETUP.md](docs/AGENT_SETUP.md) is one prompt for any coding agent — install, gate at the end of every task, turn a reported bug into a project rule, and what never to do without asking.
 - **Strict exit contracts**: Differentiates between clean (`0`), blocking findings (`1`), unmeasured scopes (`2`), and runner errors (`3`). Never confuses "nothing checked" with success.
 
 ## 30-second start
@@ -202,6 +203,10 @@ statistics error never fails a scan. `ruttla stats [--period 7|30|90|all]`
 shows the dashboard, `stats export` writes JSON and Markdown, `stats disable`
 stops recording and keeps the data, `stats delete --yes` removes it. Scans
 below the system temp directory (test runs, throwaway clones) are not recorded.
+`ruttla . --lifecycle` appends this scan's lifecycle to the text report —
+new · persisting · reappeared (regression) · fixed · indeterminate, with the
+rules behind regressions, new and fixed findings. Without recording it says
+*not measured*, never "0 new"; JSON, SARIF and agent output stay unchanged.
 
 ## Contributing
 

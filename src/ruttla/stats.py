@@ -217,30 +217,35 @@ def fingerprint(salt: bytes, check_id: str, rel: str | None, evidence: str | Non
 
 
 def record_scan(ctx, results: list[CheckResult], exit_code: int,
-                changed: list[str] | None) -> None:
-    """Scan erfassen, falls aktiviert. Wirft nie; Fehler = eine Warnung auf stderr."""
+                changed: list[str] | None) -> dict:
+    """Scan erfassen, falls aktiviert. Wirft nie; Fehler = eine Warnung auf stderr.
+
+    Rückgabe für `--lifecycle`: ``{"status": "recorded", "totals", "rules"}`` oder
+    ``{"status": "off" | "throwaway" | "error"}`` — die drei sind *nicht gemessen*.
+    """
     try:
         path = db_path()
         if not path.is_file():
-            return  # Default: aus, und dann wird nichts angelegt oder gelesen
+            return {"status": "off"}  # Default: aus, nichts wird angelegt oder gelesen
         conn = _connect(path)
         try:
             # Erst den Schalter lesen, dann migrieren: eine ausgeschaltete
             # Datenbank wird von einem Scan nie verändert.
             if _schema_version(conn) == 0 or not enabled(conn):
-                return
+                return {"status": "off"}
             if _throwaway(Path(ctx.root)):
-                return  # Testläufe und Wegwerf-Klone verfälschen die Zahlen
+                return {"status": "throwaway"}  # Testläufe verfälschen die Zahlen
             migrate(conn)
             if _inside(db_path(), Path(ctx.root)):
                 raise StatsError("Statistik-Verzeichnis liegt im geprüften Repo — "
                                  f"{ENV_DIR} anders setzen.")
-            _record(conn, ctx, results, exit_code, changed)
+            return _record(conn, ctx, results, exit_code, changed)
         finally:
             conn.close()
     except Exception as exc:  # Vertrag: Statistik bricht nie einen Scan
         print(f"ruttla: Statistik nicht geschrieben ({type(exc).__name__}: {exc}). "
               "Der Scan ist davon unberührt.", file=sys.stderr)
+        return {"status": "error"}
 
 
 def _throwaway_roots() -> list[Path]:
@@ -268,7 +273,7 @@ def _inside(path: Path, root: Path) -> bool:
 
 
 def _record(conn: sqlite3.Connection, ctx, results: list[CheckResult], exit_code: int,
-            changed: list[str] | None) -> None:
+            changed: list[str] | None) -> dict:
     salt = bytes.fromhex(_meta(conn, "salt") or "")
     if len(salt) < 16:
         raise StatsError("lokaler Salt fehlt — stats disable und enable neu.")
@@ -379,6 +384,8 @@ def _record(conn: sqlite3.Connection, ctx, results: list[CheckResult], exit_code
     except BaseException:
         conn.execute("ROLLBACK")
         raise
+    return {"status": "recorded", "totals": total,
+            "rules": {cid: {k: c[k] for k in LIFECYCLE} for cid, c in per_rule.items()}}
 
 
 def _covered_file_keys(salt: bytes, ctx, changed: list[str] | None) -> set[str]:
@@ -588,6 +595,37 @@ def render_markdown(data: dict) -> str:
 # ---------------------------------------------------------------------------
 # CLI: ruttla stats …
 # ---------------------------------------------------------------------------
+
+LIFECYCLE_LABELS = {"new": "neu", "persisting": "weiter vorhanden",
+                    "reappeared": "wieder aufgetreten", "fixed": "behoben",
+                    "indeterminate": "unbestimmt"}
+_NOT_MEASURED = {
+    "off": "lokale Statistik ist aus (`ruttla stats enable` schaltet sie ein, Daten ab dann)",
+    "throwaway": "Scans im Temp-Verzeichnis werden nicht erfasst",
+    "error": "Statistik nicht geschrieben (Warnung auf stderr)",
+}
+
+
+def render_lifecycle(outcome: dict) -> str:
+    """Anhang für den Textreport (`--lifecycle`): Lebenszyklus dieses Scans.
+
+    Ohne Erfassung steht dort *nicht gemessen* — nie „0 neu", das wäre trivial wahr.
+    """
+    if outcome.get("status") != "recorded":
+        reason = _NOT_MEASURED.get(outcome.get("status"), "unbekannter Zustand")
+        return f"Lebenszyklus: nicht gemessen — {reason}."
+    totals = outcome["totals"]
+    lines = ["Lebenszyklus (lokale Statistik): "
+             + " · ".join(f"{totals[k]} {LIFECYCLE_LABELS[k]}" for k in LIFECYCLE)]
+    for kind, label in (("reappeared", "Regression"), ("new", "Neu"), ("fixed", "Behoben")):
+        rules = sorted((cid, c[kind]) for cid, c in outcome["rules"].items() if c[kind])
+        if rules:
+            lines.append(f"   {label}: " + ", ".join(f"{cid} ({n})" for cid, n in rules))
+    if totals["indeterminate"]:
+        lines.append("   unbestimmt = verschwunden, aber nicht nachgeprüft (Umfang, Regel "
+                     "nicht gemessen, Datei weg oder Absturz) — nicht als behoben gezählt")
+    return "\n".join(lines)
+
 
 def _parser(prog: str) -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(

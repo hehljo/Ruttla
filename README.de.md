@@ -30,6 +30,7 @@ Coding-Agents (Claude Code, Cursor, OpenAI Codex, GitHub Copilot, Aider, Windsur
 
 - **Token-dichte Agent-Ausgabe (`--format agent`)**: Genau eine tabgetrennte Zeile je Befund mit Datei, Zeile, Schweregrad und einem fertigen, belegten Fix (`FIX: ...`).
 - **Null Token-Verbrauch**: Scans laufen offline und deterministisch; Netz gibt’s nur beim ausdrücklich gestarteten `ruttla update`.
+- **Agenten-Einrichtung zum Kopieren**: [docs/AGENT_SETUP.md](docs/AGENT_SETUP.md) ist ein Prompt für jeden Coding-Agent — installieren, Gate am Ende jeder Aufgabe, gemeldeten Fehler als Projektregel einpflegen, und was nie ungefragt passiert.
 - **Echte CLI-Verträge**: Unterscheidet glasklar zwischen fehlerfrei (`0`), blockierenden Fehlern (`1`), ungemessenen Checks (`2`) und Laufzeitfehlern (`3`). Kein falsches Grün bei fehlenden Tests.
 
 ## 🔴 Fehler kommt herein → Check bauen, nicht Code fixen
@@ -403,6 +404,11 @@ nie einen Scan. `ruttla stats [--period 7|30|90|all]` zeigt das Dashboard,
 `stats export` schreibt JSON und Markdown, `stats disable` stoppt und behält die
 Daten, `stats delete --yes` löscht sie. Scans unterhalb des Temp-Verzeichnisses
 (Testläufe, Wegwerf-Klone) werden nicht erfasst.
+`ruttla . --lifecycle` hängt an den Textreport den Lebenszyklus dieses Scans —
+neu · weiter vorhanden · wieder aufgetreten (Regression) · behoben · unbestimmt,
+mit den Regeln hinter Regressionen, neuen und behobenen Befunden. Ohne Erfassung
+steht dort *nicht gemessen*, nie „0 neu“; JSON, SARIF und Agent-Format bleiben
+unverändert.
 
 ## Was das Gate NICHT kann
 

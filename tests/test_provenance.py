@@ -42,6 +42,7 @@ OWNER_ALLOWED = {
     "README.md",
     "README.de.md",
     "docs/integrations/github-actions.md",
+    "docs/AGENT_SETUP.md",
     "src/ruttla/update.py",
     "install.sh",
     "install.ps1",
