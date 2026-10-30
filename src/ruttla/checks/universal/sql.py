@@ -237,7 +237,6 @@ def check_migration_transaction_control(ctx: Context) -> CheckResult:
     findings: list[Finding] = []
     for sf in files:
         masked = _mask_sql(sf.text)
-        start = 0
         for stmt in re.finditer(r"[^;]*;?", masked):
             words = re.findall(r"[A-Za-z_]+", stmt.group(0).upper())[:2]
             cmd = words[0] if words and words[0] in _TX_ONE else (
@@ -252,7 +251,6 @@ def check_migration_transaction_control(ctx: Context) -> CheckResult:
                     fix="Anweisung entfernen; die Supabase-CLI fasst die Datei selbst in eine Transaktion.",
                     guideline="~/.claude/guides/supabase-deploy.md",
                 ))
-            start = stmt.end()
     return result_for(cid, title, findings, len(files), "Migrationsdateien")
 
 

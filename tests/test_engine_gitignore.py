@@ -38,10 +38,10 @@ class GitInventoryTests(unittest.TestCase):
         return subprocess.run(["git", "-C", str(self.root), *args],
                               capture_output=True, check=True).stdout
 
-    def write(self, rel, content):
+    def write(self, rel, content, newline=None):
         path = self.root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        path.write_text(content, encoding="utf-8", newline=newline)
         return path
 
     def parity(self, root=None):
@@ -258,7 +258,8 @@ class GitInventoryTests(unittest.TestCase):
     def test_18_runtime_receipt_in_ignored_tree_remains_mandatory(self):
         from ruttla.checks.universal.contracts import _proof_files, check_contract_runtime_evidence
         for rel, content in _proof_files().items():
-            self.write("local/" + rel, content)
+            # Die Belege hashen LF-Text; Windows würde beim Schreiben CRLF daraus machen.
+            self.write("local/" + rel, content, newline="")
         self.write(".gitignore", "local/\n")
         self.assertEqual(check_contract_runtime_evidence(Context(str(self.root), self.config)).status.value, "pass")
         (self.root / "local/.test-evidence.json").unlink()

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 import unittest
 
@@ -44,7 +45,10 @@ class LocalPackageTests(unittest.TestCase):
                                  Status.UNMEASURED)
 
     def test_existing_external_symlink_remains_unknown(self):
-        with make_tree({"App/Package.swift": '.package(path: "../plugin")'}) as root:
-            os.symlink("/tmp", Path(root, "plugin"))
+        with make_tree({"App/Package.swift": '.package(path: "../plugin")'}) as root, \
+                tempfile.TemporaryDirectory() as outside:
+            # Verzeichnislink mit vorhandenem Ziel: Windows legt ohne
+            # target_is_directory einen Dateilink an, und "/tmp" gibt es dort nicht.
+            os.symlink(outside, Path(root, "plugin"), target_is_directory=True)
             self.assertEqual(check_local_packages(Context(root, Config())).status,
                              Status.UNMEASURED)
