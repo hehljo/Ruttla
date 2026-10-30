@@ -202,7 +202,12 @@ def check_secrets(ctx: Context) -> CheckResult:
         # geheime trägt sein Präfix, der öffentliche heißt sb_publishable_.
         (re.compile(r"sb_secret_[A-Za-z0-9_\-]{20,}"), "Supabase-Secret-Key", Severity.ERROR),
         (re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{10,}"),
-         "JWT mit Nutzdaten", Severity.WARNING),
+         # Fehler, nicht Warnung: ein nicht öffentlicher JWT (service_role,
+         # Nutzersitzung) ist ein Geheimnis. Die frühere WARNING wurde nie
+         # wirksam, weil die Engine jede Befundschwere mit dem Check-Standard
+         # überschrieb; ohne diese Zeile wäre ein service_role-JWT nach dem
+         # Engine-Fix nicht mehr blockierend (Korpus 30.10.2026: 13 Funde).
+         "JWT mit Nutzdaten", Severity.ERROR),
         # Der blosse Rollenname ist ein SQL-Bezeichner und kommt in jedem
         # Grant/Policy vor — ein Signal, das im legitimen Normalfall anschlägt,
         # ist eine Warnung, nie allein ein Befund. Gemeldet wird nur, wo der

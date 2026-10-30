@@ -221,7 +221,7 @@ def run_checks(ctx: Context, *, only_platform: str | None,
     except Exception:
         engine_crash = "Engine-Lauf abgestürzt:\n" + traceback.format_exc(limit=4)
 
-    for check, severity in selected:
+    for check, _ in selected:
         try:
             if check.engine:
                 if engine_crash is not None:
@@ -233,10 +233,14 @@ def run_checks(ctx: Context, *, only_platform: str | None,
             res = _crashed_check(
                 check, "Check abgestürzt:\n" + traceback.format_exc(limit=4)
             )
-        # Die Schwere aus dem Profil überschreibt die der Befunde.
+        # Nur eine im Profil ausdrücklich gesetzte Schwere überschreibt die der
+        # Befunde. Ohne Profileintrag bleibt die Befundschwere: ein Check, der
+        # einzelne Befunde herabstuft (z. B. Testdateien), behält die Herabstufung.
+        override = ctx.config.severity_override(check.id)
         for f in res.findings:
-            if f.severity != Severity.INFO or severity == Severity.ERROR:
-                f.severity = severity
+            if override is not None and (f.severity != Severity.INFO
+                                         or override == Severity.ERROR):
+                f.severity = override
             f.guideline = f.guideline or check.guideline
         if changed is not None:
             keep = [f for f in res.findings if f.file is None or f.file in changed]

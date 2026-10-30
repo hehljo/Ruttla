@@ -23,13 +23,13 @@
     "findings": [
      [
       "apple.bundle_id_mismatch",
-      "error",
+      "warning",
       "apple.bundle_id_mismatch/App/Info.plist",
       0
      ],
      [
       "apple.bundle_id_mismatch",
-      "error",
+      "warning",
       "apple.release.plist_syntax/App/Info.plist",
       0
      ]

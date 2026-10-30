@@ -54,8 +54,8 @@ class Config:
     project_platform: str | None = None
     config_version: int | None = None
 
-    def severity_for(self, check_id: str, default: Severity) -> Severity | None:
-        """None = Check ist abgeschaltet."""
+    def _profile_value(self, check_id: str) -> str | None:
+        """Längster passender Profileintrag ("off" oder Schwere), None = nicht gesetzt."""
         best: str | None = None
         best_len = -1
         for pattern, value in self.severity_overrides.items():
@@ -64,11 +64,21 @@ class Config:
             ):
                 if len(pattern) > best_len:
                     best, best_len = value, len(pattern)
+        return best
+
+    def severity_for(self, check_id: str, default: Severity) -> Severity | None:
+        """None = Check ist abgeschaltet."""
+        best = self._profile_value(check_id)
         if best is None:
             return default
         if best == "off":
             return None
         return Severity(best)
+
+    def severity_override(self, check_id: str) -> Severity | None:
+        """Schwere, die das Profil ausdrücklich setzt; None = Befundschwere bleibt."""
+        best = self._profile_value(check_id)
+        return None if best in (None, "off") else Severity(best)
 
     def disabled_by_profile(self, check_ids: list[str]) -> list[str]:
         return [cid for cid in check_ids if self.severity_for(cid, Severity.WARNING) is None]
