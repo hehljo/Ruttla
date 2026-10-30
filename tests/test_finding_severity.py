@@ -59,6 +59,13 @@ class FindingSeverityTests(unittest.TestCase):
             _, report = cli_json(root, "--check", CHECK)
         self.assertEqual(findings(report)["src/a.ts"][0], "warning")
 
+    def test_provider_token_in_test_file_stays_blocking(self):
+        token = "ghp_" + "A1b2C3d4E5f6G7h8I9j0" + "K1l2M3n4O5p6Q7r8"
+        with make_tree({"scripts/deploy.ts": f"const t = '{token}';\n"}) as root:
+            code, report = cli_json(root, "--check", CHECK)
+        self.assertEqual(findings(report), {"scripts/deploy.ts": ("error", True)})
+        self.assertEqual(code, 1)
+
     def test_non_public_jwt_in_source_stays_blocking(self):
         source = f"const key = '{SERVICE_JWT}';\n"
         with make_tree({"src/admin.ts": source}) as root:

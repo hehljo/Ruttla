@@ -63,6 +63,13 @@ def _no_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
     return dict(pairs)
 
 
+# In Test-/Skriptpfaden wird nur herabgestuft, was dort meist ein
+# synthetischer Wert ist: generische Zuweisungen und JWTs. Anbieterformate
+# (ghp_, sk-ant-, AKIA …), private Schlüssel und service_role bleiben überall
+# Fehler — ein echter Token in scripts/ ist genauso im Verlauf.
+AUX_HERABSTUFBAR = frozenset({"Zugangsdaten im Klartext", "JWT mit Nutzdaten"})
+
+
 def _is_public_supabase_key(token: str) -> bool:
     """Öffentlicher Supabase-anon-Key: Rolle anon UND Aussteller Supabase.
     Jeder Fehler beim Lesen heißt: kein anon-Key — also Befund (fail closed)."""
@@ -294,7 +301,7 @@ def check_secrets(ctx: Context) -> CheckResult:
                     continue
                 findings.append(Finding(
                     check_id="secrets.hardcoded_credential",
-                    severity=Severity.WARNING if is_aux else sev,
+                    severity=Severity.WARNING if is_aux and label in AUX_HERABSTUFBAR else sev,
                     message=f"{label} im Quelltext gefunden.",
                     file=sf.rel, line=idx,
                     evidence=snippet(re.sub(re.escape(m.group(0)), "«…»", raw)),
