@@ -334,60 +334,67 @@ def _mask_js_strings(source: str) -> str:
     guideline="CODE_QUALITY_GUIDELINES_WEB.md § 5h",
     self_tests=[
         SelfTestCase(
-            name="boolescher Ladezustand",
-            files={"src/a.tsx": "const [isChecked, setIsChecked] = useState(false);\n"},
-            expect=Status.FAIL,
+            name="gesund: UI-Schalter ohne Nullable-Typ ist nicht gemessen",
+            files={"src/a.tsx": "const [isOpen, setIsOpen] = useState(false);\n"},
+            expect=Status.UNMEASURED,
         ),
         SelfTestCase(
-            name="mit null als drittem Zustand",
+            name="gesund: boolean | null startet mit null",
             files={"src/a.tsx": "const [isChecked, setIsChecked] = useState<boolean | null>(null);\n"},
             expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="defekt: boolean | null startet mit false",
+            files={"src/a.tsx": "const [isChecked, setIsChecked] = useState<boolean | null>(false);\n"},
+            expect=Status.FAIL,
         ),
     ],
 )
 def check_null_state(ctx: Context) -> CheckResult:
-    """Ein boolescher Ladezustand hat zwei Werte für drei Zustände: noch nicht
-    geladen, geladen-und-leer, geladen-mit-Daten. Der mittlere wird dann als
-    Fehler angezeigt."""
+    """Ein als `boolean | null` geführter Zustand trägt „noch nicht geprüft“ als
+    null. Startet er trotzdem mit true/false, ist der dritte Zustand vom ersten
+    Render an verloren. Gemessen werden nur ausdrückliche Nullable-Boolean-Typen
+    mit Literal-Startwert: aus Namen wie isOpen/isSaving folgt keine Fachbedeutung,
+    Aliase und berechnete Startwerte bleiben nicht gemessen."""
     title = "Ladezustand kennt kein 'noch nicht geprüft' (null als dritter Zustand)"
     code = ctx.files(*WEB_CODE)
     if not code:
         return unmeasured("web.loading_without_null_state", title,
                           "Keine Web-Quelldateien gefunden.", PLATFORM)
-    pat = re.compile(
-        r"useState\s*(?:<[^>]*>)?\s*\(\s*(?:false|true)\s*\)\s*;?\s*"
-    )
-    state_name = re.compile(
-        r"const\s*\[\s*(\w*(?:[Ll]oaded|[Cc]hecked|[Vv]alid|[Aa]llowed|[Ee]xists|"
-        r"[Hh]as\w+|[Ii]s\w+))\s*,"
+    decl = re.compile(
+        r"\bconst\s*\[\s*(\w+)\s*,\s*\w+\s*\]\s*=\s*(?:React\s*\.\s*)?useState\s*"
+        r"<\s*(?:boolean\s*\|\s*null|null\s*\|\s*boolean)\s*>\s*\(\s*(null|false|true)\s*\)"
     )
     findings: list[Finding] = []
     measured = 0
     for sf in code:
-        body = strip_comments(sf.text, sf.ext)
-        for m in state_name.finditer(body):
-            # Prüfgegenstand ist jede solche Zustandsvariable — erst danach
-            # entscheidet der Startwert über den Befund. Nur die Verstöße zu
-            # zählen machte aus dem gesunden Fall ein "nicht gemessen".
+        body = _mask_js_strings(strip_comments(sf.text, sf.ext))
+        for m in decl.finditer(body):
+            # Prüfgegenstand ist jede Nullable-Boolean-Deklaration mit Literal-
+            # Startwert; erst der Startwert entscheidet über den Befund.
             measured += 1
+            if m.group(2) == "null":
+                continue
             line_no = body.count("\n", 0, m.start()) + 1
             raw = sf.lines[line_no - 1] if line_no <= len(sf.lines) else ""
-            if not pat.search(raw):
-                continue
             findings.append(Finding(
                 check_id="web.loading_without_null_state", severity=Severity.INFO,
-                message=f"'{m.group(1)}' ist boolesch — 'noch nicht geprüft' ist "
-                        "nicht unterscheidbar von 'geprüft und negativ'.",
+                message=f"'{m.group(1)}' ist als boolean | null deklariert, startet "
+                        f"aber mit {m.group(2)} — 'noch nicht geprüft' ist nicht "
+                        "unterscheidbar von 'geprüft'.",
                 file=sf.rel, line=line_no, evidence=snippet(raw),
-                fix="Als `boolean | null` führen und mit null starten; erst nach "
-                    "der Prüfung setzen.",
+                fix="Mit null starten und erst nach der Prüfung setzen; ist das "
+                    "Ergebnis beim Start bekannt (Cache), den Typ auf boolean "
+                    "verengen.",
                 guideline="CODE_QUALITY_GUIDELINES_WEB.md § 5h",
             ))
     if measured == 0:
         return unmeasured("web.loading_without_null_state", title,
-                          "Keine passenden Zustandsvariablen gefunden.", PLATFORM)
+                          "Keine boolean | null-Zustände mit Literal-Startwert gefunden.",
+                          PLATFORM)
     return result_for("web.loading_without_null_state", title, findings, measured,
                       "Zustandsvariablen", PLATFORM)
+
 
 
 @register(

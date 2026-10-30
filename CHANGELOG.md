@@ -1,4 +1,15 @@
 # Changelog
+## Web state scope and behavior evidence (2026-10-18)
+
+- Corrected `web.loading_without_null_state` false positives for ordinary
+  dialog/activity/checkbox booleans. Only explicit nullable-boolean contracts
+  with literal initializers are reviewed; indirect semantics stay unmeasured.
+  Existing check ID, info severity and blocking behavior are preserved.
+- Added healthy, isolated-defect, unknown-scope and CLI regression controls.
+  Public guidance now covers local versus server PIN protection, awaited saves,
+  startup/background failures and current named runtime receipts.
+- Validated existing evidence contracts with an external reference runner and
+  separate runtime/receipt counterprobes. No new default execution or auth rule.
 
 ## Godot: typed lambda over freed objects (2026-10-14)
 

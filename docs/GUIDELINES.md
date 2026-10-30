@@ -404,10 +404,40 @@ that must only name APIs that actually exist.
   `REACT_APP_`) end up in the shipped bundle.
 - **Errors and state:** a fetch without an error branch swallows 403s; an
   empty JavaScript/TypeScript `catch` discards the exception without reporting
-  or recovery; a boolean loading flag cannot express "not checked yet"; React
+  or recovery; distinguish activity flags from unresolved results; React
   StrictMode double-mounts expose resources without cleanup; undefined CSS
   custom properties fail silently. Empty catches can be intentional for
   best-effort operations, so Ruttla reports them as advisory findings.
+- **Boolean scope:** dialog visibility, checkbox values and ongoing work can
+  legitimately use `true`/`false`. Names such as `isOpen`, `isSaving` or
+  `isChecked` do not establish a three-state business contract. The bounded
+  `web.loading_without_null_state` advisory only inspects explicit
+  `useState<boolean | null>` / `useState<null | boolean>` contracts with literal
+  initializers. A boolean initializer is a review hint, not proof of a defect:
+  a result may already be known or cached. Other types, aliases and indirect
+  initializers remain unmeasured. No automatic nullable rewrite for UI flags.
+  References: [React useState](https://react.dev/reference/react/useState),
+  [TypeScript null and undefined](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#null-and-undefined).
+- **Authentication evidence:** a PIN component or an unlock response does not
+  establish that startup uses it or that the server enforces access. Exercise
+  wrong/correct PIN, reload, expiry, profile switching, and direct read/write/
+  backup calls without a session or with another profile's session. Resolve
+  transaction ownership server-side; do not trust caller-selected profile IDs.
+  A local browser lock and a server authentication session are separate claims.
+- **Async edits and failures:** keep an editor open until persistence succeeds;
+  retain input on failure and prevent duplicate submission. Independently inject
+  initial-load and background-refresh failures: stop the initial loading state
+  with an actionable retry; retain the same profile's cached data on a transient
+  refresh failure, but clear it on profile change or loss of authorization.
+  Slow synchronization must not create overlapping requests indefinitely.
+  These are browser/API behavior contracts, not universal source regexes.
+- **Reusable runtime gates:** bind named cases for those behaviors to actual
+  source, configuration and runner hashes using `quality.contract_runtime_evidence`.
+  Record inputs before testing, count completed cases, invalidate previous proof
+  before retrying, and publish success only after all required cases finish.
+  Verify healthy evidence first, then missing case, zero checks, failed case and
+  stale-source defects separately. Ruttla checks declared freshness/completeness
+  offline; it neither executes the target nor authenticates self-reported tests.
 - **Legal:** German sites need an imprint (§ 5 DDG) and a privacy policy
   (GDPR Art. 13) before deployment.
 - **Draft recovery:** React state does not survive reloads or discarded tabs.

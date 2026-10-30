@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-184 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+196 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -12,9 +12,9 @@
 | godot | 36 | 1 |
 | python | 7 | 0 |
 | raspberry | 6 | 0 |
-| universal | 40 | 6 |
+| universal | 42 | 7 |
 | unreal | 6 | 0 |
-| web | 28 | 3 |
+| web | 38 | 4 |
 
 ## Pack `apple`
 
@@ -6575,6 +6575,65 @@ fi
 
 </details>
 
+### `gate.unmeasured_without_cause`
+
+**Prüfstand meldet „nicht gemessen“ ohne Ursache**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: ~/.claude/guides/supabase-deploy.md § Lokaler Stack: CORS ist hinter dem CLI-Gateway nicht messbar
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein Abbruch, der als *nicht gemessen* endet, ist ehrlich — aber ohne Ursache
+ist er nicht reparierbar. Belegt am 23.10.2026 (Warteheld, Connect-Prüfstand):
+`catch { report.notMeasured("Abbruch …") }` verschluckte einen trivialen
+Fixture-Fehler (Ressourcenname verletzte einen Check-Constraint). Erst ein
+zweiter Stacklauf mit ausgegebener Ursache zeigte ihn; danach kamen 20 echte
+rote Prüfungen zum Vorschein, die der Abbruch verdeckt hatte.
+
+Geprüft wird die Bauform, die die Ursache gar nicht erst greifbar macht:
+JS/TS `catch {` ohne Bindung und Python `except:` / `except Exception:` ohne
+`as`, deren Block unmittelbar „nicht gemessen“ meldet. Ein typisierter
+`except OSError:` benennt die Ursache schon im Typ und ist kein Befund. Nicht
+erkannt: eine Bindung, die gebunden, aber nicht weitergegeben wird.
+Die Ursache gehört sicher ausgegeben — eigene Schrittlabels, die erste
+`ERROR:`-Zeile von psql, die Fehlerklasse; nie die Kommandozeile eines
+Kindprozesses (sie trägt Verbindungs-URLs).
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): JS: catch ohne Bindung meldet nicht gemessen (Original Warteheld)</summary>
+
+`scripts/pruefstand/connect-edge.mjs`
+
+```text
+try {
+  await run();
+} catch {
+  // Never expose child-process SQL in diagnostics.
+  report.notMeasured("Abbruch im Connect-Edge-Prüfstand");
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): JS: gebundener Fehler wird als Ursache weitergegeben</summary>
+
+`scripts/pruefstand/connect-edge.mjs`
+
+```text
+try {
+  await run();
+} catch (error) {
+  report.notMeasured("Abbruch im Connect-Edge-Prüfstand", error);
+}
+```
+
+</details>
+
 ### `i18n.catalog_key_parity`
 
 **Sprachkataloge sind unvollständig oder Textschlüssel fehlen**
@@ -7480,6 +7539,60 @@ const LEVELS = MODES;
 
 </details>
 
+### `repo.git_hook_not_executable`
+
+**Git-Hook ist im Index nicht ausführbar**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § Gates — Git-Hooks brauchen den ausführbaren Indexmodus
+- Public rationale: [GUIDELINES.md › gates-must-not-lie](GUIDELINES.md#gates-must-not-lie)
+- Reference: <https://git-scm.com/docs/githooks>
+- Reference: <https://git-scm.com/docs/git-ls-files>
+- Reference: <https://git-scm.com/docs/git-config#Documentation/git-config.txt-corehooksPath>
+
+<details><summary>Why it exists</summary>
+
+```text
+Reproduced on 22.10.2026: a tracked pre-commit hook had index mode 100644; Git skipped it. The repair changed the index to 100755. Checks tracked standard hook names directly in .husky (excluding _) and the configured core.hooksPath within the scan root. This is an index contract, not proof that a hook runs: permissions, Husky shell wrappers, disabled hooks and invocation flags remain runtime concerns. A wrapper may intentionally invoke a 644 script through sh; the requested executable-index policy still applies to .husky entries. Untracked, conflicted or external hooks never become a measured pass.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: nicht ausführbarer Index</summary>
+
+`.husky/pre-commit`
+
+```text
+#!/bin/sh
+exit 0
+```
+
+`.ruttla-selftest/git-index.json`
+
+```text
+{"modes": {".husky/pre-commit": "100644"}}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: ausführbarer Index</summary>
+
+`.husky/pre-commit`
+
+```text
+#!/bin/sh
+exit 0
+```
+
+`.ruttla-selftest/git-index.json`
+
+```text
+{"modes": {".husky/pre-commit": "100755"}}
+```
+
+</details>
+
 ### `repo.internal_notes_published`
 
 **Interne Arbeitsnotizen (Handover/Master-Roadmap) im veröffentlichten Repo**
@@ -7892,6 +8005,10 @@ Belegt am 20.10.2026 (Vylea): `handle-play-rtdn` sollte wie der Apple-Webhook
 ohne verify_jwt laufen, prüfte aber das OIDC-Token des Pub/Sub-Push nicht — jeder
 hätte die Funktion anonym auslösen können. Gezählt wird jede Funktion mit
 verify_jwt = false (der Kandidat), nicht nur die durchgefallenen.
+Belegt am 23.10.2026 (Warteheld): ein dünner Adapter importiert den geteilten
+Handler aus `_shared/`; die Prüfung liegt dort. Lokale Importe werden deshalb
+über die benutzten Namen bis zu ihrer Deklaration verfolgt — Typ-Importe nicht,
+und ein Prüfaufruf in einem anderen Export desselben Moduls zählt nicht.
 ```
 
 </details>
@@ -8452,6 +8569,178 @@ den Code, nicht in den Kopf.
 
 </details>
 
+### `web.bottom_bar_full_safe_area_padding`
+
+**Feste untere Leiste polstert die volle Safe Area**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md · Untere Tab-Leiste und Safe Area
+- Reference: <https://developer.mozilla.org/en-US/docs/Web/CSS/env>
+
+<details><summary>Why it exists</summary>
+
+```text
+Eine fest unten stehende Leiste, die `env(safe-area-inset-bottom)` voll als
+Innenabstand nimmt, addiert die 34pt des iPhones zum eigenen Unterabstand der
+Einträge. Unter den Beschriftungen entsteht ein leeres Band, und eine
+Aktiv-Fläche endet sichtbar darüber. Der Home-Indikator braucht nur das untere
+Drittel der Safe Area.
+
+Belegt am 23.10.2026 (Warteheld, echtes iPhone 12 Pro): 46pt Leerraum unter
+den Tab-Beschriftungen (12px Eintrag + 34pt Leiste), Leiste 88pt. Am Gerät
+abgenommen: Abstand im Eintrag, reduzierte Safe Area (`calc(4px +
+max(env(safe-area-inset-bottom, 0px) - 16px, 0px))`), Leiste 73pt, Aktiv-Fläche
+bis zur Kante. Laut Nutzer dasselbe Bild in den anderen eigenen Capacitor-Apps.
+
+Warnung, kein Fehler: ein Bottom-Sheet oder eine Leiste ohne eigenen
+Eintragsabstand kann die volle Safe Area brauchen. Tailwind-Klassen
+(`pb-[env(...)]`) werden nicht erkannt, nur CSS-Blöcke.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Tab-Leiste mit voller Safe Area (Warteheld vorher)</summary>
+
+`src/styles/app.css`
+
+```text
+.wh-tabs {
+  display: grid;
+  position: fixed;
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.wh-tabs a { padding: 12px 4px; }
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Reduzierte Safe Area im Eintrag (Warteheld nachher)</summary>
+
+`src/styles/app.css`
+
+```text
+.wh-tabs {
+  position: fixed;
+  bottom: 0;
+}
+.wh-tabs a {
+  padding: 6px 4px
+    calc(4px + max(env(safe-area-inset-bottom, 0px) - 16px, 0px));
+}
+```
+
+</details>
+
+### `web.capacitor_app_start_path_spa_route`
+
+**Capacitor-Startpfad verweist auf eine SPA-Route**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § Web-App als native Hülle
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+- Reference: <https://capacitorjs.com/docs/config>
+- Reference: <https://github.com/ionic-team/capacitor/blob/main/ios/Capacitor/Capacitor/CAPBridgeViewController.swift>
+
+<details><summary>Why it exists</summary>
+
+```text
+Reproduzierter Startabbruch am 22./23.10.2026: server.appStartPath enthielt
+/radar. Capacitor iOS prüft appStartFileURL mit fileExists vor dem Start des
+SPA-Routers und meldet Unable to load …/public//radar. Das Entfernen des
+Startpfads behebt den Fehler; der Router bestimmt danach die Startansicht.
+Gemessen werden direkte Stringliterale im flachen server-Objekt der vier
+Capacitor-Konfigurationsformate. Eine Dateiendung im letzten Pfadsegment
+wird akzeptiert; die Existenz dieser Datei wird nicht behauptet. Bewusst
+enge Konvention: echte gebündelte Dateien ohne Endung können eine explizite
+projektspezifische Ausnahme benötigen. Dynamische Werte bleiben außerhalb
+dieses Musters. Der Check belegt keinen nativen App-Start.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: SPA-Route</summary>
+
+`capacitor.config.ts`
+
+```text
+export default {webDir: "dist", server: {appStartPath: "/radar"}};
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: kein Startpfad</summary>
+
+`capacitor.config.ts`
+
+```text
+export default { webDir: "dist", server: { hostname: "localhost" } };
+```
+
+</details>
+
+### `web.capacitor_keyboard_native_resize`
+
+**Capacitor-Keyboard mit resize native — WebView schrumpft unzuverlässig**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 14 · resize native ist für Dokument-Scroll ungeeignet
+- Reference: <https://github.com/ionic-team/capacitor-keyboard/blob/v8.0.6/ios/Sources/KeyboardPlugin/Keyboard.m>
+
+<details><summary>Why it exists</summary>
+
+```text
+`@capacitor/keyboard` verkleinert im Modus `native` den Rahmen der WKWebView
+verzögert (Tastaturanimation + 0,2 s) und überspringt die Änderung, wenn die
+gespeicherte Höhe gleich bleibt. Die Höhe wird aber schon vor dem Resize
+gespeichert. `keyboardDidShow` kommt deshalb vor dem Resize, und nach dem
+ersten Öffnen kann die WebView voll hoch bleiben.
+
+Belegt am 23.10.2026 (Warteheld, iPhone 12 Pro, SwiftKey, Messung per Log in
+der App): Beim ersten Öffnen 844 → 448, danach blieb `innerHeight` 844, und
+das Passwortfeld lag unter der Tastatur. Hinter der geschrumpften WebView war
+das Fenster sichtbar. Am Gerät abgenommen: `resize: "none"` mit eigener
+Platzreserve und eigenem Scrollen.
+
+Erkannt wird nur der ausdrücklich gesetzte Modus. Ohne `resize`-Angabe gilt
+ebenfalls `native` (Standard); das ist mit einem Muster je Datei nicht
+messbar. Warnung, weil Apps mit innerem Scroll-Container (ion-content) den
+Modus sinnvoll nutzen können.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Warteheld vorher (String-Literal)</summary>
+
+`capacitor.config.ts`
+
+```text
+const config = {
+  plugins: {
+    Keyboard: { resize: "native" as KeyboardResize, resizeOnFullScreen: true },
+  },
+};
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Warteheld nachher</summary>
+
+`capacitor.config.ts`
+
+```text
+const config = {
+  plugins: {
+    Keyboard: { resize: "none" as KeyboardResize },
+  },
+};
+```
+
+</details>
+
 ### `web.capacitor_oauth_without_native_return`
 
 **Anbieter-Anmeldung in der Capacitor-App springt nicht in die App zurück**
@@ -8637,6 +8926,63 @@ nachziehen“.
   "server": { "appStartPath": "/app/index.html" },
   "plugins": { "Updater": { "url": "https://example.org/updates" } }
 }
+```
+
+</details>
+
+### `web.emoji_in_display_text`
+
+**Emoji oder emojifähiges Zeichen im Anzeigetext**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: QUALITY_UI_GUIDELINES.md · Keine Emojis in Oberflächen
+- Reference: <https://www.unicode.org/reports/tr51/#Emoji_Properties>
+
+<details><summary>Why it exists</summary>
+
+```text
+Emojis in Oberflächen sind eine globale Regel: sie wirken verspielt, passen
+nicht zur Schrift und sehen auf jeder Plattform anders aus.
+
+Die unauffällige Fallgruppe sind Zeichen, die im Quelltext wie Typografie
+aussehen: Pfeile wie `↗` (U+2197), `↩`, `➡`, `⬆`, Häkchen `✔`. Sie tragen die
+Unicode-Eigenschaft `Extended_Pictographic`. Fehlt der Webschrift das Zeichen,
+weicht WebKit auf Apple Color Emoji aus und zeichnet ein buntes Symbol.
+
+Belegt am 23.10.2026 (Warteheld, echtes iPhone 12 Pro): die Footerlinks
+„Datenschutz ↗" und „Impressum ↗" zeigten in der Capacitor-App Emoji-Pfeile.
+Im Browser am Desktop sah der Pfeil normal aus.
+
+Nicht gemeldet: `©`, `®`, `™` (fast jede Schrift hat sie), `✓` (U+2713, kein
+Emoji), Entwickler-Logs. Warnung, weil die tatsächliche Darstellung von der
+Schrift abhängt, die statisch nicht messbar ist.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Pfeil nach externem Link (Warteheld-Footer)</summary>
+
+`src/components/AppShell.vue`
+
+```text
+<template>
+  <a href="https://example.org/datenschutz/">{{ t("privacy") }} ↗</a>
+</template>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Typografie ohne Emoji-Eigenschaft</summary>
+
+`src/i18n/app-de.ts`
+
+```text
+export const de = {
+  active: "Aktiv ✓",
+  next: "Weiter →",
+  copyright: "© 2026 Beispiel GmbH™",
+};
 ```
 
 </details>
@@ -8849,6 +9195,113 @@ Wer den Text eines [data-i18n]- oder [data-brand-name]-Elements setzt (textConte
 
 </details>
 
+### `web.ios_input_font_below_16px`
+
+**Eingabefeld mit Schrift unter 16px — iOS zoomt beim Antippen**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 14 · Eingabefelder mindestens 16px
+- Reference: <https://webkit.org/blog/5610/more-responsive-tapping-on-ios/>
+
+<details><summary>Why it exists</summary>
+
+```text
+Safari und WKWebView zoomen in ein Eingabefeld hinein, wenn seine Schrift
+kleiner als 16px ist. In einer Capacitor-App verschiebt das den Viewport:
+nach dem Schließen der Tastatur stand die feste Tab-Leiste versetzt über der
+Unterkante, bis man wieder scrollte.
+
+Belegt am 23.10.2026 (Warteheld, echtes iPhone 12 Pro): Login-Felder mit
+Tailwind `text-sm` (14px). Mit `text-base` und dem Keyboard-Plugin im
+Resize-Modus `native` blieb die Leiste am Gerät an der Kante.
+
+Erkannt werden Tailwind-Klassen am Element selbst (`text-xs`, `text-sm`,
+`text-[10px]` … `text-[15px]`) ohne Präfix. Ein Breakpoint-Präfix wie
+`md:text-sm` gilt erst ab dieser Breite und wird nicht gemeldet. CSS-Regeln
+für Eingabefelder werden nicht erkannt. Warnung, weil eine Seite den Zoom auch
+anders abfangen kann.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Login-Feld mit text-sm über mehrere Zeilen (Warteheld vorher)</summary>
+
+`src/views/LoginView.vue`
+
+```text
+<template>
+  <input
+    id="email"
+    type="email"
+    class="w-full border-2 p-3 text-sm rounded-none"
+  />
+  <textarea class="text-[14px] w-full"></textarea>
+</template>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): 16px und Breakpoint-Präfix</summary>
+
+`src/views/LoginView.vue`
+
+```text
+<template>
+  <input type="email" class="w-full p-3 text-base md:text-sm" />
+  <select class="text-[16px]"></select>
+  <label class="text-sm">E-Mail</label>
+</template>
+```
+
+</details>
+
+### `web.ios_push_prompt_on_mount`
+
+**Push-Berechtigung wird beim Start/Mount abgefragt statt nach Nutzerinteraktion**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 2
+- Reference: <https://developer.apple.com/app-store/review/guidelines/#data-collection-and-storage>
+
+<details><summary>Why it exists</summary>
+
+```text
+Apple lehnt Apps nach Guideline 5.1.1(v) ab, wenn direkt beim Kaltstart der Push-Dialog aufpoppt.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Push in onMounted</summary>
+
+`src/App.vue`
+
+```text
+<script setup>
+import { onMounted } from 'vue';
+onMounted(() => {
+  PushNotifications.requestPermissions();
+});
+</script>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Push in Button-Handler</summary>
+
+`src/views/Settings.vue`
+
+```text
+<script setup>
+function onEnable() {
+  PushNotifications.requestPermissions();
+}
+</script>
+```
+
+</details>
+
 ### `web.legal_pages_missing`
 
 **Impressum oder Datenschutzerklärung fehlt**
@@ -8950,24 +9403,26 @@ export const A = () => <main><a href="/impressum">Impressum</a><a href="/datensc
 <details><summary>Why it exists</summary>
 
 ```text
-Ein boolescher Ladezustand hat zwei Werte für drei Zustände: noch nicht
-geladen, geladen-und-leer, geladen-mit-Daten. Der mittlere wird dann als
-Fehler angezeigt.
+Ein als `boolean | null` geführter Zustand trägt „noch nicht geprüft“ als
+null. Startet er trotzdem mit true/false, ist der dritte Zustand vom ersten
+Render an verloren. Gemessen werden nur ausdrückliche Nullable-Boolean-Typen
+mit Literal-Startwert: aus Namen wie isOpen/isSaving folgt keine Fachbedeutung,
+Aliase und berechnete Startwerte bleiben nicht gemessen.
 ```
 
 </details>
 
-<details><summary>Broken probe (must FAIL): boolescher Ladezustand</summary>
+<details><summary>Broken probe (must FAIL): defekt: boolean | null startet mit false</summary>
 
 `src/a.tsx`
 
 ```text
-const [isChecked, setIsChecked] = useState(false);
+const [isChecked, setIsChecked] = useState<boolean | null>(false);
 ```
 
 </details>
 
-<details><summary>Healthy probe (must PASS): mit null als drittem Zustand</summary>
+<details><summary>Healthy probe (must PASS): gesund: boolean | null startet mit null</summary>
 
 `src/a.tsx`
 
@@ -9056,6 +9511,88 @@ x
 
 ```text
 x
+```
+
+</details>
+
+### `web.netlify_cli_deploy_without_site`
+
+**Netlify-Deploy ohne explizites Site-Ziel**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § Deploy-Ziel ausdrücklich festlegen
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+- Reference: <https://cli.netlify.com/commands/deploy/>
+- Reference: <https://docs.netlify.com/cli/get-started/#link-and-unlink-sites>
+
+<details><summary>Why it exists</summary>
+
+```text
+Reproduced on 23.10.2026: a CLI deploy without an explicit target created an unintended new site. --site or an inline NETLIFY_SITE_ID assignment makes the target visible in the command. Warning only: .netlify/state.json or inherited environment may already select a site; their absence is not proven. Measures direct shell/Make recipes and package.json scripts, including npx [-y] netlify-cli@version. Dynamic commands, heredoc bodies and general shell data flow are not a complete shell execution analysis. No deploy is performed.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: direkt</summary>
+
+`deploy.sh`
+
+```text
+netlify deploy --prod
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Site-Option</summary>
+
+`deploy.sh`
+
+```text
+netlify deploy --site sample
+```
+
+</details>
+
+### `web.no_show_bgb_309_clause`
+
+**No-Show-Pauschale ohne Pflichthinweis auf Schadensnachweis (§ 309 Nr. 5b BGB)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § 2
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Nach deutschem AGB-Recht (§ 309 Nr. 5b BGB) ist eine pauschalierte Entschädigung oder
+No-Show-Ausfallgebühr gegenüber Verbrauchern nur wirksam, wenn dem Kunden ausdrücklich der
+Nachweis gestattet wird, dass dem Betrieb kein oder ein wesentlich geringerer Schaden entstanden ist.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Ausfallgebühr ohne Schadensnachweis-Klausel</summary>
+
+`src/Terms.vue`
+
+```text
+<template>
+  <p>Bei Nichterscheinen wird eine Ausfallpauschale von 20 EUR fällig.</p>
+</template>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Ausfallgebühr mit BGB-Schadensnachweis-Klausel</summary>
+
+`src/Terms.vue`
+
+```text
+<template>
+  <p>Bei Nichterscheinen wird eine Ausfallpauschale von 20 EUR fällig. Dem Kunden bleibt der Nachweis gestattet, dass kein Schaden entstanden ist.</p>
+</template>
 ```
 
 </details>
@@ -9347,6 +9884,50 @@ export const secret = 1;
 
 </details>
 
+### `web.sms_gsm7_unicode_overflow`
+
+**Emoji oder Sonderzeichen in SMS-Nachricht (halbiert GSM-7-Limit von 160 auf 70 Zeichen)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § 3
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Transaktionale SMS werden nach 160 Zeichen (GSM-7) abgerechnet. Ein einziges Emoji
+oder Sonderzeichen außerhalb von GSM-7 zwingt SMS-Gateways (Seven.io, Twilio) in die
+UCS-2-Kodierung (Unicode), wodurch das Segmentlimit auf 70 Zeichen schrumpft und
+die SMS-Kosten sofort verdoppelt werden.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): SMS-Text mit Scheren-Emoji</summary>
+
+`src/sms.ts`
+
+```text
+export function notifyCustomer(phone) {
+  return sendSms({ to: phone, text: 'Termin frei ✂️ jetzt buchen' });
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): SMS-Text sauber in GSM-7</summary>
+
+`src/sms.ts`
+
+```text
+export function notifyCustomer(phone) {
+  return sendSms({ to: phone, text: 'Termin frei jetzt buchen' });
+}
+```
+
+</details>
+
 ### `web.strictmode_resource_leak`
 
 **Canvas/WebGL/Audio-Ressource ohne Cleanup (StrictMode-Doppelmount)**
@@ -9381,6 +9962,58 @@ export const A = () => { useEffect(() => { const ctx = ref.current.getContext('2
 
 ```text
 export const A = () => { useEffect(() => { const ctx = ref.current.getContext('2d'); draw(ctx); return () => ctx.reset(); }, []); return null; };
+```
+
+</details>
+
+### `web.stripe_deposit_immediate_capture`
+
+**Stripe-Kaution/Pfand mit Sofortabbuchung statt Vorautorisierung (0,55 € Verlust bei Erstattung)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § 2
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Kautionen und No-Show-Pfand dürfen im Vorfeld nicht sofort eingezogen werden,
+weil Stripe bei einer späteren Erstattung nach ordnungsgemäßem Erscheinen die
+Transaktionsgebühren (~0,55 EUR) einbehält. Stattdessen ist zwingend ein manueller
+Hold (capture_method: 'manual') zu nutzen, dessen Storno 0,00 EUR kostet.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Kaution mit automatic capture</summary>
+
+`src/payment.ts`
+
+```text
+export async function createDeposit(stripe, amount) {
+  return await stripe.paymentIntents.create({
+    amount,
+    currency: 'eur',
+    capture_method: 'automatic',
+  });
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Kaution mit manuellem Hold (0,00 EUR Kosten)</summary>
+
+`src/payment.ts`
+
+```text
+export async function createDeposit(stripe, amount) {
+  return await stripe.paymentIntents.create({
+    amount,
+    currency: 'eur',
+    capture_method: 'manual',
+  });
+}
 ```
 
 </details>

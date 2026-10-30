@@ -1,4 +1,24 @@
 # STATUS
+## Web state scope and runtime behavior evidence (2026-10-18)
+
+- Narrowed `web.loading_without_null_state` to explicit nullable-boolean literal
+  initializers. UI/activity booleans, aliases and dynamic initializers are not
+  assigned business meaning from their names; unsupported scope is unmeasured.
+  The remaining info advisory allows intentionally known/cached initial results.
+- Public guidance separates local locks from server authentication, awaited
+  persistence from UI closure, and startup failures from background refresh.
+  Existing source-bound proof contracts cover those behaviors without launching
+  target code from the scanner or adding speculative authentication regexes.
+- A separate reference app now records eight API and 22 Chromium cases through
+  its explicit quality runner. Previous proof is invalidated before retrying.
+  Healthy execution preceded five isolated runtime defects; all failed as
+  intended. Fourteen isolated receipt defects were rejected; restored proof passed.
+- Rule scope has four additional unit/CLI tests and 11 self-test controls.
+  Full suite: 322 tests, 319 passed and three optional skips. Self-tests: 845/845.
+  Full/changed self-scans: 17 PASS, 28 UNMEASURED, no findings. Generated catalogue
+  and whitespace checks passed. Catalogue generation also includes an already
+  registered path-normalization rule missing from the previous generated file.
+  No new rule ID, target execution during scans, commit or push.
 
 ## Explicit XCFramework architecture inspection (2026-10-13)
 

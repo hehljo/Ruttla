@@ -1,1 +1,1 @@
-const [isChecked, setIsChecked] = useState(false);
+const [isChecked, setIsChecked] = useState<boolean | null>(false);
