@@ -476,6 +476,7 @@ def summary(conn: sqlite3.Connection, period: str = "30", now: datetime | None =
         "by_platform": grouped("platform"),
         "by_error_class": grouped("error_class"),
         "by_rule": rules,
+        "lifetime": lifetime(conn, now),
         "top": top,
         "notes": [
             "Nur Läufe ab Aktivierung; nichts hochgerechnet. Scans im Temp-Verzeichnis "
@@ -483,8 +484,67 @@ def summary(conn: sqlite3.Connection, period: str = "30", now: datetime | None =
             "behoben = Regel lief gemessen, Datei im Prüfbereich und noch vorhanden, "
             "Befund weg. Sonst unbestimmt.",
             "Projekte sind lokale Zufalls-IDs; Pfade und Repo-Namen werden nicht gespeichert.",
+            "Bilanz zählt verschiedene Fingerabdrücke über alle Läufe, nicht Befunde je Scan; "
+            "„gefunden“ schließt Probleme ein, die beim ersten Scan schon da waren.",
         ],
     }
+
+
+def lifetime(conn: sqlite3.Connection, now: datetime | None = None) -> dict:
+    """Bilanz über alle erfassten Läufe, unabhängig vom gewählten Zeitraum.
+
+    Gezählt werden verschiedene Fingerabdrücke, nicht Befunde je Scan — derselbe
+    Befund in hundert Läufen ist ein Problem, nicht hundert.
+    """
+    now = now or _now()
+    found, fixed, still_open, reappeared, rules, projects_hit = conn.execute(
+        "SELECT COUNT(*), COALESCE(SUM(state='fixed'),0), COALESCE(SUM(state='open'),0),"
+        " COALESCE(SUM(reappeared),0), COUNT(DISTINCT check_id),"
+        " COUNT(DISTINCT project_id) FROM fingerprints").fetchone()
+    scans, first, stopped, projects = conn.execute(
+        "SELECT COUNT(*), MIN(started), COALESCE(SUM(blocking>0),0),"
+        " COUNT(DISTINCT project_id) FROM scans").fetchone()
+    days = None
+    if first:
+        start = datetime.strptime(first, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        days = max((now - start).days, 0)
+    found_by_period = {p: conn.execute(
+        "SELECT COUNT(*) FROM fingerprints f JOIN scans s ON s.id = f.first_scan"
+        " WHERE s.started >= ?", (_since(p, now),)).fetchone()[0] for p in PERIODS[:-1]}
+    found_by_period["all"] = found
+    return {
+        "since": first, "days": days, "scans": scans, "projects": projects,
+        "projects_with_findings": projects_hit, "rules_with_findings": rules,
+        "found": found, "fixed": fixed, "open": still_open, "regressions": reappeared,
+        "scans_blocking": stopped, "found_by_period": found_by_period,
+        "fixed_percent": round(100 * fixed / found, 1) if found else None,
+    }
+
+
+def _pct(value: float) -> str:
+    return f"{value:g}".replace(".", ",")
+
+
+def _lifetime_lines(life: dict) -> list[str]:
+    """Kopfblock „Bilanz": die Zahlen, die zeigen, was Ruttla bisher gefangen hat."""
+    if not life["scans"]:
+        return ["Bilanz: nicht gemessen — noch kein Scan erfasst."]
+    head = (f"Bilanz seit {life['since'][:10]} ({_num(life['days'])} Tage, "
+            f"{_num(life['scans'])} Scans, {_num(life['projects'])} Projekte)")
+    if not life["found"]:
+        return [head, "  Probleme gefunden  0 — alle erfassten Scans sauber"]
+    return [
+        head,
+        f"  Probleme gefunden  {_num(life['found'])} verschiedene · {_num(life['rules_with_findings'])}"
+        f" Regeln · in {_num(life['projects_with_findings'])} von {_num(life['projects'])} Projekten",
+        f"  davon behoben      {_num(life['fixed'])} ({_pct(life['fixed_percent'])} %) · offen "
+        f"{_num(life['open'])}",
+        f"  Regressionen       {_num(life['regressions'])} × wieder aufgetreten und erneut gemeldet",
+        f"  Läufe mit Stopp    {_num(life['scans_blocking'])} von {_num(life['scans'])} Scans "
+        "hatten einen blockierenden Befund",
+        "  Neu gefunden       7 / 30 / 90 Tage / gesamt: " + " / ".join(
+            _num(life["found_by_period"][p]) for p in PERIODS),
+    ]
 
 
 def totals_for(conn: sqlite3.Connection, since: str | None) -> int:
@@ -528,6 +588,9 @@ def render_text(data: dict) -> str:
         f"Ruttla-Statistik · {_span(data)} · {'aktiv' if data['enabled'] else 'aus'}"
         f" seit {since}",
         "",
+        *_lifetime_lines(data["lifetime"]),
+        "",
+        f"Zeitraum: {_span(data)}",
         f"  Scans        {_num(t['scans'])}  (lokal {_num(local['scans'])} · CI "
         f"{_num(ci['scans'])} · abgestürzt {_num(t['crashed_scans'])})",
         "  Zeiträume    7 / 30 / 90 / gesamt: " + " / ".join(
@@ -567,6 +630,8 @@ def render_markdown(data: dict) -> str:
         f"# Ruttla-Statistik — {_span(data)}", "",
         f"Stand {data['generated']} · erfasst seit {data['enabled_at'] or '—'} · "
         f"Format `{data['format']}`", "",
+        "## Bilanz", "", "```", *_lifetime_lines(data["lifetime"]), "```", "",
+        f"## Zeitraum: {_span(data)}", "",
         "| Kennzahl | gesamt | lokal | CI |", "|---|---:|---:|---:|",
     ]
     for label, key in (("Scans", "scans"), ("Projekte", "projects"),

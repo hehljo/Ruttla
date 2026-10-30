@@ -17,6 +17,13 @@ for entry in (str(SRC), str(REPO)):
 
 from ruttla.engine import load_checks  # noqa: E402
 from ruttla.registry import REGISTRY  # noqa: E402
+from ruttla.stats import ENV_DIR as _STATS_ENV  # noqa: E402
+
+# Die Suite scannt Fixtures im Repo (tests/golden …), nicht nur im Temp-Verzeichnis.
+# Ohne eigenes Statistikverzeichnis landeten diese Läufe in der echten lokalen
+# Statistik des Entwicklers (belegt 30.10.2026: 18 Fixture-„Projekte“ je Suite-Lauf).
+_STATS_DIR = tempfile.TemporaryDirectory(prefix="ruttla-suite-stats-")
+os.environ[_STATS_ENV] = _STATS_DIR.name
 
 
 def ensure_checks_loaded() -> None:

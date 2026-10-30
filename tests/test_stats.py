@@ -239,6 +239,70 @@ class LifecycleTests(StatsCase):
         self.assertFalse(stats.db_path().exists())
 
 
+class LifetimeTests(StatsCase):
+    """Bilanz: verschiedene Probleme über alle Läufe, nie Befunde je Scan aufsummiert."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        run_cli("stats", "enable")
+
+    def life(self) -> dict:
+        conn = sqlite3.connect(stats.db_path())
+        try:
+            return stats.summary(conn, "7")["lifetime"]
+        finally:
+            conn.close()
+
+    def test_no_scan_is_not_measured(self) -> None:
+        self.assertEqual(self.life()["scans"], 0)
+        code, out, _ = run_cli("stats")
+        self.assertEqual(code, 0)
+        self.assertIn("Bilanz: nicht gemessen", out)
+
+    def test_repeated_finding_counts_once(self) -> None:
+        for _ in range(3):
+            self.scan()
+        life = self.life()
+        self.assertEqual((life["scans"], life["found"], life["open"], life["fixed"]), (3, 1, 1, 0))
+        self.assertEqual(life["scans_blocking"], 3)
+        self.assertEqual(life["found_by_period"], {"7": 1, "30": 1, "90": 1, "all": 1})
+
+    def test_fixed_regression_and_percent(self) -> None:
+        self.write("src/a.ts", "const a = {\n" + LINE + "};\nconst b = {\n" + LINE + "};\n")
+        self.scan()
+        self.write("src/a.ts", "const a = {\n" + LINE + "};\n")
+        self.scan()
+        life = self.life()
+        self.assertEqual((life["found"], life["fixed"], life["open"], life["fixed_percent"]),
+                         (2, 1, 1, 50))
+        self.write("src/a.ts", "const a = {\n" + LINE + "};\nconst b = {\n" + LINE + "};\n")
+        self.scan()
+        life = self.life()
+        self.assertEqual((life["found"], life["regressions"], life["open"]), (2, 1, 2))
+
+    def test_lifetime_ignores_selected_period(self) -> None:
+        self.scan()
+        conn = sqlite3.connect(stats.db_path())
+        try:
+            conn.execute("UPDATE scans SET started='2020-01-01T00:00:00Z'")
+            conn.commit()
+            data = stats.summary(conn, "7")
+        finally:
+            conn.close()
+        self.assertEqual(data["totals"]["scans"], 0)
+        self.assertEqual(data["lifetime"]["found"], 1)
+        self.assertEqual(data["lifetime"]["found_by_period"]["90"], 0)
+
+    def test_dashboard_and_markdown_show_balance(self) -> None:
+        self.scan()
+        _, out, _ = run_cli("stats")
+        self.assertIn("Probleme gefunden  1 verschiedene", out)
+        self.assertLess(out.index("Bilanz seit"), out.index("Scans "))
+        _, md, _ = run_cli("stats", "--format", "markdown")
+        self.assertIn("## Bilanz", md)
+        self.assertIn("davon behoben      0 (0 %)", md)
+
+
 class MigrationTests(StatsCase):
     def test_upgrade_keeps_data(self) -> None:
         run_cli("stats", "enable")

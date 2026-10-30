@@ -167,6 +167,10 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         from .stats import run_stats_command
 
         return run_stats_command(raw_argv[1:], prog=prog)
+    if raw_argv and raw_argv[0] == "badge":
+        from .badge import run_badge_command
+
+        return run_badge_command(raw_argv[1:], prog=prog)
     if raw_argv and raw_argv[0] == "rule":
         from .rulekit import run_rule_command
 

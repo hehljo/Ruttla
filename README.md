@@ -200,13 +200,22 @@ A finding counts as *fixed* only when the scan re-examined the spot (rule ran
 and measured, file still in scope); otherwise it is *indeterminate*. Report,
 reporters and exit code are identical with and without statistics; a
 statistics error never fails a scan. `ruttla stats [--period 7|30|90|all]`
-shows the dashboard, `stats export` writes JSON and Markdown, `stats disable`
+shows the dashboard (headed by the all-time balance: distinct problems found,
+fixed, regressions, runs with a blocking finding — counted per fingerprint, not
+per scan), `stats export` writes JSON and Markdown, `stats disable`
 stops recording and keeps the data, `stats delete --yes` removes it. Scans
 below the system temp directory (test runs, throwaway clones) are not recorded.
 `ruttla . --lifecycle` appends this scan's lifecycle to the text report —
 new · persisting · reappeared (regression) · fixed · indeterminate, with the
 rules behind regressions, new and fixed findings. Without recording it says
 *not measured*, never "0 new"; JSON, SARIF and agent output stay unchanged.
+
+For a **public** record, `ruttla badge update` writes a card from a full scan:
+current and history badge (shields.io), `history.jsonl` and a summary page —
+counts and rule IDs only, each line tied to commit, Ruttla version and CI run,
+history starting at the first recorded scan. Opt-in per repository via a
+workflow that publishes to its own branch:
+[docs/integrations/stats-badge.md](docs/integrations/stats-badge.md).
 
 ## Contributing
 

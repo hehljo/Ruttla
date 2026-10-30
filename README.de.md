@@ -400,7 +400,9 @@ Meldungen, Secrets, Klartextpfade, Repo-Namen — ein Projekt ist eine lokale
 Zufalls-ID. *Behoben* heißt: der Scan hat die Stelle erneut geprüft (Regel lief
 gemessen, Datei im Prüfbereich und vorhanden); sonst *unbestimmt*. Report,
 Reporter und Exit sind mit und ohne Statistik gleich; ein Statistikfehler bricht
-nie einen Scan. `ruttla stats [--period 7|30|90|all]` zeigt das Dashboard,
+nie einen Scan. `ruttla stats [--period 7|30|90|all]` zeigt das Dashboard (oben die Bilanz über
+alle Läufe: verschiedene gefundene Probleme, davon behoben, Regressionen, Läufe
+mit blockierendem Befund — gezählt je Fingerabdruck, nicht je Scan),
 `stats export` schreibt JSON und Markdown, `stats disable` stoppt und behält die
 Daten, `stats delete --yes` löscht sie. Scans unterhalb des Temp-Verzeichnisses
 (Testläufe, Wegwerf-Klone) werden nicht erfasst.
@@ -409,6 +411,13 @@ neu · weiter vorhanden · wieder aufgetreten (Regression) · behoben · unbesti
 mit den Regeln hinter Regressionen, neuen und behobenen Befunden. Ohne Erfassung
 steht dort *nicht gemessen*, nie „0 neu“; JSON, SARIF und Agent-Format bleiben
 unverändert.
+
+Für einen **öffentlichen** Nachweis schreibt `ruttla badge update` aus einem
+Vollscan eine Karte: Badge für jetzt und für den Verlauf (shields.io),
+`history.jsonl` und eine Übersichtsseite — nur Zählwerte und Regel-IDs, jede
+Zeile an Commit, Ruttla-Version und CI-Lauf gebunden, Verlauf ab dem ersten
+erfassten Scan. Opt-in je Repo über einen Workflow, der auf einen eigenen Branch
+veröffentlicht: [docs/integrations/stats-badge.md](docs/integrations/stats-badge.md).
 
 ## Was das Gate NICHT kann
 
