@@ -185,6 +185,23 @@ declarative rules only — hub packages whose hash matches `ruttla-hub.lock` and
 the project's own packages under `.ruttla/packages/` — which can only add
 findings (ADR-0005).
 
+### Local statistics (opt-in, off by default)
+
+`ruttla stats enable` starts recording scans on this machine only; nothing is
+recorded before that and nothing is ever sent anywhere. The SQLite file lives
+in the user data directory (`$XDG_DATA_HOME/ruttla`, `~/Library/Application
+Support/ruttla`, `%APPDATA%\ruttla`; override with `RUTTLA_STATS_DIR`), never
+in the scanned repo. Stored: counts per scan, rule and severity, CI vs. local
+(`CI` variable), and per finding an HMAC fingerprint over rule, relative path
+and normalised evidence with a local salt. Never stored: source text, evidence,
+messages, secrets, plain paths or repo names — a project is a local random ID.
+A finding counts as *fixed* only when the scan re-examined the spot (rule ran
+and measured, file still in scope); otherwise it is *indeterminate*. Report,
+reporters and exit code are identical with and without statistics; a
+statistics error never fails a scan. `ruttla stats [--period 7|30|90|all]`
+shows the dashboard, `stats export` writes JSON and Markdown, `stats disable`
+stops recording and keeps the data, `stats delete --yes` removes it.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) — a new rule needs a real failure, a

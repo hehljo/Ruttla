@@ -386,6 +386,23 @@ im Projekt per Test (`tests/test_signal_freshness.py`) abgesichert.
 Dateirechte (`.env` weltlesbar) lassen sich im Selbsttest-Format nicht
 herstellen — ebenfalls kein Gate.
 
+## Lokale Statistik (Opt-in, Default aus)
+
+`ruttla stats enable` erfasst Scans ab jetzt, nur auf diesem Rechner; vorher
+nichts, übertragen wird nie etwas. Die SQLite-Datei liegt im
+Benutzer-Datenverzeichnis (`$XDG_DATA_HOME/ruttla`, `~/Library/Application
+Support/ruttla`, `%APPDATA%\ruttla`; abweichend per `RUTTLA_STATS_DIR`), nie im
+geprüften Repo. Gespeichert: Zählwerte je Scan, Regel und Schwere, CI oder lokal
+(Variable `CI`) und je Befund ein HMAC-Fingerabdruck über Regel, relativen Pfad
+und normalisierte Evidenz mit lokalem Salt. Nie gespeichert: Quelltext, Evidenz,
+Meldungen, Secrets, Klartextpfade, Repo-Namen — ein Projekt ist eine lokale
+Zufalls-ID. *Behoben* heißt: der Scan hat die Stelle erneut geprüft (Regel lief
+gemessen, Datei im Prüfbereich und vorhanden); sonst *unbestimmt*. Report,
+Reporter und Exit sind mit und ohne Statistik gleich; ein Statistikfehler bricht
+nie einen Scan. `ruttla stats [--period 7|30|90|all]` zeigt das Dashboard,
+`stats export` schreibt JSON und Markdown, `stats disable` stoppt und behält die
+Daten, `stats delete --yes` löscht sie.
+
 ## Was das Gate NICHT kann
 
 Statische Textanalyse sieht Positionen, keine Kollisionen und keine Kontraste.

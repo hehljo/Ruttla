@@ -108,7 +108,7 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
         prog=prog,
         description="Ruttla — lokales, deterministisches Quality Gate. "
                     "Scans sind offline; nur `ruttla update` und `ruttla hub` greifen aufs Netz zu. "
-                    "Zielcode wird nie ausgeführt.",
+                    "Zielcode wird nie ausgeführt. Lokale Statistik: `ruttla stats` (Opt-in).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Exit: 0 grün · 1 blockierende Befunde · 2 nicht gemessen · 3 Absturz/Fehlbedienung",
     )
@@ -160,6 +160,10 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         from .hub import run_hub_command
 
         return run_hub_command(raw_argv[1:], prog=prog)
+    if raw_argv and raw_argv[0] == "stats":
+        from .stats import run_stats_command
+
+        return run_stats_command(raw_argv[1:], prog=prog)
     if raw_argv and raw_argv[0] == "rule":
         from .rulekit import run_rule_command
 
@@ -335,6 +339,11 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
             print(f"Report nicht schreibbar: {exc}", file=sys.stderr)
             return EXIT_CRASH
 
+    # Andockpunkt der lokalen Statistik: nach jeder Ausgabe, damit sie Report
+    # und Exit nie beeinflusst. Wirft nie (Fehler = eine Warnung auf stderr).
+    from .stats import record_scan
+
+    record_scan(ctx, results, exit_code, changed)
     return exit_code
 
 
