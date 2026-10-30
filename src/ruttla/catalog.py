@@ -18,6 +18,8 @@ GUIDELINES_DOC = "docs/GUIDELINES.md"
 # (prefix of the guideline string, anchor in docs/GUIDELINES.md, one-line
 # public summary). First match wins, so more specific prefixes come first.
 GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
+    ("docs/GUIDELINES.md § Local Swift package prerequisites", "local-swift-package-prerequisites",
+     "Literal local Swift package paths need Package.swift before Xcode resolves dependencies."),
     ("GUIDELINES.md § Linux host preflight", "linux-host-preflight",
      "Explicit host snapshots separate a reproduced tzdata defect from live VPS capabilities."),
     ("docs/GUIDELINES.md § Browser-Supabase im Remote-Dev-Modus", "browser-supabase-remote-dev",

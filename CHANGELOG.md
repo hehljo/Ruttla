@@ -1,4 +1,13 @@
 # Changelog
+## Local Swift package prerequisites (2026-10-22)
+
+- Added advisory `apple.swift_package_local_dependency_missing` for direct
+  literal local dependencies whose Package.swift is absent before resolution.
+- Healthy installed packages precede missing-directory/manifest controls;
+  dynamic/interpolated/external paths and source examples remain unmeasured.
+- No repository access, target-code execution or native-build claim.
+
+
 ## Web state scope and behavior evidence (2026-10-18)
 
 - Corrected `web.loading_without_null_state` false positives for ordinary

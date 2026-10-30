@@ -3,11 +3,11 @@
 
 # Rule catalog
 
-196 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+197 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 50 | 10 |
+| apple | 51 | 10 |
 | dotnet | 11 | 0 |
 | godot | 36 | 1 |
 | python | 7 | 0 |
@@ -2667,6 +2667,43 @@ struct SettingsView: View {
     Button("Abmelden") { }
   }
 }
+```
+
+</details>
+
+### `apple.swift_package_local_dependency_missing`
+
+**Lokale Swift-Paketabhängigkeit fehlt vor der Paketauflösung**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: docs/GUIDELINES.md § Local Swift package prerequisites
+- Public rationale: [GUIDELINES.md › local-swift-package-prerequisites](GUIDELINES.md#local-swift-package-prerequisites)
+- Reference: <https://docs.swift.org/package-manager/PackageDescription/PackageDescription.html>
+- Reference: <https://capacitorjs.com/docs/ios/spm>
+
+<details><summary>Broken probe (must FAIL): Missing installed plugin directory</summary>
+
+`App/Package.swift`
+
+```text
+let package = Package(dependencies: [.package(name: "Plugin", path: "../node_modules/plugin")])
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Healthy installed local package</summary>
+
+`App/Package.swift`
+
+```text
+let package = Package(dependencies: [.package(name: "Plugin", path: "../node_modules/plugin")])
+```
+
+`node_modules/plugin/Package.swift`
+
+```text
+import PackageDescription
 ```
 
 </details>

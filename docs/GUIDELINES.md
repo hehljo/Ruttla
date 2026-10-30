@@ -1032,3 +1032,16 @@ signierter JWS (Apple), OIDC-Token über JWKS (Google Pub/Sub) oder Webhook-HMAC
 Belegt am 20.10.2026 (Vylea): die Play-Funktion prüfte nichts und wäre anonym
 auslösbar gewesen. Regel: `supabase.verify_jwt_off_without_signature_check` liest
 `config.toml` und den Quelltext der Funktion; fehlender Quelltext ist ein Befund.
+<a id="local-swift-package-prerequisites"></a>
+## Local Swift package prerequisites
+
+A SwiftPM local dependency with a literal `.package(path:)` or
+`.package(name:path:)` needs a `Package.swift` at that location before Xcode
+resolves the graph. Capacitor plugins often live in ignored `node_modules`;
+a fresh checkout needs `npm ci` and `cap sync` before opening Xcode. Installing
+dependencies in a build phase is too late when resolution already fails.
+The offline rule checks direct literal paths in inventoried manifests only.
+Computed/interpolated paths, external paths and symlinks outside the checkout
+are unmeasured. File existence is not manifest validity, graph resolution,
+remote repository access, a successful build or a device launch. Healthy
+installed packages precede isolated missing-directory/manifest probes.
