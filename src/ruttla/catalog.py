@@ -126,6 +126,9 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "Green CI runs with forced-runtime warnings; PowerShell 7 APIs need a version guard."),
     ("GUIDELINES.md § Documentation", "documentation-that-can-be-executed",
      "Docs snippets must be copy-paste safe and diff-clean."),
+    ("~/.claude/guides/supabase-deploy.md § Handgepflegte Kette auf die CLI umstellen",
+     "supabase-migrations-cli-chain",
+     "Supabase migrations use CLI version names and leave transaction control to the CLI."),
 ]
 
 

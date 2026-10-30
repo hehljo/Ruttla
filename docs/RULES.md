@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-198 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+200 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -12,7 +12,7 @@
 | godot | 36 | 1 |
 | python | 8 | 0 |
 | raspberry | 6 | 0 |
-| universal | 42 | 7 |
+| universal | 44 | 9 |
 | unreal | 6 | 0 |
 | web | 38 | 4 |
 
@@ -7817,6 +7817,99 @@ const t = "ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 ```text
 SUPABASE_ANON_KEY=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicmVmIjogImFiY2RlZmdoaWprbG1ub3AiLCAicm9sZSI6ICJhbm9uIiwgImlhdCI6IDE3MDAwMDAwMDB9.c2lnbmF0dXJlLWRlci1rZXk
+```
+
+</details>
+
+### `sql.migration_name_not_cli`
+
+**Supabase-Migration wird von der CLI übersprungen oder kollidiert**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: ~/.claude/guides/supabase-deploy.md § Handgepflegte Kette auf die CLI umstellen
+- Public rationale: [GUIDELINES.md › supabase-migrations-cli-chain](GUIDELINES.md#supabase-migrations-cli-chain)
+
+<details><summary>Why it exists</summary>
+
+```text
+Die Supabase-CLI nimmt nur <ziffern>_name.sql; alles andere (048b_…, DIAG_…, VERIFY.sql) überspringt sie still — live fehlt die Änderung, lokal mit psql lief sie. Zwei Dateien mit derselben Version brechen die Migrationshistorie. Belegt am 19.10.2026 (Vylea): 008 und 045/048/095 doppelt, 048b/048c übersprungen, Diagnoseskripte im Migrationsordner.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: Buchstabe in der Version</summary>
+
+`supabase/migrations/048b_x.sql`
+
+```text
+select 1;
+```
+
+`supabase/migrations/048_y.sql`
+
+```text
+select 1;
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: eindeutige numerische Versionen</summary>
+
+`supabase/migrations/001_a.sql`
+
+```text
+select 1;
+```
+
+`supabase/migrations/20261019000000_b.sql`
+
+```text
+select 1;
+```
+
+</details>
+
+### `sql.migration_transaction_control`
+
+**Supabase-Migration steuert die Transaktion selbst**
+
+- Default severity: `error` — blocking without a profile (`safe_by_default`)
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: ~/.claude/guides/supabase-deploy.md § Handgepflegte Kette auf die CLI umstellen
+- Public rationale: [GUIDELINES.md › supabase-migrations-cli-chain](GUIDELINES.md#supabase-migrations-cli-chain)
+
+<details><summary>Why it exists</summary>
+
+```text
+supabase db reset/push fasst jede Migrationsdatei in EINE Transaktion und schreibt danach den Historieneintrag. Ein eigenes COMMIT/ABORT beendet sie mittendrin: ein späterer Fehler hinterlässt einen halben Stand ohne Historieneintrag, ein ABORT rollt still zurück und die Version steht trotzdem als eingespielt in der Historie. Belegt am 19.10.2026 (Vylea): 32 von 114 Migrationen trugen BEGIN/COMMIT aus der Zeit, als sie von Hand im SQL-Editor liefen. Gemessen wird nur auf oberster Ebene — BEGIN/END in $$-Rümpfen und DO-Blöcken sind PL/pgSQL.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: COMMIT mitten in der Migration</summary>
+
+`supabase/migrations/001_a.sql`
+
+```text
+create table a (i int);
+commit;
+select 1;
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: BEGIN/END/COMMIT nur in Rümpfen, Strings, Bezeichnern</summary>
+
+`supabase/migrations/001_a.sql`
+
+```text
+create function f() returns void language plpgsql as $body1$
+begin perform 1; end;
+$body1$;
+do $$ begin raise notice 'x'; end $$;
+select 'commit;' as "x;commit;y";
+-- commit;
 ```
 
 </details>

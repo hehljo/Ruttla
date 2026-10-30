@@ -1086,3 +1086,15 @@ Computed/interpolated paths, external paths and symlinks outside the checkout
 are unmeasured. File existence is not manifest validity, graph resolution,
 remote repository access, a successful build or a device launch. Healthy
 installed packages precede isolated missing-directory/manifest probes.
+
+<a id="supabase-migrations-cli-chain"></a>
+## Supabase migrations follow the CLI chain
+
+`supabase db reset/push` only applies files named `<digits>_name.sql`; other
+names (`048b_…`, diagnostics, verify scripts) are skipped silently, and two
+files with the same version break the migration history. The CLI wraps every
+file in one transaction and writes the history entry afterwards, so a
+top-level `COMMIT`/`ABORT` inside a migration leaves a half-applied state or a
+rolled-back file recorded as applied. `BEGIN`/`END` inside `$$` bodies and `DO`
+blocks is PL/pgSQL and not counted. Rules: `sql.migration_name_not_cli`,
+`sql.migration_transaction_control` (errors).
