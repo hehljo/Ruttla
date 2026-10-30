@@ -401,7 +401,8 @@ gemessen, Datei im Prüfbereich und vorhanden); sonst *unbestimmt*. Report,
 Reporter und Exit sind mit und ohne Statistik gleich; ein Statistikfehler bricht
 nie einen Scan. `ruttla stats [--period 7|30|90|all]` zeigt das Dashboard,
 `stats export` schreibt JSON und Markdown, `stats disable` stoppt und behält die
-Daten, `stats delete --yes` löscht sie.
+Daten, `stats delete --yes` löscht sie. Scans unterhalb des Temp-Verzeichnisses
+(Testläufe, Wegwerf-Klone) werden nicht erfasst.
 
 ## Was das Gate NICHT kann
 

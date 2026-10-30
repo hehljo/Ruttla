@@ -27,6 +27,7 @@ import re
 import secrets
 import sqlite3
 import sys
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -228,6 +229,8 @@ def record_scan(ctx, results: list[CheckResult], exit_code: int,
             # Datenbank wird von einem Scan nie verändert.
             if _schema_version(conn) == 0 or not enabled(conn):
                 return
+            if _throwaway(Path(ctx.root)):
+                return  # Testläufe und Wegwerf-Klone verfälschen die Zahlen
             migrate(conn)
             if _inside(db_path(), Path(ctx.root)):
                 raise StatsError("Statistik-Verzeichnis liegt im geprüften Repo — "
@@ -238,6 +241,22 @@ def record_scan(ctx, results: list[CheckResult], exit_code: int,
     except Exception as exc:  # Vertrag: Statistik bricht nie einen Scan
         print(f"ruttla: Statistik nicht geschrieben ({type(exc).__name__}: {exc}). "
               "Der Scan ist davon unberührt.", file=sys.stderr)
+
+
+def _throwaway_roots() -> list[Path]:
+    """Wegwerf-Orte: Scans dort sind Testläufe (auch Ruttlas eigene Suite), keine Nutzung."""
+    return [Path(tempfile.gettempdir())]
+
+
+def _throwaway(root: Path) -> bool:
+    resolved = root.resolve()
+    for base in _throwaway_roots():
+        try:
+            resolved.relative_to(base.resolve())
+        except ValueError:
+            continue
+        return True
+    return False
 
 
 def _inside(path: Path, root: Path) -> bool:
@@ -449,10 +468,11 @@ def summary(conn: sqlite3.Connection, period: str = "30", now: datetime | None =
         "by_project": projects,
         "by_platform": grouped("platform"),
         "by_error_class": grouped("error_class"),
-        "by_rule": rules[:top],
-        "rules_total": len(rules),
+        "by_rule": rules,
+        "top": top,
         "notes": [
-            "Nur Läufe ab Aktivierung; nichts hochgerechnet.",
+            "Nur Läufe ab Aktivierung; nichts hochgerechnet. Scans im Temp-Verzeichnis "
+            "(Testläufe, Wegwerf-Klone) zählen nicht.",
             "behoben = Regel lief gemessen, Datei im Prüfbereich und noch vorhanden, "
             "Befund weg. Sonst unbestimmt.",
             "Projekte sind lokale Zufalls-IDs; Pfade und Repo-Namen werden nicht gespeichert.",
@@ -470,42 +490,65 @@ def _active(row: dict) -> bool:
     return any(row.get(k) for k in ("findings", "fixed", "indeterminate"))
 
 
+# Abschnitte der Ansicht: Regeln zuerst (die nützlichste Sicht), Projekte zuletzt.
+_SECTIONS = (("Regeln", "by_rule", "name"), ("Pakete", "by_platform", "name"),
+             ("Fehlerklassen", "by_error_class", "name"),
+             ("Projekte (lokale ID)", "by_project", "project"))
+_COLUMNS = (("Scans", "scans"), ("Befunde", "findings"), ("blockierend", "blocking"),
+            ("neu", "new"), ("behoben", "fixed"), ("wieder", "reappeared"))
+
+
+def _ranked(data: dict, key: str) -> tuple[list[dict], int]:
+    """Aktive Zeilen nach Befunden absteigend, auf `top` gekürzt; dazu der Rest."""
+    rows = sorted((r for r in data[key] if _active(r)),
+                  key=lambda r: (-(r["findings"] or 0), -(r["scans"] or 0)))
+    top = data.get("top", 10)
+    return rows[:top], max(len(rows) - top, 0)
+
+
+def _num(value) -> str:
+    return f"{value or 0:,}".replace(",", ".")
+
+
+def _span(data: dict) -> str:
+    return "gesamt" if data["period_days"] is None else f"letzte {data['period_days']} Tage"
+
+
 def render_text(data: dict) -> str:
     t, local, ci = data["totals"], data["local"], data["ci"]
-    span = "gesamt" if data["period_days"] is None else f"letzte {data['period_days']} Tage"
+    since = data["enabled_at"] or "—"
     lines = [
-        f"Ruttla-Statistik — {span} (Stand {data['generated']})",
-        f"Status: {'aktiv' if data['enabled'] else 'aus'} · erfasst seit "
-        f"{data['enabled_at'] or '—'}",
-        "Scans 7/30/90/gesamt: " + " / ".join(
-            str(data["scans_by_period"][p]) for p in PERIODS),
+        f"Ruttla-Statistik · {_span(data)} · {'aktiv' if data['enabled'] else 'aus'}"
+        f" seit {since}",
         "",
-        f"Scans {t['scans']} (lokal {local['scans']} · CI {ci['scans']}) · Projekte "
-        f"{t['projects']} · Dateien {t['files_scanned']} · Checks {t['checks_run']} · "
-        f"abgestürzt {t['crashed_scans']}",
-        f"Befunde {t['findings']} (Fehler {t['error']} · Warnung {t['warning']} · Info "
-        f"{t['info']}) · blockierend {t['blocking']}",
-        f"Lebenszyklus: neu {t['new']} · weiter vorhanden {t['persisting']} · wieder "
-        f"aufgetreten {t['reappeared']} · behoben {t['fixed']} · unbestimmt "
-        f"{t['indeterminate']} · offen jetzt {data['open_fingerprints']}",
+        f"  Scans        {_num(t['scans'])}  (lokal {_num(local['scans'])} · CI "
+        f"{_num(ci['scans'])} · abgestürzt {_num(t['crashed_scans'])})",
+        "  Zeiträume    7 / 30 / 90 / gesamt: " + " / ".join(
+            _num(data["scans_by_period"][p]) for p in PERIODS),
+        f"  Umfang       {_num(t['projects'])} Projekte · {_num(t['files_scanned'])} Dateien"
+        f" · {_num(t['checks_run'])} Checks",
+        f"  Befunde      {_num(t['findings'])}  (Fehler {_num(t['error'])} · Warnung "
+        f"{_num(t['warning'])} · Info {_num(t['info'])}) · blockierend {_num(t['blocking'])}",
+        f"  Verlauf      neu {_num(t['new'])} · weiter da {_num(t['persisting'])} · "
+        f"wieder aufgetreten {_num(t['reappeared'])} · behoben {_num(t['fixed'])} · "
+        f"unbestimmt {_num(t['indeterminate'])}",
+        f"  Offen jetzt  {_num(data['open_fingerprints'])}",
     ]
-
-    def table(title: str, rows: list[dict], name_key: str) -> None:
-        rows = [row for row in rows if _active(row)]
+    for title, key, name_key in _SECTIONS:
+        rows, rest = _ranked(data, key)
         if not rows:
-            return
-        lines.extend(["", title])
+            continue
+        width = min(max(len(str(r[name_key])) for r in rows), 48)
+        lines.extend(["", f"{title:<{width + 2}}" + "".join(
+            f"{label:>{len(label) + 2}}" for label, _ in _COLUMNS)])
         for row in rows:
-            lines.append(
-                f"  {str(row[name_key]):<44} Scans {row['scans']:>4} · Befunde "
-                f"{row['findings'] or 0:>5} · neu {row['new'] or 0} · behoben "
-                f"{row['fixed'] or 0} · wieder {row['reappeared'] or 0}")
-
-    table("Je Projekt (lokale ID)", data["by_project"], "project")
-    table("Je Paket", data["by_platform"], "name")
-    table("Je Fehlerklasse", data["by_error_class"], "name")
-    table(f"Je Regel (Top {len(data['by_rule'])} von {data['rules_total']})",
-          data["by_rule"], "name")
+            name = str(row[name_key])
+            name = name if len(name) <= width else name[:width - 1] + "…"
+            lines.append(f"  {name:<{width}}" + "".join(
+                f"{_num(row[col]):>{len(label) + 2}}" for label, col in _COLUMNS))
+        if rest:
+            lines.append(f"  … {rest} weitere (--top {data.get('top', 10) + rest} "
+                         "oder --format json)")
     if not t["scans"]:
         lines.extend(["", "Keine Scans im Zeitraum."])
     return "\n".join(lines) + "\n"
@@ -513,38 +556,31 @@ def render_text(data: dict) -> str:
 
 def render_markdown(data: dict) -> str:
     t, local, ci = data["totals"], data["local"], data["ci"]
-    span = "gesamt" if data["period_days"] is None else f"letzte {data['period_days']} Tage"
     out = [
-        f"# Ruttla-Statistik — {span}", "",
+        f"# Ruttla-Statistik — {_span(data)}", "",
         f"Stand {data['generated']} · erfasst seit {data['enabled_at'] or '—'} · "
         f"Format `{data['format']}`", "",
         "| Kennzahl | gesamt | lokal | CI |", "|---|---:|---:|---:|",
     ]
-    for label, key in (("Scans", "scans"), ("Dateien", "files_scanned"),
-                       ("Checks ausgeführt", "checks_run"), ("Befunde", "findings"),
-                       ("blockierend", "blocking"), ("neu", "new"),
+    for label, key in (("Scans", "scans"), ("Projekte", "projects"),
+                       ("Dateien", "files_scanned"), ("Checks ausgeführt", "checks_run"),
+                       ("Befunde", "findings"), ("blockierend", "blocking"), ("neu", "new"),
                        ("weiter vorhanden", "persisting"),
                        ("wieder aufgetreten", "reappeared"), ("behoben", "fixed"),
                        ("unbestimmt", "indeterminate")):
         out.append(f"| {label} | {t[key]} | {local[key]} | {ci[key]} |")
-
-    def table(title: str, rows: list[dict], name_key: str) -> None:
-        rows = [row for row in rows if _active(row)]
+    for title, key, name_key in _SECTIONS:
+        rows, rest = _ranked(data, key)
         if not rows:
-            return
+            continue
         out.extend(["", f"## {title}", "",
-                    "| | Scans | Befunde | blockierend | neu | behoben | wieder |",
-                    "|---|---:|---:|---:|---:|---:|---:|"])
+                    "| | " + " | ".join(label for label, _ in _COLUMNS) + " |",
+                    "|---|" + "---:|" * len(_COLUMNS)])
         for row in rows:
-            out.append(f"| `{row[name_key]}` | {row['scans']} | {row['findings'] or 0} | "
-                       f"{row['blocking'] or 0} | {row['new'] or 0} | {row['fixed'] or 0} | "
-                       f"{row['reappeared'] or 0} |")
-
-    table("Je Projekt (lokale ID)", data["by_project"], "project")
-    table("Je Paket", data["by_platform"], "name")
-    table("Je Fehlerklasse", data["by_error_class"], "name")
-    table(f"Je Regel (Top {len(data['by_rule'])} von {data['rules_total']})",
-          data["by_rule"], "name")
+            out.append(f"| `{row[name_key]}` | " + " | ".join(
+                str(row[col] or 0) for _, col in _COLUMNS) + " |")
+        if rest:
+            out.append(f"\n… {rest} weitere im JSON-Export.")
     out.extend(["", "## Hinweise", ""] + [f"- {note}" for note in data["notes"]])
     return "\n".join(out) + "\n"
 
@@ -565,7 +601,7 @@ def _parser(prog: str) -> argparse.ArgumentParser:
                            else "JSON + Markdown in ein Verzeichnis schreiben")
         p.add_argument("--period", choices=PERIODS, default="30",
                        help="Tage oder all (Vorgabe 30)")
-        p.add_argument("--top", type=int, default=10, help="Regeln in der Rangliste")
+        p.add_argument("--top", type=int, default=10, help="Zeilen je Abschnitt (Vorgabe 10)")
         if name == "show":
             p.add_argument("--format", choices=("text", "json", "markdown"), default="text")
         else:

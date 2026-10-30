@@ -200,7 +200,8 @@ and measured, file still in scope); otherwise it is *indeterminate*. Report,
 reporters and exit code are identical with and without statistics; a
 statistics error never fails a scan. `ruttla stats [--period 7|30|90|all]`
 shows the dashboard, `stats export` writes JSON and Markdown, `stats disable`
-stops recording and keeps the data, `stats delete --yes` removes it.
+stops recording and keeps the data, `stats delete --yes` removes it. Scans
+below the system temp directory (test runs, throwaway clones) are not recorded.
 
 ## Contributing
 

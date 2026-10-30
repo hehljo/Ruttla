@@ -44,6 +44,10 @@ class StatsCase(unittest.TestCase):
         self.env = mock.patch.dict(os.environ, {stats.ENV_DIR: str(self.stats_dir)})
         self.env.start()
         os.environ.pop("CI", None)
+        # Die Fixtures liegen selbst im Temp-Verzeichnis, das die Erfassung auslässt.
+        self.throwaway = mock.patch.object(stats, "_throwaway_roots", return_value=[])
+        self.throwaway.start()
+        self.addCleanup(self.throwaway.stop)
 
     def tearDown(self) -> None:
         self.env.stop()
@@ -88,6 +92,19 @@ class ContractTests(StatsCase):
             on = run_cli(str(self.repo), "--format", fmt, "--check", CHECK, "--no-color")
             run_cli("stats", "disable")
             self.assertEqual(on, off, fmt)
+
+    def test_scans_in_temp_dir_are_not_recorded(self) -> None:
+        run_cli("stats", "enable")
+        self.throwaway.stop()
+        try:
+            self.scan()
+        finally:
+            self.throwaway.start()
+        conn = sqlite3.connect(stats.db_path())
+        self.assertEqual(conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0], 0)
+        conn.close()
+        self.scan()
+        self.assertEqual(self.lifecycle()["new"], 1)
 
     def test_disabled_db_is_not_touched_by_scan(self) -> None:
         run_cli("stats", "enable")
@@ -214,7 +231,7 @@ class LifecycleTests(StatsCase):
         data = json.loads((out_dir / "ruttla-stats.json").read_text(encoding="utf-8"))
         self.assertEqual((data["format"], data["totals"]["scans"]), (stats.STATS_FORMAT, 1))
         self.assertIn(CHECK, (out_dir / "ruttla-stats.md").read_text(encoding="utf-8"))
-        self.assertIn("Scans 1", run_cli("stats")[1])
+        self.assertRegex(run_cli("stats")[1], r"Scans +1 ")
         with mock.patch.object(sys.stdin, "isatty", return_value=False):
             self.assertEqual(run_cli("stats", "delete")[0], 3)
         self.assertTrue(stats.db_path().exists())
