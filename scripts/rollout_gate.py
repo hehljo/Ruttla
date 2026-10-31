@@ -97,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
                   "leer" if not branch else None)
         if reason is None and has_target(name, branch):
             reason = "hat den Workflow schon"
+        elif reason is None and has_target(name, BRANCH):
+            reason = f"Branch {BRANCH} trägt ihn schon (offener PR?)"
         if reason:
             print(f"skip   {name:<45} {reason}")
             continue
