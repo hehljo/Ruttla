@@ -23,7 +23,8 @@ from ruttla import cli  # noqa: E402
 
 DOC = REPO / "docs" / "AGENT_SETUP.md"
 # Unterbefehl → hat selbst Unterbefehle (hub search, stats enable, rule test).
-GROUPS = {"update": False, "hub": True, "stats": True, "rule": True, "badge": True}
+GROUPS = {"update": False, "hub": True, "stats": True, "rule": True, "badge": True,
+          "baseline": True, "guard": False, "triage": False}
 # `ruttla` als Befehl: nicht Teil eines Pfads/Namens (.ruttla/, ruttla-rule/0, /Ruttla/).
 COMMAND = re.compile(r"(?<![\w/.-])ruttla(?=[ \t])([^\n`;|)&]*)")
 

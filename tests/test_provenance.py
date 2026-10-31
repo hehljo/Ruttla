@@ -44,6 +44,10 @@ OWNER_ALLOWED = {
     "docs/integrations/github-actions.md",
     "docs/integrations/stats-badge.md",
     "docs/AGENT_SETUP.md",
+    # Gemeinsamer Workflow, Aufruf-Vorlage und Ausroll-Skript: Installations-/Aufruf-URL.
+    ".github/workflows/ruttla-gate.yml",
+    "docs/integrations/templates/ruttla-caller.yml",
+    "scripts/rollout_gate.py",
     "src/ruttla/update.py",
     "install.sh",
     "install.ps1",

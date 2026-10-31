@@ -1,0 +1,87 @@
+# Wiederverwendbares Ruttla-Gate für alle Projekte (workflow_call).
+# Aufruf aus einem Projekt: docs/integrations/templates/ruttla-caller.yml
+#
+# - Pull Request: Profil und Ausnahmen kommen aus dem Basis-Branch (--trusted-ref),
+#   lokale Änderungen daran im PR wirken nicht.
+# - Branch agent/*: zusätzlich `ruttla guard` (Policy, Unterdrückungen, entfernte Tests).
+# - SARIF-Upload nur in öffentlichen Repos (Code Scanning privat braucht eine Lizenz).
+# - Exit 2 (nicht gemessen) ist rot.
+name: ruttla-gate
+
+on:
+  workflow_call:
+    inputs:
+      ruttla-ref:
+        description: "Ruttla-Version (Tag oder Commit; main nur bis zum ersten Release)"
+        type: string
+        default: main
+      agent-branch-prefix:
+        description: "Branches mit diesem Präfix laufen zusätzlich durch ruttla guard"
+        type: string
+        default: agent/
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install Ruttla
+        run: python -m pip install "ruttla @ git+https://github.com/hehljo/Ruttla@${{ inputs.ruttla-ref }}"
+      - name: Scan
+        id: scan
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          trusted=()
+          if [ -n "$BASE_REF" ]; then trusted=(--trusted-ref "origin/$BASE_REF"); fi
+          set +e
+          ruttla . "${trusted[@]}" --format agent --sarif ruttla.sarif > ruttla.txt
+          status=$?
+          set -e
+          cat ruttla.txt
+          { echo '### Ruttla'; echo '```'; tail -n 40 ruttla.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Guard agent branch
+        id: guard
+        if: github.base_ref != '' && startsWith(github.head_ref, inputs.agent-branch-prefix)
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set +e
+          ruttla guard . --base "origin/$BASE_REF"
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Upload findings to code scanning
+        if: always() && github.event.repository.visibility == 'public' && hashFiles('ruttla.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ruttla.sarif
+          category: ruttla
+      - name: Enforce
+        shell: bash
+        run: |
+          case "${{ steps.scan.outputs.status }}" in
+            0) echo "gate green";;
+            1) echo "blocking findings"; exit 1;;
+            2) echo "NOTHING was measured — not a success"; exit 1;;
+            *) echo "runner error"; exit 1;;
+          esac
+          case "${{ steps.guard.outputs.status }}" in
+            ""|0) ;;
+            1) echo "agent fix bypassed the gate (policy, suppression or removed test)"; exit 1;;
+            *) echo "guard error"; exit 1;;
+          esac

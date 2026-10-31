@@ -61,6 +61,29 @@ jobs:
           esac
 ```
 
+## Shared gate for many repositories
+
+`.github/workflows/ruttla-gate.yml` in this repository is a reusable workflow
+(`workflow_call`). Each project only needs the ten-line caller in
+[`templates/ruttla-caller.yml`](templates/ruttla-caller.yml); changes to the
+gate then happen in one place. The shared workflow
+
+- scans pull requests with `--trusted-ref origin/<base>`, so profile and
+  accepted findings come from the base branch, not from the pull request;
+- runs `ruttla guard` on branches starting with `agent/` (input
+  `agent-branch-prefix`);
+- uploads SARIF only in public repositories (private ones would need a
+  Code Security licence) and writes the agent output to the job summary;
+- treats exit 2 as failure.
+
+`scripts/rollout_gate.py` adds the caller to your repositories as draft pull
+requests on a branch `ruttla-gate`. Without `--apply` it only prints the plan;
+private repositories need `--include-private` (Actions minutes are billed
+there), archived repositories, forks and repositories that already have the
+workflow are skipped. It never merges and never pushes to a default branch.
+
+Pin `ruttla-ref` (and the `@main` of the caller) to a tag once one exists.
+
 ## Notes
 
 - **Exit 2 is red.** A run that measured nothing is not a pass. Treat it like

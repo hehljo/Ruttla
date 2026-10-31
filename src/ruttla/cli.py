@@ -125,6 +125,9 @@ def build_parser(prog: str = "ruttla") -> RunnerArgumentParser:
     ap.add_argument("--check", action="append", default=[],
                     help="nur diese Check-ID (mehrfach, '*' als Präfix)")
     ap.add_argument("--config", help="Pfad zu einem Profil (.ruttla.toml)")
+    ap.add_argument("--trusted-ref", metavar="REF",
+                    help="Profil und Ausnahmen (.ruttla/baseline.toml) aus REF lesen statt aus "
+                         "dem Arbeitsbaum, z. B. origin/main — lokale Änderungen daran wirken nicht")
     ap.add_argument("--strict", action="store_true",
                     help="jeder FAIL blockiert, auch ohne Profil")
     ap.add_argument("--allow-network", action="store_true",
@@ -171,6 +174,18 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         from .badge import run_badge_command
 
         return run_badge_command(raw_argv[1:], prog=prog)
+    if raw_argv and raw_argv[0] == "baseline":
+        from .baseline import run_baseline_command
+
+        return run_baseline_command(raw_argv[1:], prog=prog)
+    if raw_argv and raw_argv[0] == "triage":
+        from .triage import run_triage_command
+
+        return run_triage_command(raw_argv[1:], prog=prog)
+    if raw_argv and raw_argv[0] == "guard":
+        from .guard import run_guard_command
+
+        return run_guard_command(raw_argv[1:], prog=prog)
     if raw_argv and raw_argv[0] == "rule":
         from .rulekit import run_rule_command
 
@@ -272,7 +287,20 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         return EXIT_CRASH
 
     try:
-        config = Config.load(root, args.config)
+        if args.trusted_ref:
+            if args.config:
+                raise ConfigError("--config und --trusted-ref schließen sich aus.")
+            from .baseline import profile_at_ref, verify_ref
+
+            verify_ref(root, args.trusted_ref)
+            config = profile_at_ref(root, args.trusted_ref)
+        else:
+            config = Config.load(root, args.config)
+        from .baseline import load_text as _baseline_text, parse as _baseline_parse
+
+        baseline_text = _baseline_text(root, args.trusted_ref)
+        baseline_entries = (_baseline_parse(baseline_text)
+                            if baseline_text is not None else None)
     except ConfigError as exc:
         _emit_runner_state("invalid_config", str(exc), EXIT_CRASH, args)
         return EXIT_CRASH
@@ -323,8 +351,17 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
     # Ohne Profil sind nur die als sicher markierten Checks hart. Ein Gate, das
     # im fremden Projekt sofort rot wird über Dinge, die funktionieren, verliert
     # das Vertrauen, mit dem es durchgesetzt wird.
+    baseline_info = None
+    if baseline_entries is not None:
+        import datetime as _dt
+
+        from .baseline import apply as _baseline_apply
+
+        baseline_info = _baseline_apply(results, baseline_entries, _dt.date.today())
     exit_code = apply_exit_policy(results, config)
     report = build_report(ctx, results, exit_code, args.max_findings)
+    if baseline_info is not None:
+        report["baseline"] = baseline_info
 
     def sarif_doc() -> dict:
         rules = {cid: REGISTRY[cid].metadata() for cid in
@@ -339,6 +376,11 @@ def main(argv: list[str] | None = None, prog: str = "ruttla") -> int:
         print_agent(report)
     else:
         print_text(report, use_color, args.verbose)
+    if baseline_info is not None and args.format in ("agent", "text") and args.json != "-":
+        from .baseline import summary_line
+
+        prefix = "BASELINE\t" if args.format == "agent" else ""
+        print(prefix + summary_line(baseline_info))
 
     targets = []
     if args.json and args.json != "-":

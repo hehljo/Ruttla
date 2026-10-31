@@ -61,7 +61,22 @@ from now on. Follow these steps exactly.
    - `ruttla update`, `ruttla hub add NAME`, `ruttla hub sync`, or a scan with
      `--allow-network` (these use the network; ordinary scans are offline).
 
-5. Report briefly: exit code, number of blocking findings, what was not
+5. When your task is to FIX findings (not to add a rule): remove the cause,
+   never the check. Do not touch `.ruttla.toml`, `.ruttla/` (accepted
+   findings live in `.ruttla/baseline.toml`), `.github/`, `.gitignore`, do not
+   add suppression comments (`noqa`, `eslint-disable`, `@ts-ignore` …) and
+   do not delete tests. Before you report, run both and read each status:
+       ruttla guard . --base BASE        (0 = clean, 1 = bypass, 3 = error)
+       ruttla . --trusted-ref BASE --format agent
+   BASE is the commit you started from (e.g. origin/main). `--trusted-ref`
+   reads the profile and the accepted findings from BASE, so local edits to
+   them change nothing. A finding you consider a false positive goes into
+   your report with the reason — accepting it is the user's decision
+   (`ruttla baseline add`, reviewed in its own commit). A new rule under
+   `.ruttla/packages/` is also a policy change: separate commit, and the
+   guard flags it on purpose.
+
+6. Report briefly: exit code, number of blocking findings, what was not
    measured, and any rule you added.
 ````
 
@@ -77,6 +92,10 @@ from now on. Follow these steps exactly.
   call them green.
 - A reported bug that a pattern could have caught becomes a rule under
   `.ruttla/packages/NAME/`, checked with `ruttla rule test .ruttla/packages/NAME`.
+- Fixing findings: cause, not check — no edits to `.ruttla.toml`, `.ruttla/`,
+  `.github/`, `.gitignore`, no suppression comments, no deleted tests. Before
+  reporting: `ruttla guard . --base BASE` and `ruttla . --trusted-ref BASE
+  --format agent`, both exit 0. Accepting a finding is the user's call.
 - Never without explicit consent: `ruttla hub submit NAME --yes`,
   `ruttla stats enable`, `ruttla update`, network options.
 ````
@@ -89,4 +108,5 @@ from now on. Follow these steps exactly.
 | Exit 2 is not green | "0 of 0 files clean" is trivially true. Ruttla separates *measured and clean* from *nothing measured*. |
 | A bug becomes a rule | The fix repairs one place; the rule catches the same mistake in every later change and project, without spending tokens. |
 | `--engine required` once at setup | Without the engine the declarative rules report *unmeasured*; the self-test makes that a hard error instead. |
+| Guard and `--trusted-ref` for fixes | An agent optimises for exit 0. Switching a rule off, accepting its own finding, a suppression comment or a deleted test all reach exit 0 without fixing anything. |
 | Consent for `hub submit` and `stats enable` | One publishes to a public repository, the other starts recording on the user's machine. Both are the user's decision. |

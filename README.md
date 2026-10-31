@@ -149,6 +149,27 @@ sources = ["src/brand.ts"]
 
 The legacy name `.qualitygate.toml` is still read; both files at once is an error.
 
+### Accepted findings and agent fixes
+
+A finding that stays on purpose goes into `.ruttla/baseline.toml`: one entry
+per fingerprint with a count, a reason and an expiry date (at most a year).
+`ruttla baseline create --reason … --expires YYYY-MM-DD` records today's
+findings once when adopting Ruttla; after that each entry is added on its own
+with `ruttla baseline add --check ID --file PATH …`. Expired entries stop
+suppressing, entries without a finding are reported. `ruttla baseline show`
+lists them.
+
+`--trusted-ref REF` reads the profile and the accepted findings from REF
+(e.g. `origin/main`) instead of the working tree, so a branch cannot switch a
+rule off or accept its own finding. `ruttla guard --base REF` exits 1 when a
+change touches the gate policy (profile, `.ruttla/`, workflows, CODEOWNERS,
+`.gitignore`), adds suppression comments or removes tests — the acceptance
+check for automated fixes. `ruttla triage REPORT.json … --out DIR` turns JSON
+reports into fix tasks per repository and fix class (mechanical, catalog,
+judgement, security; table in `src/ruttla/fix_classes.toml`, unlisted rules
+default to judgement). A shared CI workflow for many repositories is in
+[`docs/integrations/github-actions.md`](docs/integrations/github-actions.md).
+
 ## What makes it different
 
 - **Four honest states:** pass, fail, unmeasured (with a reason), error. "Zero

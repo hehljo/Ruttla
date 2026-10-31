@@ -1,0 +1,41 @@
+# Wer darf einen Befund beheben? Gelesen von `ruttla triage`.
+#
+#   mechanical — eindeutiger Ersatz, ohne Bauzusammenhang: Flash oder Haiku
+#   catalog    — Texte in Katalog/Marke umziehen, braucht die Build-/Modulkette: Haiku
+#                (Kette vorher klären und in den Auftrag schreiben) oder SOL
+#   judgement  — Fehlalarm, Ausnahme oder Architektur möglich: SOL
+#   security   — Zugangsdaten, Rechte, Daten, Deploy: SOL oder Claude, immer Review
+#
+# Vorgabe ist judgement: was hier nicht steht, bekommt nie ungefragt Flash.
+# Jede Check-ID unten muss im Katalog existieren (Test: tests/test_triage.py).
+schema = "ruttla-fix-classes/1"
+default = "judgement"
+
+[prefix]
+secrets = "security"
+sql = "security"
+supabase = "security"
+repo = "security"
+
+[check]
+"docs.trailing_whitespace" = "mechanical"
+"docs.blank_lines_at_eof" = "mechanical"
+"docs.unquoted_shell_placeholder" = "mechanical"
+"ci.action_node20_runtime" = "mechanical"
+"web.grid_fr_without_minmax" = "mechanical"
+"apple.print_in_production" = "mechanical"
+"apple.string_localized_in_swiftui" = "mechanical"
+"brand.hardcoded_in_display" = "catalog"
+"i18n.literal_in_markup" = "catalog"
+"i18n.string_concatenation" = "catalog"
+"i18n.catalog_key_parity" = "catalog"
+"apple.credential_in_url_query" = "security"
+"apple.privacy_usage_description_missing" = "security"
+"apple.release.app_sandbox_missing" = "security"
+"python.compare_digest_unicode_password" = "security"
+"python.telegram_token_log_leak" = "security"
+"unreal.replicated_write_without_authority" = "security"
+"web.capacitor_oauth_without_native_return" = "security"
+"web.netlify_cli_deploy_without_site" = "security"
+"web.secret_reaches_browser" = "security"
+"web.vite_define_secret" = "security"

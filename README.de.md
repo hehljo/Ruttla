@@ -226,6 +226,28 @@ echo "$out" | grep -E '^(ERROR|WARNING|INFO)' | awk -F'\t' '{print $1"\t"$2}' \
   | sort | uniq -c | sort -rn      # welcher Check macht die Masse?
 ```
 
+## Akzeptierte Befunde und Agenten-Fixes
+
+Ein Befund, der bewusst bleibt, steht in `.ruttla/baseline.toml`: je
+Fingerabdruck ein Eintrag mit Anzahl, Grund und Ablaufdatum (höchstens ein
+Jahr). `ruttla baseline create --reason … --expires JJJJ-MM-TT` nimmt beim
+Einführen einmal die heutigen Befunde auf, danach kommt jeder Eintrag einzeln
+dazu (`ruttla baseline add --check ID --file PFAD …`). Abgelaufene Einträge
+unterdrücken nichts mehr, Einträge ohne Befund werden gemeldet;
+`ruttla baseline show` listet sie.
+
+`--trusted-ref REF` liest Profil und Ausnahmen aus REF (z. B. `origin/main`)
+statt aus dem Arbeitsbaum — ein Branch kann damit weder eine Regel abschalten
+noch seinen eigenen Befund akzeptieren. `ruttla guard --base REF` endet mit 1,
+wenn eine Änderung die Prüf-Policy anfasst (Profil, `.ruttla/`, Workflows,
+CODEOWNERS, `.gitignore`), Unterdrückungs-Kommentare hinzufügt oder Tests
+entfernt — die Abnahme für automatische Fixes. `ruttla triage REPORT.json …
+--out ORDNER` macht aus JSON-Reports Fix-Aufträge je Repo und Fix-Klasse
+(mechanical, catalog, judgement, security; Tabelle
+`src/ruttla/fix_classes.toml`, nicht gelistete Regeln sind judgement). Ein
+gemeinsamer CI-Workflow für viele Repos steht in
+`docs/integrations/github-actions.md`.
+
 ## Die drei Ausgänge
 
 Jeder Check meldet `pass`, `fail` **oder** `unmeasured` mit Begründung. Ein
