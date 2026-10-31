@@ -192,6 +192,38 @@ class GuardTests(RepoCase):
         os.remove(Path(self.root, "tests/test_a.py"))
         self.assertEqual(self.guard()[0], 1)
 
+    def test_test_moved_to_non_test_path_is_bypass(self) -> None:
+        # Reine Verschiebung (gleicher Inhalt): Git sähe sonst nur den neuen Pfad.
+        self.git("mv", "tests/test_a.py", "src/helpers.py")
+        code, out = self.guard()
+        self.assertEqual(code, 1)
+        self.assertIn("TESTS\ttests/test_a.py\t2 → 0", out)
+
+    def test_nul_byte_does_not_hide_suppression(self) -> None:
+        self.write("src/a.ts", "\0// eslint-disable-next-line\nconst cfg = {};\n")
+        self.assertEqual(self.guard()[0], 1)
+
+    def test_skipped_test_is_bypass(self) -> None:
+        self.write("tests/test_a.py", "import pytest\n\n@pytest.mark.skip\ndef test_one():\n"
+                                      "    pass\n\ndef test_two():\n    pass\n")
+        code, out = self.guard()
+        self.assertEqual(code, 1)
+        self.assertIn("SUPPRESSION\ttests/test_a.py", out)
+
+    def test_policy_case_and_depth(self) -> None:
+        for rel in (".RUTTLA.toml", "sub/.ruttla.toml", "sub/.ruttla/baseline.toml",
+                    ".GitHub/workflows/x.yml", "docs/CODEOWNERS"):
+            with self.subTest(rel=rel):
+                self.git("clean", "-qfd")
+                self.write(rel, "x = 1\n")
+                self.assertEqual(self.guard()[0], 1)
+
+    def test_subdir_root_still_sees_root_policy(self) -> None:
+        self.write(".ruttla.toml", "x = 1\n")
+        code, out, _ = run("guard", str(Path(self.root, "src")), "--base", "main")
+        self.assertEqual(code, 1)
+        self.assertIn("POLICY\t.ruttla.toml", out)
+
     def test_bad_base_is_exit_3(self) -> None:
         self.assertEqual(run("guard", self.root, "--base", "nope")[0], 3)
 

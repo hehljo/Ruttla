@@ -37,7 +37,13 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install Ruttla
-        run: python -m pip install "ruttla @ git+https://github.com/hehljo/Ruttla@${{ inputs.ruttla-ref }}"
+        shell: bash
+        env:
+          # Eingaben nie direkt in ein Skript einsetzen (Shell-Injection); geprüft als Ref.
+          RUTTLA_REF: ${{ inputs.ruttla-ref }}
+        run: |
+          [[ "$RUTTLA_REF" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "ungültige ruttla-ref"; exit 1; }
+          python -m pip install "ruttla @ git+https://github.com/hehljo/Ruttla@${RUTTLA_REF}"
       - name: Scan
         id: scan
         shell: bash
@@ -65,6 +71,23 @@ jobs:
           status=$?
           set -e
           echo "status=$status" >> "$GITHUB_OUTPUT"
+      # Ein Pull Request bestimmt seinen eigenen Workflow: er kann den Aufruf dieses
+      # Gates umschreiben oder entfernen. Das lässt sich ohne Organisation (Required
+      # Workflows) nicht verhindern — wohl aber sichtbar machen: jede Änderung unter
+      # .github/workflows/ macht diesen Lauf rot und braucht einen bewussten Merge.
+      - name: Workflow changed in this pull request
+        id: workflows
+        if: github.base_ref != ''
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if git diff --quiet "origin/$BASE_REF" HEAD -- .github/workflows/; then
+            echo "changed=0" >> "$GITHUB_OUTPUT"
+          else
+            git diff --stat "origin/$BASE_REF" HEAD -- .github/workflows/
+            echo "changed=1" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload findings to code scanning
         if: always() && github.event.repository.visibility == 'public' && hashFiles('ruttla.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
@@ -80,6 +103,9 @@ jobs:
             2) echo "NOTHING was measured — not a success"; exit 1;;
             *) echo "runner error"; exit 1;;
           esac
+          if [ "${{ steps.workflows.outputs.changed }}" = "1" ]; then
+            echo "workflow files changed — review by a human, then merge deliberately"; exit 1
+          fi
           case "${{ steps.guard.outputs.status }}" in
             ""|0) ;;
             1) echo "agent fix bypassed the gate (policy, suppression or removed test)"; exit 1;;

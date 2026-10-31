@@ -30,7 +30,11 @@ SUPPRESSION = re.compile(
     r"#\s*noqa\b|#\s*type:\s*ignore\b|#\s*pragma:\s*no\s*cover\b|#\s*pylint:\s*disable"
     r"|eslint-disable|@ts-ignore|@ts-expect-error|@ts-nocheck|biome-ignore|prettier-ignore"
     r"|swiftlint:disable|//\s*nolint\b|#\[allow\(|@SuppressWarnings|#pragma\s+warning\s+disable"
-    r"|@warning_ignore|gdlint:\s*ignore|rubocop:disable|ruttla[-:]ignore|NOSONAR")
+    r"|@warning_ignore|gdlint:\s*ignore|rubocop:disable|ruttla[-:]ignore|NOSONAR"
+    # Übersprungene Tests zählen mit: ein Skip macht einen roten Test still grün.
+    r"|@pytest\.mark\.(?:skip|xfail)|@unittest\.(?:skip|expectedFailure)|pytest\.skip\("
+    r"|\.skipTest\(|\b(?:it|test|describe)\.(?:skip|todo)\(|\bx(?:it|describe|test)\("
+    r"|@Disabled\b|@Ignore\b|\[Ignore\]|#\[ignore\]|XCTSkip|\bt\.Skip\(")
 
 # Testdefinitionen, sprachübergreifend; nur in Dateien, die nach Test aussehen.
 TEST_DEF = re.compile(
@@ -57,13 +61,23 @@ def _git(root: str, *args: str) -> bytes:
     return done.stdout
 
 
-def changed(root: str, base: str) -> list[str]:
-    """Geänderte, gelöschte und ungetrackte Pfade relativ zu ``root``."""
+def toplevel(root: str) -> str:
+    return os.fsdecode(_git(root, "rev-parse", "--show-toplevel")).strip()
+
+
+def changed(top: str, base: str) -> list[str]:
+    """Geänderte, gelöschte und ungetrackte Pfade des ganzen Repos (relativ zu ``top``).
+
+    Immer das ganze Repo, auch wenn ein Unterordner geprüft wird: eine Policy-Datei
+    an der Wurzel wirkt auf jeden Unterordner. ``--no-renames`` liefert bei einer
+    Verschiebung alten UND neuen Pfad — sonst verschwände eine Testdatei, die an
+    einen Nicht-Test-Pfad verschoben wird, aus der Zählung.
+    """
     if not base or base.startswith("-") or "\0" in base:
         raise GuardError("Ungültige Git-Referenz für --base.")
-    _git(root, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}")
-    names = _git(root, "diff", "--name-only", "--relative", "-z", base, "--", ".")
-    extra = _git(root, "ls-files", "--others", "--exclude-standard", "-z", "--", ".")
+    _git(top, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}")
+    names = _git(top, "diff", "--name-only", "--no-renames", "-z", base, "--")
+    extra = _git(top, "ls-files", "--others", "--exclude-standard", "-z")
     return sorted({os.fsdecode(n) for n in (names + extra).split(b"\0") if n})
 
 
@@ -83,9 +97,16 @@ def _new(root: str, rel: str) -> str:
 
 
 def is_policy(rel: str) -> bool:
-    if rel == ".gitignore" or rel.endswith("/.gitignore"):  # jede Ebene blendet Dateien aus
+    """Groß-/Kleinschreibung egal (macOS/Windows lesen `.RUTTLA.toml` als Profil);
+    Profil, `.ruttla/` und `.gitignore` auf jeder Ebene, `.github/` an der Wurzel."""
+    low = rel.lower()
+    parts = low.split("/")
+    if parts[-1] in (".gitignore", ".ruttla.toml", ".qualitygate.toml", "codeowners"):
         return True
-    return any(rel.startswith(p) if p.endswith("/") else rel == p for p in POLICY_PATHS)
+    if ".ruttla" in parts[:-1]:
+        return True
+    return any(low.startswith(p.lower()) if p.endswith("/") else low == p.lower()
+               for p in POLICY_PATHS)
 
 
 def is_test_file(rel: str) -> bool:
@@ -93,15 +114,16 @@ def is_test_file(rel: str) -> bool:
 
 
 def inspect(root: str, base: str) -> dict:
-    files = changed(root, base)
+    top = toplevel(root)
+    files = changed(top, base)
     policy = [f for f in files if is_policy(f)]
     suppressions, tests = [], []
     for rel in files:
         if is_policy(rel):
             continue
-        old, new = _old(root, base, rel), _new(root, rel)
-        if "\0" in old[:4096] or "\0" in new[:4096]:
-            continue  # binär
+        # Kein Überspringen „binärer“ Dateien: ein eingefügtes NUL-Byte würde sonst
+        # jede Zählung abschalten. Die Muster laufen auch über ersetzte Bytes.
+        old, new = _old(top, base, rel), _new(top, rel)
         before, after = len(SUPPRESSION.findall(old)), len(SUPPRESSION.findall(new))
         if after > before:
             suppressions.append({"file": rel, "before": before, "after": after})
@@ -124,8 +146,8 @@ def render(result: dict) -> str:
         lines.append(f"POLICY\t{rel}\tPrüf-Policy geändert — gehört in einen eigenen, "
                      "von einem Menschen geprüften Commit")
     for s in result["suppressions_added"]:
-        lines.append(f"SUPPRESSION\t{s['file']}\t{s['before']} → {s['after']} Unterdrückungen "
-                     "— Ursache beheben statt Prüfung abschalten")
+        lines.append(f"SUPPRESSION\t{s['file']}\t{s['before']} → {s['after']} Unterdrückungen/"
+                     "Skips — Ursache beheben statt Prüfung oder Test abschalten")
     for t in result["tests_removed"]:
         lines.append(f"TESTS\t{t['file']}\t{t['before']} → {t['after']} Testdefinitionen "
                      "— Test entfernt statt Fehler behoben")

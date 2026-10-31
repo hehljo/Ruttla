@@ -74,7 +74,16 @@ gate then happen in one place. The shared workflow
   `agent-branch-prefix`);
 - uploads SARIF only in public repositories (private ones would need a
   Code Security licence) and writes the agent output to the job summary;
-- treats exit 2 as failure.
+- treats exit 2 as failure;
+- fails a pull request that changes `.github/workflows/`.
+
+**Limit, stated plainly:** a pull request runs the workflow files from its own
+branch. It can rewrite or drop the caller, and without an organisation
+(required workflows) GitHub cannot prevent that. The workflow-change check
+makes it visible; a required status check on the default branch (ruleset,
+free for public repositories) blocks a merge when the check is missing. The
+real boundary for automated fixes is local: `ruttla guard` and
+`--trusted-ref` before the commit, run by a script, not by the agent.
 
 `scripts/rollout_gate.py` adds the caller to your repositories as draft pull
 requests on a branch `ruttla-gate`. Without `--apply` it only prints the plan;
