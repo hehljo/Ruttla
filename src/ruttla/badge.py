@@ -27,6 +27,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -218,14 +219,40 @@ def sparkline(values: list[int]) -> str:
     return "".join(SPARK[round((v - low) * (len(SPARK) - 1) / span)] for v in values)
 
 
+_MD_SPECIAL = re.compile(r"([\\`*_\[\]()|!#~{}])")
+
+
+def _md(value) -> str:
+    """Fremder Text als reiner Text: kein Link, Bild, HTML oder Zellbruch.
+
+    `combine` liest status.json aus fremden Repos — ein Projektname wie
+    `[x](https://…)` oder `<img src=…>` darf in der Sammelkarte nichts auslösen.
+    """
+    text = "".join(" " if ord(c) < 32 else c for c in str(value))
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return _MD_SPECIAL.sub(r"\\\1", text)
+
+
+def _code(value) -> str:
+    """Inhalt für `…`: Backticks und Umbrüche raus, Pipe bleibt in der Tabellenzelle."""
+    text = "".join(" " if ord(c) < 32 else c for c in str(value)).replace("`", "'")
+    return text.replace("|", "\\|")
+
+
+def _n(value) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise CardError(f"Zählwert erwartet, gefunden: {value!r}")
+    return value
+
+
 def _cell(value) -> str:
-    return "—" if value is None else str(value)
+    return "—" if value is None else _md(value)
 
 
 def render_summary(history: list[dict], project: str | None,
                    badge_base: str | None = None) -> str:
     t = totals(history)
-    title = f"Ruttla quality record — {project}" if project else "Ruttla quality record"
+    title = f"Ruttla quality record — {_md(project)}" if project else "Ruttla quality record"
     lines = [f"# {title}", ""]
     if badge_base:
         for name in BADGES:
@@ -250,17 +277,17 @@ def render_summary(history: list[dict], project: str | None,
         f"| Rules run | {last['rules_run']} (pass {last['checks']['pass']} · "
         f"fail {last['checks']['fail']} · not measured {last['checks']['unmeasured']}) |",
         f"| Files scanned | {last['files_scanned']} |",
-        f"| Platforms | {', '.join(last['platforms']) or '—'} |",
+        f"| Platforms | {', '.join(_md(p) for p in last['platforms']) or '—'} |",
         f"| Ruttla | {_cell(last['ruttla_version'])} |",
         f"| Commit | {_cell(last.get('commit'))} |",
-        f"| Recorded | {last['recorded_at']} |",
+        f"| Recorded | {_cell(last['recorded_at'])} |",
         "",
         "## History",
         "",
         "| | |",
         "|---|---|",
         f"| Recorded scans | {t['scans']} ({t['scans_ci']} on CI) |",
-        f"| Since | {t['first_recorded']} |",
+        f"| Since | {_cell(t['first_recorded'])} |",
         f"| Findings first → now | {t['findings_first']} → {t['findings_now']} |",
         f"| Blocking first → now | {t['blocking_first']} → {t['blocking_now']} |",
         f"| Findings fewer / more (comparable scans) | {t['findings_down']} / {t['findings_up']} |",
@@ -277,7 +304,7 @@ def render_summary(history: list[dict], project: str | None,
     if t["rules_with_fewer_findings"]:
         lines += ["## Rules with fewer findings", "", "| Rule | Fewer |", "|---|---:|"]
         for rule, count in list(t["rules_with_fewer_findings"].items())[:TOP_RULES]:
-            lines.append(f"| `{rule}` | {count} |")
+            lines.append(f"| `{_code(rule)}` | {_n(count)} |")
         lines.append("")
     lines += [
         "## What these numbers do not say",
@@ -352,23 +379,25 @@ def combine(dirs: list[Path]) -> list[dict]:
 
 def render_combined(cards: list[dict]) -> str:
     measured = [c for c in cards if c.get("latest")]
-    scans = sum(c["totals"]["scans"] for c in cards)
+    scans = sum(_n(c["totals"]["scans"]) for c in cards)
     lines = [
         "# Ruttla across projects", "",
         f"{len(cards)} projects · {scans} recorded scans · "
-        f"{sum(c['latest']['blocking'] for c in measured)} blocking findings now", "",
+        f"{sum(_n(c['latest']['blocking']) for c in measured)} blocking findings now", "",
         "| Project | Blocking | Advisory | Rules | Scans | Since | Fewer / more |",
         "|---|---:|---:|---:|---:|---|---|",
     ]
-    for c in sorted(cards, key=lambda c: (c.get("project") or "")):
+    for c in sorted(cards, key=lambda c: str(c.get("project") or "")):
         t, last = c["totals"], c.get("latest")
+        name = _md(c["project"]) if c.get("project") else "—"
         if not last:
-            lines.append(f"| {c.get('project') or '—'} | — | — | — | 0 | — | — |")
+            lines.append(f"| {name} | — | — | — | 0 | — | — |")
             continue
         lines.append(
-            f"| {c.get('project') or '—'} | {last['blocking']} | {last['advisory']} | "
-            f"{last['rules_run']} | {t['scans']} | {(t['first_recorded'] or '')[:10]} | "
-            f"{t['findings_down']} / {t['findings_up']} |")
+            f"| {name} | {_n(last['blocking'])} | {_n(last['advisory'])} | "
+            f"{_n(last['rules_run'])} | {_n(t['scans'])} | "
+            f"{_md(str(t['first_recorded'] or '')[:10])} | "
+            f"{_n(t['findings_down'])} / {_n(t['findings_up'])} |")
     lines += ["", "Each project links its own `history.jsonl`; this table only adds them up.", ""]
     return "\n".join(lines)
 

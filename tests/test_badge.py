@@ -184,6 +184,34 @@ class CombineTests(BadgeCase):
         self.assertIn("| acme/one |", text)
         self.assertIn("| acme/two | 0 | 4 |", text)
 
+    def test_combine_neutralises_markdown_from_foreign_cards(self) -> None:
+        other = Path(self.tmp.name) / "evil"
+        badge.write_card(other, [entry()], "acme/x", None)
+        data = json.loads((other / badge.STATUS).read_text(encoding="utf-8"))
+        data["project"] = "[klick](https://evil.example) <img src=x> a|b\n# h"
+        (other / badge.STATUS).write_text(json.dumps(data), encoding="utf-8")
+        out = Path(self.tmp.name) / "PROJECTS.md"
+        code, _, err = run_cli("badge", "combine", str(other), "--out", str(out))
+        self.assertEqual(code, 0, err)
+        row = [line for line in out.read_text(encoding="utf-8").splitlines() if "klick" in line]
+        self.assertEqual(len(row), 1)
+        for raw in ("[klick](", "<img", "a|b", "\n# h"):
+            self.assertNotIn(raw, row[0])
+        self.assertEqual(row[0].count(" | "), 6)  # sieben Zellen, keine zusätzliche
+
+    def test_combine_rejects_non_numeric_counts(self) -> None:
+        badge.write_card(self.card, [entry()], "acme/x", None)
+        data = json.loads((self.card / badge.STATUS).read_text(encoding="utf-8"))
+        data["latest"]["rules_run"] = "0 | ![p](https://evil.example/p.png)"
+        (self.card / badge.STATUS).write_text(json.dumps(data), encoding="utf-8")
+        code, _, _ = run_cli("badge", "combine", str(self.card), "--out",
+                             str(Path(self.tmp.name) / "o.md"))
+        self.assertEqual(code, 3)
+
+    def test_summary_neutralises_project_and_rule_ids(self) -> None:
+        text = badge.render_summary([entry()], "[x](https://evil.example)")
+        self.assertNotIn("[x](", text)
+
     def test_combine_rejects_foreign_status(self) -> None:
         self.card.mkdir()
         (self.card / badge.STATUS).write_text('{"schema": "x"}', encoding="utf-8")
