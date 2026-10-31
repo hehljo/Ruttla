@@ -46,6 +46,7 @@ OWNER_ALLOWED = {
     "docs/AGENT_SETUP.md",
     # Gemeinsamer Workflow, Aufruf-Vorlage und Ausroll-Skript: Installations-/Aufruf-URL.
     ".github/workflows/ruttla-gate.yml",
+    ".github/workflows/ruttla.yml",  # Aufruf des eigenen Gates (scripts/rollout_gate.py)
     "docs/integrations/templates/ruttla-caller.yml",
     "scripts/rollout_gate.py",
     "src/ruttla/update.py",
