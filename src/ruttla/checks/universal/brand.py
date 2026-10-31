@@ -145,6 +145,28 @@ from ._common import _brand_candidates, MARKUP_EXTS, SOURCE_EXTS
             "package.json": '{"name":"acme-web"}',
             "probe.swift": 'Text("Acme-Test-\\(UUID().uuidString)")\n',
         }, expect=Status.FAIL),
+        # Belegt 31.10.2026 (Mac-App eines Nutzerprojekts): 12 von 15 Befunden waren Testnamen und die
+        # Ziel-/Kommentarzeilen eines pbxproj-Generators — Verträge, kein Anzeigetext.
+        SelfTestCase(name="gesund: Testnamen und pbxproj-Generator", files={
+            "package.json": '{"name":"acme-web"}',
+            "Tests/AcmeTests/CoreTests.swift": '@Suite("Acme Core Tests")\nstruct T {}\n',
+            "scripts/gen.py": 'lines.append(f"\\t\\t{TID} /* Acme */ = {{")\n'
+                              'lines.append("\\t\\t\\tname = Acme;")\n'
+                              'lines.append("\\t\\t\\tproductName = Acme;")\n'
+                              'lines.append(f"{L} /* Build configuration list for PBXNativeTarget \\"Acme\\" */")\n',
+        }, expect=Status.PASS),
+        SelfTestCase(name="defekt: Anzeigename im pbxproj-Generator", files={
+            "package.json": '{"name":"acme-web"}',
+            "scripts/gen.py": "settings = {'INFOPLIST_KEY_CFBundleDisplayName': 'Acme'}\n",
+        }, expect=Status.FAIL),
+        SelfTestCase(name="defekt: Anzeigetext hinter einem Kommentar im Literal", files={
+            "package.json": '{"name":"acme-web"}',
+            "probe.swift": 'Text("/* x */ Acme")\n',
+        }, expect=Status.FAIL),
+        SelfTestCase(name="defekt: Anzeigetext in App-Datei mit Test im Namen", files={
+            "package.json": '{"name":"acme-web"}',
+            "Sources/App/ContestView.swift": 'Text("Acme")\n',
+        }, expect=Status.FAIL),
     ],
 )
 def check_brand_hardcoded(ctx: Context) -> CheckResult:
@@ -187,6 +209,10 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
         r"|url\s*[:=]|href\s*=|src\s*=|\bpath\b|\bclassName\b|data-testid"
         # Geräte-/Client-Kennungen sind registrierte Identitäten beim Dienst.
         r"|identifier|client[-_]?id"
+        # Ziel-/Produktnamen im pbxproj-Format (von Generatoren geschrieben).
+        # (`\\t` davor: im Generator-Literal steht das Escape, kein Tabulator.)
+        r"|(?:(?<![A-Za-z0-9_])|(?<=\\t))(?:name|productName|PRODUCT_NAME|TARGET_NAME)"
+        r"\s*=\s*\w+;"
         r")",
         re.IGNORECASE,
     )
@@ -208,8 +234,11 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
         r"|\b(?:text|textContent|innerText|label|title|placeholder|aria-label|alt)\s*[:=]\s*$", re.I)
     findings: list[Finding] = []
     units = 0
+    from ...guard import is_test_file  # gleiche Test-Erkennung wie der Umgehungswächter
+
     for sf in ctx.files(*SOURCE_EXTS, *MARKUP_EXTS):
-        if is_brand_source(sf.rel):
+        # Testcode wird nie ausgeliefert: Suite- und Testnamen sieht kein Nutzer.
+        if is_brand_source(sf.rel) or is_test_file(sf.rel):
             continue
         units += 1
         body = strip_comments(sf.text, sf.ext)
@@ -246,6 +275,12 @@ def check_brand_hardcoded(ctx: Context) -> CheckResult:
                         and not display_sink.search(body[max(0, identifier.start() - 200):identifier.start()])):
                     continue
                 if dev_output.search(body[line_start:m.start()]):
+                    continue
+                # Kommentar innerhalb eines Literals (echte Kommentare entfernt
+                # strip_comments vorher): ein Generator schreibt `/* Name */` in
+                # pbxproj/C-Dateien. Ein `*/` vor dem Treffer schließt ihn wieder.
+                segment = body[line_start:m.start()]
+                if segment.rfind("/*") > segment.rfind("*/"):
                     continue
                 if is_package_manifest and package_identifier.search(body[line_start:m.start()]):
                     continue
