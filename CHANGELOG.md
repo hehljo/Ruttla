@@ -1,5 +1,17 @@
 # Changelog
 
+## Derived runtime proof inputs (2026-11-01)
+
+- Version-1 proof contracts accept `source_globs`, `exclude_globs` and scoped
+  `include_ignored_globs` alongside unchanged exact `sources` lists. Each
+  snapshot derives a deterministic input set using local Git plumbing.
+- New files and removals invalidate receipts. Missing mandatory inputs, empty
+  selection and unavailable inventories report invalid input (ERROR/exit 3),
+  with an action message rather than a scan traceback. Stale receipts remain
+  FAIL/exit 1; malformed-schema handling is preserved.
+- Existing rule/receipt IDs and formats remain stable; no target-code execution,
+  network access, telemetry or new hard default rule.
+
 ## Godot scroll gesture coverage advisory (2026-11-01)
 
 - Added `godot.scroll_without_drag_probe`: scroll lists with buttons/cards

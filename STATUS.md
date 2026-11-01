@@ -1,5 +1,20 @@
 # STATUS
 
+## Derived runtime proof sources (2026-11-01)
+
+- Version-1 proof inputs now support `source_globs`, `exclude_globs` and explicit
+  `include_ignored_globs`; exact `sources` and existing receipt formats remain
+  supported. Membership is derived afresh from local Git, sorted and deduplicated.
+- Missing exact inputs, unavailable inventories and empty selections have an
+  actionable invalid-input outcome (ERROR/exit 3); stale receipts stay FAIL/1.
+  No target execution, network calls or speculative sibling-scope warnings.
+- Tests cover healthy old/new formats, additions, tracked deletion, ignored
+  artifacts, exclusions, nested roots, path safety and input-error CLI output.
+- Validation: full suite 491 tests,488 passed,three existing optional skips;
+  self-tests961/961; generated catalogue current; strict scan18 PASS,
+  34 UNMEASURED,zero findings. Source-only migration comparison preserves every
+  existing input across seven proofs; all seven snapshots load without errors.
+
 ## Godot scroll gesture coverage (2026-11-01)
 
 - Added advisory `godot.scroll_without_drag_probe`, scoped to the nearest

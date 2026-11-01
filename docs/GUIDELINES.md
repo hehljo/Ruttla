@@ -519,6 +519,18 @@ in the exported PCK. Healthy runs precede individually broken callback,
 statistics and export probes. Bot win rates do not measure human enjoyment or
 native device performance.
 
+Source-bound proof membership must be derived for growing source directories,
+not duplicated as a hand-maintained file inventory. Use version-1 contract
+`source_globs` plus deliberate exclusions; retain exact `sources` only for
+mandatory individual inputs. Generated ignored results need explicit
+`include_ignored_globs`. Re-resolve membership before and after testing: a new
+file must invalidate a receipt, a deleted derived file changes its set, and a
+missing exact path is invalid input with an actionable error, never success.
+Healthy legacy/derived receipts and isolated addition/deletion controls live
+in `tests/test_project_contracts.py`; the existing
+`quality.contract_runtime_evidence` check enforces freshness without launching
+target code. See [the input contract](CONTRACTS.md#project-runtime-proof-inputs-ruttla-contractsjson-version-1).
+
 <a id="raspberry-pi-field-device-guidelines"></a>
 ### Raspberry Pi / field device guidelines
 

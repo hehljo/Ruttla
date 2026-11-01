@@ -12,7 +12,7 @@ import math
 from pathlib import Path
 
 from ruttla.contracts import (
-    CONTRACT_FILE, ContractError, UnsupportedExpression, evaluate, expression_at,
+    CONTRACT_FILE, ContractError, ContractInputError, UnsupportedExpression, evaluate, expression_at,
     load_contracts, local_path, numeric, validate_receipt,
 )
 from ruttla.core import (
@@ -153,7 +153,10 @@ def check_contract_expressions(ctx: Context) -> CheckResult:
     ],
 )
 def check_contract_runtime_evidence(ctx: Context) -> CheckResult:
-    """Opt-in `proofs` declare id, receipt, sources and required_cases.
+    """Opt-in `proofs` declare id, receipt, sources/source_globs and required_cases.
+    Source globs derive tracked and nonignored untracked inputs on every scan;
+    exclude_globs narrow the selection, include_ignored_globs opts into artifacts.
+    Invalid/missing inputs report ERROR (exit 3), separately from stale evidence.
     A project's own test runner calls ruttla.contracts.snapshot_inputs before
     testing and write_receipt after testing. Missing/failed cases, zero tests
     and altered source/runner/contract hashes block. Ruttla does not launch the
@@ -161,7 +164,7 @@ def check_contract_runtime_evidence(ctx: Context) -> CheckResult:
     it does not independently authenticate tests, platforms or visual quality.
     """
     check_id, title = "quality.contract_runtime_evidence", "Vollständige aktuelle Laufzeitnachweise"
-    findings = []
+    findings, invalid = [], []
     proofs = []
     for root, label, contracts, error in _project_contracts(ctx):
         if error:
@@ -171,8 +174,14 @@ def check_contract_runtime_evidence(ctx: Context) -> CheckResult:
     for root, proof in proofs:
         try:
             validate_receipt(root, proof)
+        except ContractInputError as exc:
+            invalid.append(proof["id"] + ": " + str(exc))
         except ContractError as exc:
             findings.append(_failure(check_id, "Laufzeitnachweis " + proof["id"] + ": " + str(exc), proof["id"] + " / " + proof["receipt"]))
+    if invalid:
+        return CheckResult(check_id, Status.ERROR, title, findings=findings,
+                           reason="Ungültige Nachweiseingaben: " + "; ".join(invalid),
+                           units_examined=len(proofs), unit_label="Laufzeitnachweise")
     if not proofs and not findings:
         return unmeasured(check_id, title, "Keine expliziten Laufzeitnachweise vereinbart.")
     return result_for(check_id, title, findings, max(len(proofs), len(findings)), "Laufzeitnachweise")

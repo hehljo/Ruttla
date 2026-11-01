@@ -7587,7 +7587,10 @@ const HEAL: float = 30.0
 <details><summary>Why it exists</summary>
 
 ```text
-Opt-in `proofs` declare id, receipt, sources and required_cases.
+Opt-in `proofs` declare id, receipt, sources/source_globs and required_cases.
+Source globs derive tracked and nonignored untracked inputs on every scan;
+exclude_globs narrow the selection, include_ignored_globs opts into artifacts.
+Invalid/missing inputs report ERROR (exit 3), separately from stale evidence.
 A project's own test runner calls ruttla.contracts.snapshot_inputs before
 testing and write_receipt after testing. Missing/failed cases, zero tests
 and altered source/runner/contract hashes block. Ruttla does not launch the

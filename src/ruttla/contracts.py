@@ -6,17 +6,24 @@ They establish freshness and completeness, not independent test authenticity.
 from __future__ import annotations
 
 import ast
+import fnmatch
 import hashlib
 import json
 import math
+import os
 import re
 from pathlib import Path
+import subprocess
 
 CONTRACT_FILE = ".ruttla-contracts.json"
 
 
 class ContractError(ValueError):
     pass
+
+
+class ContractInputError(ContractError):
+    """Inputs cannot be measured; distinct from a failed/stale receipt."""
 
 
 class UnsupportedExpression(ValueError):
@@ -110,32 +117,137 @@ def load_contracts(root: Path) -> dict | None:
                     if not valid_input(case["inputs"]):
                         raise ContractError("Prüfeingaben sind ungültig oder zu komplex")
             else:
-                if set(entry) != {"id", "receipt", "sources", "required_cases"}:
-                    raise ContractError("Nachweis benötigt receipt, sources und required_cases")
+                required = {"id", "receipt", "required_cases"}
+                selectors = {"sources", "source_globs", "include_ignored_globs"}
+                if (not required <= set(entry)
+                        or set(entry) - required - selectors - {"exclude_globs"}
+                        or not selectors.intersection(entry)):
+                    raise ContractError("Nachweis benötigt receipt, Quellen und required_cases")
                 local_path(root, entry["receipt"])
-                for field in ("sources", "required_cases"):
+                for field in ("required_cases", "sources", "source_globs", "include_ignored_globs", "exclude_globs"):
+                    if field not in entry:
+                        continue
                     items = entry[field]
-                    if not isinstance(items, list) or not items or len(items) > 512 or any(not isinstance(i, str) or not i for i in items) or len(set(items)) != len(items):
+                    if not isinstance(items, list) or (not items and field != "exclude_globs") or len(items) > 512 or any(not isinstance(i, str) or not i for i in items) or len(set(items)) != len(items):
                         raise ContractError("Ungültige Nachweisliste: " + field)
-                for relative in entry["sources"]:
+                for relative in entry.get("sources", []):
                     local_path(root, relative)
-                if entry["receipt"] in entry["sources"] or entry["receipt"] == CONTRACT_FILE:
+                for field in ("source_globs", "include_ignored_globs", "exclude_globs"):
+                    for pattern in entry.get(field, []):
+                        _validate_glob(pattern)
+                if "exclude_globs" in entry and not (entry.get("source_globs") or entry.get("include_ignored_globs")):
+                    raise ContractError("exclude_globs benötigt Quellenmuster; explizite sources werden nie ausgeschlossen")
+                if entry["receipt"] in entry.get("sources", []) or entry["receipt"] == CONTRACT_FILE:
                     raise ContractError("Nachweis darf keine seiner Eingaben überschreiben")
     return value
+
+
+def _validate_glob(pattern: str) -> None:
+    if (not isinstance(pattern, str) or not pattern or len(pattern) > 4096 or pattern.startswith("/")
+            or any(char in pattern for char in ("\\", ":", "\0", "\n", "\r"))
+            or any(part in ("", ".", "..") or ("**" in part and part != "**")
+                   for part in pattern.split("/"))):
+        raise ContractError("Ungültiges Quellenmuster; projektrelative /-Pfade und ** als eigenes Segment verwenden")
+
+
+def _matches(relative: str, pattern: str) -> bool:
+    """Case-sensitive, root-anchored globs; ** matches zero or more segments."""
+    path = relative.split("/")
+    positions = {0}
+    for part in pattern.split("/"):
+        if not positions:
+            return False
+        if part == "**":
+            positions = set(range(min(positions), len(path) + 1))
+        else:
+            positions = {i + 1 for i in positions
+                         if i < len(path) and fnmatch.fnmatchcase(path[i], part)}
+    return len(path) in positions
+
+
+def _git_sources(root: Path, *, ignored: bool = False, patterns: list[str] | None = None) -> list[str]:
+    # Local Git plumbing only: no target hooks, fsmonitor, filters or network.
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env.update(GIT_OPTIONAL_LOCKS="0", GIT_TERMINAL_PROMPT="0")
+    command = ["git", "-c", "core.fsmonitor=false", "-C", str(root)]
+    options = ["--others", "--ignored"] if ignored else ["--cached", "--others"]
+    # Bound ignored enumeration to literal prefixes; never crawl .godot/build
+    # merely because the proof opts into one generated report directory.
+    prefixes = []
+    for pattern in patterns or []:
+        parts = pattern.split("/")
+        fixed = []
+        for part in parts:
+            if any(char in part for char in "*?["):
+                break
+            fixed.append(part)
+        prefixes.append("/".join(fixed) or ".")
+    try:
+        result = subprocess.run(
+            command + ["ls-files", *options, "--exclude-standard", "-z", "--",
+                       *[":(literal)" + prefix for prefix in sorted(set(prefixes or ["."]))]],
+            env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ContractInputError("Quelleninventar ungültig: Git nicht verfügbar; Git installieren und im Arbeitsbaum erneut messen") from exc
+    if result.returncode:
+        raise ContractInputError("Quelleninventar ungültig: kein lesbarer Git-Arbeitsbaum; Repository und Index prüfen, erneut messen")
+    return sorted({os.fsdecode(item) for item in result.stdout.split(b"\0") if item})
+
+
+def resolve_sources(root: Path, proof: dict) -> list[str]:
+    """Resolve afresh on every snapshot; keep explicit (also ignored) inputs."""
+    sources = set(proof.get("sources", []))
+    ordinary = (_git_sources(root) if proof.get("source_globs") or proof.get("include_ignored_globs")
+                else [])
+    groups = [("source_globs", False), ("include_ignored_globs", True)]
+    for field, ignored in groups:
+        patterns = proof.get(field, [])
+        if not patterns:
+            continue
+        candidates = ordinary
+        if ignored:
+            candidates = sorted(set(ordinary) | set(_git_sources(root, ignored=True, patterns=patterns)))
+        for relative in candidates:
+            if not any(_matches(relative, pattern) for pattern in patterns):
+                continue
+            if any(_matches(relative, pattern) for pattern in proof.get("exclude_globs", [])):
+                continue
+            try:
+                path = local_path(root, relative)
+            except ContractError as exc:
+                raise ContractInputError("Quelleninventar ungültig: " + relative
+                                         + "; Pfad/Symlink innerhalb des Projekts halten") from exc
+            # Deleted tracked files no longer belong to the derived set.
+            # Broken symlinks/nonregular files remain invalid, never silently pass.
+            if not path.exists() and not path.is_symlink():
+                continue
+            sources.add(relative)
+    if proof.get("receipt") in sources:
+        raise ContractInputError("Quelleninventar ungültig: Nachweis trifft sein eigenes Quellenmuster; receipt über exclude_globs ausschließen")
+    if not sources:
+        raise ContractInputError("Quelleninventar ungültig: keine Eingaben gefunden; Quellenmuster und Ausschlüsse prüfen, erneut messen")
+    return sorted(sources)
 
 
 def snapshot_inputs(root: Path, proof: dict) -> dict[str, str]:
     hashes = {}
     # Also bind the receipt to the requirements, not just the target sources.
-    for relative in [CONTRACT_FILE, *proof["sources"]]:
-        path = local_path(root, relative)
+    for relative in sorted({CONTRACT_FILE, *resolve_sources(root, proof)}):
+        try:
+            path = local_path(root, relative)
+        except ContractError as exc:
+            raise ContractInputError("Nachweiseingabe ungültig: " + relative
+                                     + "; Pfad/Symlink innerhalb des Projekts halten") from exc
         try:
             if not path.is_file():
-                raise ContractError("Nachweiseingabe ist keine reguläre Datei: " + relative)
+                raise ContractInputError("Nachweiseingabe fehlt oder ist keine reguläre Datei: " + relative
+                                         + "; sources korrigieren oder Datei wiederherstellen; für abgeleitete Bereiche source_globs verwenden und erneut messen")
             with path.open("rb") as stream:
                 hashes[relative] = hashlib.file_digest(stream, "sha256").hexdigest()
         except OSError as exc:
-            raise ContractError("Nachweiseingabe fehlt: " + relative) from exc
+            raise ContractInputError("Nachweiseingabe nicht lesbar: " + relative
+                                     + "; Datei und Leserechte prüfen, erneut messen") from exc
     return hashes
 
 
@@ -168,10 +280,11 @@ def write_receipt(root: Path, proof_id: str, before: dict, cases: dict[str, bool
 
 
 def validate_receipt(root: Path, proof: dict) -> int:
+    inputs = snapshot_inputs(root, proof)
     receipt = read_json(local_path(root, proof["receipt"]))
     if type(receipt.get("version")) is not int or receipt["version"] != 1 or receipt.get("proof_id") != proof["id"]:
         raise ContractError("Nachweis hat falsche Version oder ID")
-    if receipt.get("inputs") != snapshot_inputs(root, proof):
+    if receipt.get("inputs") != inputs:
         raise ContractError("Nachweis ist veraltet oder deckt die Quellen nicht vollständig ab")
     if type(receipt.get("checks")) is not int or receipt["checks"] <= 0:
         raise ContractError("Nachweis enthält keine positive Prüfzahl")
