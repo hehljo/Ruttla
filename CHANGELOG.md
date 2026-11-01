@@ -1,5 +1,15 @@
 # Changelog
 
+## Godot scroll gesture coverage advisory (2026-11-01)
+
+- Added `godot.scroll_without_drag_probe`: scroll lists with buttons/cards
+  warn when their nearest Godot project has no drag-scroll probe call.
+- Candidates are counted independently of findings. Missing subjects remain
+  unmeasured; programmatic visibility, comments, strings, method definitions
+  and probe-internal calls cannot substitute for an application call.
+- Source presence only, offline and advisory by default. Custom gesture tests
+  using other method names need review; runtime/device success is not inferred.
+
 ## Finalized ZIP validation (2026-10-26)
 
 - Added advisory `python.zip_crc_before_writer_closed`: literal writable

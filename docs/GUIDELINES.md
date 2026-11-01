@@ -476,6 +476,43 @@ closures, awaits and cross-script reward chains require a real engine project
 proof; absence of this source pattern proves no runtime safety.
 See [Godot's CollisionShape2D contract](https://github.com/godotengine/godot/blob/master/doc/classes/CollisionShape2D.xml).
 
+`godot.scroll_without_drag_probe` warns when a Godot project contains a
+ScrollContainer list with buttons/cards but no source call to `drag_scrolls()`
+or `reach_by_drag()`. Buttons or PanelContainers can retain the touch drag;
+programmatic `ensure_control_visible()` does not exercise that input path.
+The warning is advisory by default, not a diagnosis of a broken mouse filter.
+
+The source-only check groups files by their nearest `project.godot`. It counts
+each candidate ScrollContainer declaration in scenes or `.new()` in GDScript,
+not the number of findings. Static button/card descendants qualify a scene;
+project-wide dynamic button/card construction also qualifies scenes and script
+containers. Native button classes and named GDScript subclasses (including
+transitive `class_name`/`extends` chains) are supported. A scene containing only
+labels, with no dynamic button/card construction, is unmeasured. Missing Godot
+projects or absent candidates are unmeasured even if a probe call exists.
+
+Healthy example: a scene with a Button beneath its ScrollContainer plus a
+test script calling `await RuttlaScrollProbe.drag_scrolls(scroll, origin)`.
+Removing that call, or replacing it with `ensure_control_visible()`, produces
+a finding at the ScrollContainer declaration. Comments, strings, method
+definitions and internal calls in `class_name RuttlaScrollProbe` do not count.
+Installing the addon alone cannot make the check pass. Normal inventory
+exclusions apply, including `addons`; the check does not inspect excluded
+addon versions or execute target code.
+
+False-positive/coverage limits: dynamic construction is project-wide, without
+proving that the created button is attached to each scroll list. Desktop-only
+lists and custom gesture tests using other method names can receive this
+advisory; review them explicitly. Preload aliases, anonymous/path-based custom
+inheritance and instanced/inherited scene contents are not resolved. A named
+call can be unreachable, unrelated, stale or fail at runtime; PASS establishes
+only source presence somewhere in the same project, never coverage of every
+list, fresh execution, working gestures or device acceptance. Runtime tests
+must swipe from a visible button/card, measure scroll movement and target
+reachability, and assert that no purchase/join action occurred during the drag.
+References: [ScrollContainer](https://docs.godotengine.org/en/stable/classes/class_scrollcontainer.html)
+and [Control mouse filters](https://docs.godotengine.org/en/stable/classes/class_control.html#enum-control-mousefilter).
+
 Simulation proofs must bind the complete case matrix, clean engine log and
 report to current source hashes; generated balance resources must also appear
 in the exported PCK. Healthy runs precede individually broken callback,

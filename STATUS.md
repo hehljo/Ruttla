@@ -1,5 +1,20 @@
 # STATUS
 
+## Godot scroll gesture coverage (2026-11-01)
+
+- Added advisory `godot.scroll_without_drag_probe`, scoped to the nearest
+  `project.godot`: count static/dynamic scroll-list candidates, require a
+  source call to a drag probe, and keep absent subjects unmeasured.
+- Twelve healthy/defect/unknown fixtures and nine CLI regression tests cover
+  programmatic-only scrolling, probe installation without use, lexical noise,
+  custom button inheritance, scene ancestry and cross-project isolation.
+- Full suite:474 tests,471 passed,three optional skips. Self-tests:961/961;
+  engine self-tests:150/150. Catalogue current; strict self-scan:18 PASS,
+  34 UNMEASURED,zero findings. Rust engine built offline for these gates.
+- Real current/HEAD controls distinguish application probe calls correctly.
+  Custom gesture names and nested Godot projects remain explicit advisory
+  review boundaries; source presence is no runtime/device proof. No commit/push.
+
 ## Uncommitted batch reviewed and repaired (2026-10-30)
 
 - The 2026-10-18 narrowing of `web.loading_without_null_state` was missing from

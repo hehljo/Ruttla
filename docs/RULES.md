@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-201 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+202 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 51 | 10 |
 | dotnet | 11 | 0 |
-| godot | 37 | 1 |
+| godot | 38 | 1 |
 | python | 8 | 0 |
 | raspberry | 6 | 0 |
 | universal | 44 | 9 |
@@ -5060,6 +5060,74 @@ func flush() -> void:
 
 func save_game() -> void:
 	pass
+```
+
+</details>
+
+### `godot.scroll_without_drag_probe`
+
+**Godot-Scrollliste ohne Aufruf einer Wischprobe**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § UI & Control-Nodes
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+- Reference: <https://docs.godotengine.org/en/stable/classes/class_scrollcontainer.html>
+- Reference: <https://docs.godotengine.org/en/stable/classes/class_control.html#enum-control-mousefilter>
+
+<details><summary>Why it exists</summary>
+
+```text
+Buttons and cards can retain touch drags inside scroll lists. Programmatic visibility is not a swipe. This bounded project-wide source check asks for a drag_scrolls/reach_by_drag call, not runtime success.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: keine Wischprobe</summary>
+
+`project.godot`
+
+```text
+[application]
+config/name="Scroll fixture"
+```
+
+`menu.tscn`
+
+```text
+[gd_scene format=3]
+[node name="Root" type="Control"]
+[node name="List" type="ScrollContainer" parent="."]
+[node name="Rows" type="VBoxContainer" parent="List"]
+[node name="Buy" type="Button" parent="List/Rows"]
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Szenenliste mit Wischaufruf</summary>
+
+`project.godot`
+
+```text
+[application]
+config/name="Scroll fixture"
+```
+
+`menu.tscn`
+
+```text
+[gd_scene format=3]
+[node name="Root" type="Control"]
+[node name="List" type="ScrollContainer" parent="."]
+[node name="Rows" type="VBoxContainer" parent="List"]
+[node name="Buy" type="Button" parent="List/Rows"]
+```
+
+`tests/swipe.gd`
+
+```text
+func test_scroll():
+	await RuttlaScrollProbe.drag_scrolls(scroll, origin)
 ```
 
 </details>
