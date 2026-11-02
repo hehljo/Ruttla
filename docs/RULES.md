@@ -3,12 +3,12 @@
 
 # Rule catalog
 
-203 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+205 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 51 | 10 |
-| dotnet | 11 | 0 |
+| dotnet | 13 | 0 |
 | godot | 38 | 1 |
 | python | 8 | 0 |
 | raspberry | 6 | 0 |
@@ -3618,6 +3618,67 @@ public partial class VM {
 
 </details>
 
+### `dotnet.wpf_datagrid_header_wraps_by_global_textblock_style`
+
+**Globale TextBlock-Umbruchregel bricht DataGrid-Spaltenköpfe**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WPF.md § Fenstergröße und Tabellentexte
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Ein impliziter TextBlock-Stil mit TextWrapping=Wrap in den App-Ressourcen gilt auch für die TextBlöcke, die DataGridColumnHeader und DataGridTextColumn erzeugen. Eine schmale Spalte zeigt ihre Überschrift dann Buchstabe für Buchstabe untereinander, die Tabelle wird unbenutzbar. Belegt am 02.11.2026 (Yunex/PlantWorkbench, 'Eintrittszeit' je Buchstabe eine Zeile). Ein DataGrid.Resources-Stil hilft nicht: Template-Kinder überspringen die Zwischenebenen bis zu den App-Ressourcen. Geprüft wird je DataGrid, ob ein Kopf-Template mit NoWrap greift.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Globale Umbruchregel, DataGrid ohne einzeiligen Kopf</summary>
+
+`Styles/S.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<UserControl.Resources><Style TargetType="TextBlock" BasedOn="{StaticResource Base}"><Setter Property="TextWrapping" Value="Wrap" /></Style><Style TargetType="DataGridColumnHeader"><Setter Property="FontWeight" Value="Bold"/></Style></UserControl.Resources>
+</UserControl>
+```
+
+`Views/V.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<DataGrid><DataGrid.Columns/></DataGrid>
+</UserControl>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Kopfstil mit NoWrap-Template</summary>
+
+`Styles/S.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<UserControl.Resources><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap" /></Style><Style TargetType="DataGridColumnHeader"><Setter Property="ContentTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/></DataTemplate></Setter.Value></Setter></Style></UserControl.Resources>
+</UserControl>
+```
+
+`Views/V.xaml`
+
+```text
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<DataGrid><DataGrid.Columns/></DataGrid>
+</UserControl>
+```
+
+</details>
+
 ### `dotnet.wpf_dialog_unscrollable_auto_content`
 
 **Höhenbegrenzter WPF-Dialog ohne Scrollweg**
@@ -3839,6 +3900,59 @@ class A { object M() => new Thickness(Math.Max(0, 1), 10, 0, 10);
 ```text
 using Avalonia;
 class B { object M() => new Thickness(0, 10); }
+```
+
+</details>
+
+### `dotnet.wpf_window_max_size_work_area`
+
+**Fenster-MaxWidth/MaxHeight aus dem Arbeitsbereich**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WPF.md § Fenstergröße und Tabellentexte
+- Public rationale: [GUIDELINES.md › wpf-desktop-guidelines](GUIDELINES.md#wpf-desktop-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Maximiert ist ein Fenster mit Standardrahmen größer als der Arbeitsbereich:
+Windows legt den Rahmen (~8 px je Seite) über den Bildschirmrand hinaus.
+Begrenzt MaxWidth/MaxHeight das Fenster auf SystemParameters.WorkArea,
+zeichnet WPF nur diesen Teil — rechts und unten bleibt ein schwarzer Streifen.
+
+Belegt am 02.11.2026 (Yunex/PlantWorkbench, Build 6): MainWindow und alle
+Dialoge setzten MaxWidth/MaxHeight = WorkArea, um zu große Startfenster zu
+verhindern. Richtig ist, nur die Startgröße (Width/Height) zu begrenzen.
+Hinweis statt Fehler: eine Datei kann WorkArea und eine MaxWidth eines
+anderen Elements zugleich tragen.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): MainWindow: Max beider Achsen in einer Zeile</summary>
+
+`MainWindow.xaml.cs`
+
+```text
+public MainWindow()
+{
+    InitializeComponent();
+    MaxHeight=SystemParameters.WorkArea.Height;MaxWidth=SystemParameters.WorkArea.Width;
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Nur Startgröße begrenzt, Vergleich und Min bleiben erlaubt</summary>
+
+`WindowLayout.cs`
+
+```text
+var area = SystemParameters.WorkArea;
+window.MinWidth = Math.Min(window.MinWidth, Math.Max(1, area.Width));
+if (window.MaxWidth == area.Width) Log();
+if (double.IsFinite(window.Width) && window.Width > area.Width) window.Width = area.Width;
 ```
 
 </details>

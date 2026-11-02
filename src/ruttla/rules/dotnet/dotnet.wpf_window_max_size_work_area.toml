@@ -1,0 +1,82 @@
+format = "ruttla-rule/0"
+id = "dotnet.wpf_window_max_size_work_area"
+title = "Fenster-MaxWidth/MaxHeight aus dem Arbeitsbereich"
+platform = "dotnet"
+severity = "warning"
+guideline = "CODE_QUALITY_GUIDELINES_WPF.md § Fenstergröße und Tabellentexte"
+rationale = """
+Maximiert ist ein Fenster mit Standardrahmen größer als der Arbeitsbereich:
+Windows legt den Rahmen (~8 px je Seite) über den Bildschirmrand hinaus.
+Begrenzt MaxWidth/MaxHeight das Fenster auf SystemParameters.WorkArea,
+zeichnet WPF nur diesen Teil — rechts und unten bleibt ein schwarzer Streifen.
+
+Belegt am 02.11.2026 (Yunex/PlantWorkbench, Build 6): MainWindow und alle
+Dialoge setzten MaxWidth/MaxHeight = WorkArea, um zu große Startfenster zu
+verhindern. Richtig ist, nur die Startgröße (Width/Height) zu begrenzen.
+Hinweis statt Fehler: eine Datei kann WorkArea und eine MaxWidth eines
+anderen Elements zugleich tragen."""
+tags = ["wpf", "fenster", "layout"]
+
+[scope]
+extensions = [".cs", ".xaml"]
+unit_label = "C#-/XAML-Dateien mit WorkArea"
+require_text = "WorkArea"
+no_files_reason = "Keine Datei nutzt SystemParameters.WorkArea — nichts zu messen."
+
+[match]
+per_line = true
+pattern = '\bMax(Width|Height)\s*(?:=\s*[^=;\n][^;\n]*;|="[^"\n]*WorkArea[^"\n]*")'
+message = "Max{1} wird im Zusammenhang mit WorkArea gesetzt — maximiert entsteht ein schwarzer Rand rechts/unten."
+fix = "Max-Größe weglassen; nur die Startgröße auf den Arbeitsbereich begrenzen (if (Width > area.Width) Width = area.Width)."
+
+[[fixtures]]
+name = "MainWindow: Max beider Achsen in einer Zeile"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"MainWindow.xaml.cs" = """
+public MainWindow()
+{
+    InitializeComponent();
+    MaxHeight=SystemParameters.WorkArea.Height;MaxWidth=SystemParameters.WorkArea.Width;
+}
+"""
+
+[[fixtures]]
+name = "Hilfsklasse über lokale Variable"
+expect = "fail"
+expect_findings = 2
+[fixtures.files]
+"WindowLayout.cs" = """
+var area = SystemParameters.WorkArea;
+window.MaxWidth = Math.Max(1, area.Width);
+window.MaxHeight = Math.Max(1, area.Height);
+"""
+
+[[fixtures]]
+name = "XAML-Bindung auf WorkArea"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"MainWindow.xaml" = """
+<Window MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}" Width="800"/>
+"""
+
+[[fixtures]]
+name = "Nur Startgröße begrenzt, Vergleich und Min bleiben erlaubt"
+expect = "pass"
+[fixtures.files]
+"WindowLayout.cs" = """
+var area = SystemParameters.WorkArea;
+window.MinWidth = Math.Min(window.MinWidth, Math.Max(1, area.Width));
+if (window.MaxWidth == area.Width) Log();
+if (double.IsFinite(window.Width) && window.Width > area.Width) window.Width = area.Width;
+"""
+
+[[fixtures]]
+name = "Keine Datei mit WorkArea"
+expect = "unmeasured"
+[fixtures.files]
+"Dialog.cs" = """
+dialog.MaxWidth = 600;
+"""

@@ -731,3 +731,136 @@ def check_temp_file_name_with_suffix(ctx: Context) -> CheckResult:
                     "oder die von GetTempFileName gelieferte Datei selbst benutzen und löschen.",
             ))
     return result_for(cid, title, findings, units, "GetTempFileName-Aufrufe", PLATFORM)
+
+
+# ---------------------------------------------------------------------------
+# Globale TextBlock-Umbruchregel bricht DataGrid-Spaltenköpfe
+# ---------------------------------------------------------------------------
+
+# Implizit (ohne x:Key) auf TextBlock, mit TextWrapping=Wrap im eigenen Rumpf.
+_IMPLICIT_TEXTBLOCK_STYLE = re.compile(
+    r"<Style((?:\s+[\w:.]+\s*=\s*\"[^\"]*\")*)\s*>(.*?)</Style\s*>", re.DOTALL)
+_TEXTBLOCK_TARGET = re.compile(r"\bTargetType\s*=\s*\"(?:\{x:Type\s+)?TextBlock\}?\"")
+_WRAP_SETTER = re.compile(r"Property\s*=\s*\"TextWrapping\"\s+Value\s*=\s*\"Wrap\"")
+_HEADER_STYLE = re.compile(
+    r"<Style\b[^>]*\bTargetType\s*=\s*\"(?:\{x:Type\s+)?DataGridColumnHeader\}?\"[^>]*>(.*?)</Style\s*>", re.DOTALL)
+_NOWRAP = re.compile(r"TextWrapping\s*=\s*\"NoWrap\"")
+_DATAGRID = re.compile(r"<DataGrid\b(?=[\s>/])")
+_DATAGRID_BLOCK = re.compile(r"<DataGrid\b.*?(?:</DataGrid\s*>|\Z)", re.DOTALL)
+# Kopfvorlagen innerhalb eines DataGrids: ColumnHeaderStyle oder HeaderTemplate einer Spalte.
+_HEADER_SECTION = re.compile(
+    r"<(DataGrid\.ColumnHeaderStyle|[\w:]+\.HeaderTemplate)\s*>(.*?)</\1\s*>", re.DOTALL)
+
+
+def _wrap_style_source(xaml) -> tuple | None:
+    """Erste implizite TextBlock-Vorlage mit Umbruch (Datei, Zeile) oder None."""
+    for sf, text in xaml:
+        for m in _IMPLICIT_TEXTBLOCK_STYLE.finditer(text):
+            attrs, body = m.group(1), m.group(2)
+            # Rumpf ohne verschachtelte Style-Elemente gilt; ein x:Key macht den Stil explizit.
+            if "x:Key" in attrs or not _TEXTBLOCK_TARGET.search(attrs):
+                continue
+            if _WRAP_SETTER.search(body.split("<Style", 1)[0]):
+                return sf, _line_of(text, m.start())
+    return None
+
+
+@register(
+    "dotnet.wpf_datagrid_header_wraps_by_global_textblock_style",
+    "Globale TextBlock-Umbruchregel bricht DataGrid-Spaltenköpfe",
+    platform=PLATFORM,
+    severity=Severity.WARNING,
+    guideline=f"{GUIDE} § Fenstergröße und Tabellentexte",
+    rationale=(
+        "Ein impliziter TextBlock-Stil mit TextWrapping=Wrap in den App-Ressourcen "
+        "gilt auch für die TextBlöcke, die DataGridColumnHeader und DataGridTextColumn "
+        "erzeugen. Eine schmale Spalte zeigt ihre Überschrift dann Buchstabe für "
+        "Buchstabe untereinander, die Tabelle wird unbenutzbar. Belegt am 02.11.2026 "
+        "(Yunex/PlantWorkbench, 'Eintrittszeit' je Buchstabe eine Zeile). Ein "
+        "DataGrid.Resources-Stil hilft nicht: Template-Kinder überspringen die "
+        "Zwischenebenen bis zu den App-Ressourcen. Geprüft wird je DataGrid, ob ein "
+        "Kopf-Template mit NoWrap greift."
+    ),
+    self_tests=[
+        SelfTestCase(
+            name="Globale Umbruchregel, DataGrid ohne einzeiligen Kopf",
+            files={
+                "Styles/S.xaml": _WPF_XAML_HEAD
+                + '<UserControl.Resources><Style TargetType="TextBlock" BasedOn="{StaticResource Base}">'
+                + '<Setter Property="TextWrapping" Value="Wrap" /></Style>'
+                + '<Style TargetType="DataGridColumnHeader"><Setter Property="FontWeight" Value="Bold"/></Style>'
+                + '</UserControl.Resources>\n' + _WPF_XAML_TAIL,
+                "Views/V.xaml": _WPF_XAML_HEAD + '<DataGrid><DataGrid.Columns/></DataGrid>\n' + _WPF_XAML_TAIL,
+            },
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="NoWrap nur in einer Zelle, nicht im Kopf",
+            files={
+                "Styles/S.xaml": _WPF_XAML_HEAD
+                + '<UserControl.Resources><Style TargetType="{x:Type TextBlock}"><Setter Property="TextWrapping" Value="Wrap" /></Style>'
+                + '</UserControl.Resources>\n' + _WPF_XAML_TAIL,
+                "Views/V.xaml": _WPF_XAML_HEAD + '<DataGrid><DataGrid.ColumnHeaderStyle><Style TargetType="DataGridColumnHeader"/>'
+                + '</DataGrid.ColumnHeaderStyle><DataGrid.Columns><DataGridTemplateColumn><DataGridTemplateColumn.CellTemplate>'
+                + '<DataTemplate><TextBlock TextWrapping="NoWrap"/></DataTemplate></DataGridTemplateColumn.CellTemplate>'
+                + '</DataGridTemplateColumn></DataGrid.Columns></DataGrid>\n' + _WPF_XAML_TAIL,
+            },
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Kopfstil mit NoWrap-Template",
+            files={
+                "Styles/S.xaml": _WPF_XAML_HEAD
+                + '<UserControl.Resources><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap" /></Style>'
+                + '<Style TargetType="DataGridColumnHeader"><Setter Property="ContentTemplate"><Setter.Value><DataTemplate>'
+                + '<TextBlock Text="{Binding}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>'
+                + '</DataTemplate></Setter.Value></Setter></Style></UserControl.Resources>\n' + _WPF_XAML_TAIL,
+                "Views/V.xaml": _WPF_XAML_HEAD + '<DataGrid><DataGrid.Columns/></DataGrid>\n' + _WPF_XAML_TAIL,
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Umbruch nur im benannten Stil, DataGrid vorhanden",
+            files={
+                "Styles/S.xaml": _WPF_XAML_HEAD
+                + '<UserControl.Resources><Style x:Key="LabelStyle" TargetType="TextBlock">'
+                + '<Setter Property="TextWrapping" Value="Wrap" /></Style></UserControl.Resources>\n' + _WPF_XAML_TAIL,
+                "Views/V.xaml": _WPF_XAML_HEAD + '<DataGrid/>\n' + _WPF_XAML_TAIL,
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Kein DataGrid im Projekt",
+            files={"Views/V.xaml": _WPF_XAML_HEAD + '<TextBlock Text="x"/>\n' + _WPF_XAML_TAIL},
+            expect=Status.UNMEASURED,
+        ),
+    ],
+)
+def check_datagrid_header_wrap(ctx: Context) -> CheckResult:
+    cid = "dotnet.wpf_datagrid_header_wraps_by_global_textblock_style"
+    title = "Globale TextBlock-Umbruchregel bricht DataGrid-Spaltenköpfe"
+    xaml = _wpf_xaml(ctx)
+    source = _wrap_style_source(xaml)
+    # Projektweit wirksam: ein impliziter Kopfstil mit NoWrap im Template.
+    header_safe = any(_NOWRAP.search(m.group(1)) for _, text in xaml for m in _HEADER_STYLE.finditer(text))
+    findings: list[Finding] = []
+    units = 0
+    for sf, text in xaml:
+        for m in _DATAGRID_BLOCK.finditer(text):
+            if not _DATAGRID.match(text, m.start()):
+                continue
+            units += 1
+            block = m.group(0)
+            # Nur ein NoWrap in einer Kopfvorlage zählt, nicht irgendein einzeiliger TextBlock im Grid.
+            if source is None or header_safe or any(_NOWRAP.search(h.group(2)) for h in _HEADER_SECTION.finditer(block)):
+                continue
+            line = _line_of(text, m.start())
+            findings.append(Finding(
+                check_id=cid, severity=Severity.WARNING,
+                message=f"DataGrid erbt die implizite TextBlock-Umbruchregel aus {source[0].rel}:{source[1]} — "
+                        "schmale Spaltenköpfe brechen Buchstabe für Buchstabe um.",
+                file=sf.rel, line=line, evidence=snippet(_raw_line(sf, line)),
+                fix="Im DataGridColumnHeader-Stil ein ContentTemplate mit <TextBlock TextWrapping=\"NoWrap\" "
+                    "TextTrimming=\"CharacterEllipsis\" ToolTip=\"{Binding}\"/> setzen; Textspalten per ElementStyle einzeilig.",
+            ))
+    return result_for(cid, title, findings, units, "DataGrids", PLATFORM)
