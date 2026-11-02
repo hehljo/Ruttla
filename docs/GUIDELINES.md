@@ -176,6 +176,10 @@ showed them — a second client does not have that UI.
 <a id="gates-must-not-lie"></a>
 ### Gates must not lie
 
+Aggregate runners must launch the actual declared receipt writers, with gate
+sabotage in separate steps. Source reachability is advisory, not runtime proof;
+see [aggregate proof writers](PROOF_RUNNER.md) for supported syntax and limits.
+
 A quality gate reports the real status or none at all:
 
 - the exit status of a pipeline is that of its **last** command —

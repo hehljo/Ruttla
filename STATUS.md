@@ -1,5 +1,24 @@
 # STATUS
 
+## Aggregate proof writer advisory (2026-11-02)
+
+- Added warning `quality.contract_proof_without_runner_writer`: explicit proof
+  IDs are resolved from Python receipt calls and matched to shell/Python runner
+  argv. No producer-name list, target execution or new hard default rule.
+- Four self-test fixtures and 16 unit/CLI cases cover real/missing producers,
+  no subject, aliases, lexical noise, dynamic commands, independent runners,
+  nested scopes, config argv and assignment-versus-command parsing.
+- Six template behavior tests cover per-run logs, summary/stdout, failures,
+  Ruttla-last, empty/invalid config, space/metering failure, locks, unique runs
+  and literal argument handling. Installed template is byte-matched to fixture.
+- Full suite:513 tests,510 passed,three existing optional skips. Self-tests:
+  965/965; Rust150/150. A subsequent strict scan found one multiline whitespace
+  regex issue; narrowed to horizontal whitespace and targeted revalidation.
+- Full evidence: `build/qa/proof-runner-20261102-083135-952422/`.
+  Final targeted evidence and clean source gates are recorded in the task report.
+- Public scope/limits and repeatable verification: `docs/PROOF_RUNNER.md`.
+  Missing/unsupported runners remain UNMEASURED; no runtime/device approval.
+
 ## Derived runtime proof sources (2026-11-01)
 
 - Version-1 proof inputs now support `source_globs`, `exclude_globs` and explicit

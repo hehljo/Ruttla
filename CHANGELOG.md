@@ -1,5 +1,13 @@
 # Changelog
 
+## Aggregate proof writer coverage (2026-11-02)
+
+- Added warning `quality.contract_proof_without_runner_writer`, relating explicit
+  proof IDs to actual Python receipt writers reached by shell/Python aggregate runners.
+- Healthy, original-defect, absent-subject and lexical/scope controls; unsupported
+  orchestration stays unmeasured. No target execution or new hard default rule.
+- Public scope and false-positive boundaries: `docs/PROOF_RUNNER.md`.
+
 ## Derived runtime proof inputs (2026-11-01)
 
 - Version-1 proof contracts accept `source_globs`, `exclude_globs` and scoped

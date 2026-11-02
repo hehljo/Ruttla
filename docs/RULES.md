@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-202 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+203 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -12,7 +12,7 @@
 | godot | 38 | 1 |
 | python | 8 | 0 |
 | raspberry | 6 | 0 |
-| universal | 44 | 9 |
+| universal | 45 | 9 |
 | unreal | 6 | 0 |
 | web | 38 | 4 |
 
@@ -7571,6 +7571,85 @@ const HEAL: float = 25.0
 
 ```text
 const HEAL: float = 30.0
+```
+
+</details>
+
+### `quality.contract_proof_without_runner_writer`
+
+**Sammellauf erreicht die Nachweiserzeuger**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: GUIDELINES.md § Documentation — Sammellauf und Nachweiserzeuger
+- Public rationale: [GUIDELINES.md › documentation-that-can-be-executed](GUIDELINES.md#documentation-that-can-be-executed)
+- Reference: <https://docs.python.org/3/library/ast.html>
+- Reference: <https://docs.python.org/3/library/shlex.html>
+
+<details><summary>Why it exists</summary>
+
+```text
+A real aggregate runner called only an audio-gate sabotage test, leaving the audio receipt stale. Python is required for cross-file contract, shell argv and Python AST state. Advisory: dynamic orchestration and external writers may be intentional; this is static reachability, not execution proof.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: nur Gate-Sabotage gestartet</summary>
+
+`.ruttla-contracts.json`
+
+```text
+{"version": 1, "proofs": [{"id": "audio_assets", "receipt": ".audio.json", "sources": ["tools/test_audio.py"], "required_cases": ["audio"]}]}
+```
+
+`tools/test_audio.py`
+
+```text
+from ruttla.contracts import write_receipt
+write_receipt(root, "audio_assets", before, cases, 1, 0)
+```
+
+`tools/test_audio_gate.py`
+
+```text
+print("healthy sabotage check")
+```
+
+`tools/run_all_gates.sh`
+
+```text
+python3 tools/test_audio_gate.py
+ruttla --changed-only --format agent
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: echter Schreiber gestartet</summary>
+
+`.ruttla-contracts.json`
+
+```text
+{"version": 1, "proofs": [{"id": "audio_assets", "receipt": ".audio.json", "sources": ["tools/test_audio.py"], "required_cases": ["audio"]}]}
+```
+
+`tools/test_audio.py`
+
+```text
+from ruttla.contracts import write_receipt
+write_receipt(root, "audio_assets", before, cases, 1, 0)
+```
+
+`tools/test_audio_gate.py`
+
+```text
+print("healthy sabotage check")
+```
+
+`tools/run_all_gates.sh`
+
+```text
+python3 tools/test_audio.py
+ruttla --changed-only --format agent
 ```
 
 </details>
