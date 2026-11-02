@@ -187,3 +187,93 @@ def check_internal_notes_published(ctx: Context) -> CheckResult:
         ))
 
     return result_for(CHECK_ID, title, findings, len(candidates), scope)
+
+
+BYTECODE_CHECK_ID = "repo.python_bytecode_tracked"
+BYTECODE_GUIDELINE = "CLAUDE.md § 'Ein Gate, das aus einem Artefakt liest, prüft den Stand des Artefakts'"
+
+
+def _tracked_files(root: str) -> list[str] | None:
+    """Getrackte Dateien relativ zu ``root``; None ohne lesbares Git."""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", root, "ls-files", "--cached", "-z"],
+            capture_output=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return [os.fsdecode(p) for p in proc.stdout.split(b"\0") if p]
+
+
+def _is_bytecode(rel: str) -> bool:
+    return rel.endswith((".pyc", ".pyo")) or "__pycache__" in rel.split("/")
+
+
+@register(
+    BYTECODE_CHECK_ID,
+    "Python-Bytecode (__pycache__/*.pyc) unter Versionskontrolle",
+    platform="universal",
+    severity=Severity.WARNING,
+    guideline=BYTECODE_GUIDELINE,
+    self_tests=[
+        SelfTestCase(
+            name="Bytecode im Index",
+            files={
+                "tools/gate.py": "print('ok')\n",
+                "tools/__pycache__/gate.cpython-312.pyc": "bytecode\n",
+                ".ruttla-selftest/git-index.json": json.dumps({"modes": {
+                    "tools/gate.py": "100644",
+                    "tools/__pycache__/gate.cpython-312.pyc": "100644"}}),
+            },
+            expect=Status.FAIL,
+            expect_finding_contains="gate.cpython-312.pyc",
+            expect_findings=1,
+        ),
+        SelfTestCase(
+            name="Bytecode nur lokal, ignoriert",
+            files={
+                "tools/gate.py": "print('ok')\n",
+                ".gitignore": "__pycache__/\n",
+                "tools/__pycache__/gate.cpython-312.pyc": "bytecode\n",
+                ".ruttla-selftest/git-index.json": json.dumps({"modes": {
+                    "tools/gate.py": "100644", ".gitignore": "100644"}}),
+            },
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Kein Git-Repo",
+            files={"tools/gate.py": "print('ok')\n"},
+            expect=Status.UNMEASURED,
+        ),
+    ],
+)
+def check_python_bytecode_tracked(ctx: Context) -> CheckResult:
+    """Findet getrackten Python-Bytecode.
+
+    Python schreibt ``__pycache__/*.pyc`` bei jedem Lauf neu, sobald die
+    Quelle neuer ist. Getrackt ist er damit eine Eingabe, die sich während
+    eines Sammellaufs ändert: Belegt am 02.11.2026 (WiesnSurvivors) meldete
+    Ruttla nach einem vollständig grünen Lauf sechs Laufzeitnachweise als
+    veraltet, weil ein späterer Schritt 14 getrackte .pyc neu geschrieben
+    hatte. Dazu kommt Rauschen in jedem Diff.
+    """
+    title = "Python-Bytecode (__pycache__/*.pyc) unter Versionskontrolle"
+    tracked = _tracked_files(ctx.root)
+    if tracked is None:
+        return unmeasured(BYTECODE_CHECK_ID, title, "Kein Git-Repository — Versionskontrolle nicht messbar.")
+    if not tracked:
+        return unmeasured(BYTECODE_CHECK_ID, title, "Keine getrackten Dateien.")
+    findings = [Finding(
+        check_id=BYTECODE_CHECK_ID,
+        severity=Severity.WARNING,
+        message=f"{rel} ist Python-Bytecode und wird mitversioniert.",
+        file=rel,
+        line=1,
+        evidence=os.path.basename(rel),
+        fix=("`__pycache__/` und `*.pyc` in .gitignore eintragen und "
+             f"`git rm --cached {rel}` — die Datei bleibt lokal erhalten."),
+        guideline=BYTECODE_GUIDELINE,
+    ) for rel in sorted(tracked) if _is_bytecode(rel)]
+    return result_for(BYTECODE_CHECK_ID, title, findings, len(tracked), "getrackte Dateien")

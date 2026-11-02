@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-205 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+206 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -12,7 +12,7 @@
 | godot | 38 | 1 |
 | python | 8 | 0 |
 | raspberry | 6 | 0 |
-| universal | 45 | 9 |
+| universal | 46 | 9 |
 | unreal | 6 | 0 |
 | web | 38 | 4 |
 
@@ -8048,6 +8048,80 @@ Zwischenständen. Lokal bleiben sie — nur eben per .gitignore.
 
 ```text
 # Öffentliche Roadmap
+```
+
+</details>
+
+### `repo.python_bytecode_tracked`
+
+**Python-Bytecode (__pycache__/*.pyc) unter Versionskontrolle**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CLAUDE.md § 'Ein Gate, das aus einem Artefakt liest, prüft den Stand des Artefakts'
+- Public rationale: [GUIDELINES.md › gates-must-not-lie](GUIDELINES.md#gates-must-not-lie)
+
+<details><summary>Why it exists</summary>
+
+```text
+Findet getrackten Python-Bytecode.
+
+Python schreibt ``__pycache__/*.pyc`` bei jedem Lauf neu, sobald die
+Quelle neuer ist. Getrackt ist er damit eine Eingabe, die sich während
+eines Sammellaufs ändert: Belegt am 02.11.2026 (WiesnSurvivors) meldete
+Ruttla nach einem vollständig grünen Lauf sechs Laufzeitnachweise als
+veraltet, weil ein späterer Schritt 14 getrackte .pyc neu geschrieben
+hatte. Dazu kommt Rauschen in jedem Diff.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Bytecode im Index</summary>
+
+`tools/gate.py`
+
+```text
+print('ok')
+```
+
+`tools/__pycache__/gate.cpython-312.pyc`
+
+```text
+bytecode
+```
+
+`.ruttla-selftest/git-index.json`
+
+```text
+{"modes": {"tools/gate.py": "100644", "tools/__pycache__/gate.cpython-312.pyc": "100644"}}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Bytecode nur lokal, ignoriert</summary>
+
+`tools/gate.py`
+
+```text
+print('ok')
+```
+
+`.gitignore`
+
+```text
+__pycache__/
+```
+
+`tools/__pycache__/gate.cpython-312.pyc`
+
+```text
+bytecode
+```
+
+`.ruttla-selftest/git-index.json`
+
+```text
+{"modes": {"tools/gate.py": "100644", ".gitignore": "100644"}}
 ```
 
 </details>
