@@ -39,11 +39,17 @@ def _published_candidates(root: str) -> list[str] | None:
     Datei, die gerade erst angelegt wurde, unsichtbar. Ohne Git: None, dann
     gilt der ganze Baum als Auslieferung.
     """
+    return _git_ls_files(root, "--cached", "--others", "--exclude-standard")
+
+
+def _git_ls_files(root: str, *options: str) -> list[str] | None:
+    """`git ls-files` im fremden Repo ohne dessen Hooks, fsmonitor oder GIT_*-Umgebung."""
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env.update(GIT_OPTIONAL_LOCKS="0", GIT_TERMINAL_PROMPT="0")
     try:
         proc = subprocess.run(
-            ["git", "-C", root, "ls-files", "--cached", "--others",
-             "--exclude-standard", "-z"],
-            capture_output=True, timeout=30,
+            ["git", "-c", "core.fsmonitor=false", "-C", root, "ls-files", *options, "-z"],
+            env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=30,
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -195,16 +201,7 @@ BYTECODE_GUIDELINE = "CLAUDE.md § 'Ein Gate, das aus einem Artefakt liest, prü
 
 def _tracked_files(root: str) -> list[str] | None:
     """Getrackte Dateien relativ zu ``root``; None ohne lesbares Git."""
-    try:
-        proc = subprocess.run(
-            ["git", "-C", root, "ls-files", "--cached", "-z"],
-            capture_output=True, timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if proc.returncode != 0:
-        return None
-    return [os.fsdecode(p) for p in proc.stdout.split(b"\0") if p]
+    return _git_ls_files(root, "--cached")
 
 
 def _is_bytecode(rel: str) -> bool:
