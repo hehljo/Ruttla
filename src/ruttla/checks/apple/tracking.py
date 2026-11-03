@@ -5,14 +5,22 @@ Python statt TOML-Regel: die Aussage entsteht erst aus mehreren Dateien
 (App-Plist, App-Manifest, Build-Settings in der project.pbxproj).
 
 Belegt 14.10.2026 (Wiesn Survivors, Apple-Ablehnung 5.1.2(i)): AdMob mit
-SKAdNetwork-Liste im Binary, ASC-Label „Tracking", aber weder
-NSUserTrackingUsageDescription noch NSPrivacyTracking=true — ohne den
-Begründungstext zeigt iOS keinen ATT-Dialog, Apple lehnt ab.
+SKAdNetwork-Liste im Binary, ASC-Label „Tracking", aber kein
+NSUserTrackingUsageDescription — ohne den Begründungstext zeigt iOS keinen
+ATT-Dialog, Apple lehnt ab.
+
+Korrigiert 03.11.2026 (Hopfenhölle Build 49, ITMS-91064): Die frühere Regel
+„ATT-Text verlangt NSPrivacyTracking=true im App-Manifest" erzwang genau die
+Ablehnung. Das App-Manifest beschreibt nur den eigenen Code; trackt allein das
+Werbe-SDK, deklariert das dessen Manifest. true ohne NSPrivacyTrackingDomains
+weist Apple als ungültige Binärdatei zurück, und eingetragene Domains sperrt
+iOS ohne ATT-Zustimmung (auch für nicht-personalisierte Werbung).
 """
 
 from __future__ import annotations
 
 import os
+import plistlib
 import re
 
 from ruttla.core import (
@@ -127,11 +135,12 @@ def check_ad_sdk_without_att(ctx: Context) -> CheckResult:
     severity=Severity.ERROR,
     guideline=GUIDELINE,
     safe_by_default=True,
-    rationale=("Belegt 14.10.2026 (Wiesn Survivors): NSPrivacyTracking=false neben einem Tracking-Label in ASC. "
-               "Fragt die App per ATT, trackt sie; meldet das Manifest Tracking, braucht sie den ATT-Text."),
+    rationale=("Meldet das App-Manifest Tracking, braucht die App den ATT-Text. Die Gegenrichtung (ATT-Text "
+               "verlangt Manifest true) war falsch: AdMob deklariert sein Tracking im SDK-Manifest, true ohne "
+               "Domains lehnte Apple ab (ITMS-91064, 03.11.2026)."),
     references=["https://developer.apple.com/documentation/bundleresources/privacy-manifest-files"],
     self_tests=[
-        SelfTestCase(name="ATT-Text, Manifest false", expect=Status.FAIL, expect_finding_contains="NSPrivacyTracking",
+        SelfTestCase(name="ATT-Text, Manifest false (Tracking nur im SDK)", expect=Status.PASS,
                      files={"ios/game.xcodeproj/project.pbxproj": _PBX, "ios/game/game-Info.plist": _APP + _ATT + _END,
                             "ios/PrivacyInfo.xcprivacy": _MANIFEST % "false"}),
         SelfTestCase(name="Manifest true, kein ATT-Text", expect=Status.FAIL, expect_finding_contains=TRACKING_KEY,
@@ -156,16 +165,7 @@ def check_tracking_manifest_contradicts_att(ctx: Context) -> CheckResult:
         return unmeasured(check_id, title, "Keine App-Info.plist mit App-eigenem PrivacyInfo.xcprivacy gefunden.", PLATFORM)
     findings: list[Finding] = []
     declared = any(tracking for _, tracking in manifests)
-    if usage and not declared:
-        for sf, _ in manifests:
-            findings.append(Finding(
-                check_id=check_id, severity=Severity.ERROR,
-                message=f"Die App fragt per ATT ({TRACKING_KEY}), das Manifest meldet NSPrivacyTracking nicht als true.",
-                file=sf.rel, line=1, evidence=os.path.basename(sf.rel),
-                fix="NSPrivacyTracking=true setzen (Godot: `privacy/tracking_enabled=true`) und das ASC-Label auf Tracking prüfen.",
-                guideline=GUIDELINE,
-            ))
-    elif declared and not usage:
+    if declared and not usage:
         for sf, tracking in manifests:
             if tracking:
                 findings.append(Finding(
@@ -176,3 +176,68 @@ def check_tracking_manifest_contradicts_att(ctx: Context) -> CheckResult:
                     guideline=GUIDELINE,
                 ))
     return result_for(check_id, title, findings, len(manifests), "App-Privacy-Manifeste", PLATFORM)
+
+
+_DOMAINS = "\t<key>NSPrivacyTrackingDomains</key>\n\t<array>\n\t\t<string>ads.example.com</string>\n\t</array>\n"
+
+
+@register(
+    "apple.privacy_manifest_tracking_domains",
+    "Privacy-Manifest: NSPrivacyTracking und Tracking-Domains passen nicht zusammen",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline=GUIDELINE,
+    rationale=("Belegt 03.11.2026 (Hopfenhölle Build 49): App-Manifest NSPrivacyTracking=true ohne "
+               "NSPrivacyTrackingDomains, Apple: ITMS-91064 „Invalid tracking information“, Version auf "
+               "INVALID_BINARY. Dieselbe Meldung für Domains ohne true (Braze, Unity). Gilt auch für "
+               "mitgelieferte SDK-Manifeste — Apple prüft jedes im Bundle."),
+    references=["https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacytrackingdomains",
+                "https://github.com/opendocument-app/OpenDocument.ios/pull/107"],
+    self_tests=[
+        SelfTestCase(name="true ohne Domains (Build 49)", expect=Status.FAIL, expect_finding_contains="ITMS-91064",
+                     files={"ios/PrivacyInfo.xcprivacy": _MANIFEST % "true"}),
+        SelfTestCase(name="Domains ohne true", expect=Status.FAIL, expect_finding_contains="ITMS-91064",
+                     files={"ios/PrivacyInfo.xcprivacy": _PLIST_HEAD + _DOMAINS + "\t<key>NSPrivacyTracking</key>\n\t<false/>\n" + _END}),
+        SelfTestCase(name="SDK-Manifest true ohne Domains", expect=Status.FAIL, expect_finding_contains="SDK",
+                     files={"ios/PrivacyInfo.xcprivacy": _MANIFEST % "false",
+                            "ios/libs/Ads.xcframework/ios-arm64/PrivacyInfo.xcprivacy": _MANIFEST % "true"}),
+        SelfTestCase(name="true mit Domains", expect=Status.PASS,
+                     files={"ios/PrivacyInfo.xcprivacy": _PLIST_HEAD + _DOMAINS + "\t<key>NSPrivacyTracking</key>\n\t<true/>\n" + _END}),
+        SelfTestCase(name="false ohne Domains", expect=Status.PASS,
+                     files={"ios/PrivacyInfo.xcprivacy": _MANIFEST % "false"}),
+        SelfTestCase(name="kein Manifest", expect=Status.UNMEASURED, files={"ios/game.xcodeproj/project.pbxproj": _PBX}),
+    ],
+)
+def check_privacy_manifest_tracking_domains(ctx: Context) -> CheckResult:
+    check_id = "apple.privacy_manifest_tracking_domains"
+    title = "Privacy-Manifest: NSPrivacyTracking und Tracking-Domains passen nicht zusammen"
+    manifests = list(ctx.files_named("PrivacyInfo.xcprivacy"))
+    if not manifests:
+        return unmeasured(check_id, title, "Kein PrivacyInfo.xcprivacy gefunden.", PLATFORM)
+    findings: list[Finding] = []
+    unreadable = 0
+    for sf in manifests:
+        try:
+            data = plistlib.loads(sf.text.encode("utf-8"))
+        except Exception:
+            unreadable += 1
+            continue
+        tracking = data.get("NSPrivacyTracking") is True
+        domains = [d for d in data.get("NSPrivacyTrackingDomains") or [] if isinstance(d, str) and d.strip()]
+        if tracking == bool(domains):
+            continue
+        owner = "SDK-Manifest (Update des Anbieters nötig)" if _vendored(sf.rel) else "App-Manifest"
+        problem = "NSPrivacyTracking=true ohne NSPrivacyTrackingDomains" if tracking else \
+            f"{len(domains)} NSPrivacyTrackingDomains ohne NSPrivacyTracking=true"
+        findings.append(Finding(
+            check_id=check_id, severity=Severity.ERROR,
+            message=f"{owner}: {problem} — Apple weist das Binary zurück (ITMS-91064).",
+            file=sf.rel, line=1, evidence=os.path.basename(sf.rel),
+            fix=("Trackt nur ein eingebautes SDK, im App-Manifest NSPrivacyTracking=false (Godot: "
+                 "`privacy/tracking_enabled=false`); das SDK-Manifest deklariert sein Tracking selbst. Eigene "
+                 "Tracking-Domains nur mit true eintragen — iOS sperrt sie ohne ATT-Zustimmung."),
+            guideline=GUIDELINE,
+        ))
+    if unreadable == len(manifests):
+        return unmeasured(check_id, title, f"{unreadable} Privacy-Manifeste nicht als Plist lesbar.", PLATFORM)
+    return result_for(check_id, title, findings, len(manifests) - unreadable, "Privacy-Manifeste", PLATFORM)

@@ -3,11 +3,11 @@
 
 # Rule catalog
 
-206 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+207 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 51 | 10 |
+| apple | 52 | 10 |
 | dotnet | 13 | 0 |
 | godot | 38 | 1 |
 | python | 8 | 0 |
@@ -937,6 +937,61 @@ func go() {
   print("start")
 #endif
 }
+```
+
+</details>
+
+### `apple.privacy_manifest_tracking_domains`
+
+**Privacy-Manifest: NSPrivacyTracking und Tracking-Domains passen nicht zusammen**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § iOS: Werbung und App Tracking Transparency
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+- Reference: <https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacytrackingdomains>
+- Reference: <https://github.com/opendocument-app/OpenDocument.ios/pull/107>
+
+<details><summary>Why it exists</summary>
+
+```text
+Belegt 03.11.2026 (Hopfenhölle Build 49): App-Manifest NSPrivacyTracking=true ohne NSPrivacyTrackingDomains, Apple: ITMS-91064 „Invalid tracking information“, Version auf INVALID_BINARY. Dieselbe Meldung für Domains ohne true (Braze, Unity). Gilt auch für mitgelieferte SDK-Manifeste — Apple prüft jedes im Bundle.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): true ohne Domains (Build 49)</summary>
+
+`ios/PrivacyInfo.xcprivacy`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<true/>
+</dict>
+</plist>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): true mit Domains</summary>
+
+`ios/PrivacyInfo.xcprivacy`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTrackingDomains</key>
+	<array>
+		<string>ads.example.com</string>
+	</array>
+	<key>NSPrivacyTracking</key>
+	<true/>
+</dict>
+</plist>
 ```
 
 </details>
@@ -2994,12 +3049,47 @@ struct V: View { var body: some View { Text("x").font(.custom("Inter", size: 20,
 <details><summary>Why it exists</summary>
 
 ```text
-Belegt 14.10.2026 (Wiesn Survivors): NSPrivacyTracking=false neben einem Tracking-Label in ASC. Fragt die App per ATT, trackt sie; meldet das Manifest Tracking, braucht sie den ATT-Text.
+Meldet das App-Manifest Tracking, braucht die App den ATT-Text. Die Gegenrichtung (ATT-Text verlangt Manifest true) war falsch: AdMob deklariert sein Tracking im SDK-Manifest, true ohne Domains lehnte Apple ab (ITMS-91064, 03.11.2026).
 ```
 
 </details>
 
-<details><summary>Broken probe (must FAIL): ATT-Text, Manifest false</summary>
+<details><summary>Broken probe (must FAIL): Manifest true, kein ATT-Text</summary>
+
+`ios/game.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+{ objects = { }; }
+```
+
+`ios/game/game-Info.plist`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+</dict>
+</plist>
+```
+
+`ios/PrivacyInfo.xcprivacy`
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<true/>
+</dict>
+</plist>
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): ATT-Text, Manifest false (Tracking nur im SDK)</summary>
 
 `ios/game.xcodeproj/project.pbxproj`
 
@@ -3030,43 +3120,6 @@ Belegt 14.10.2026 (Wiesn Survivors): NSPrivacyTracking=false neben einem Trackin
 <dict>
 	<key>NSPrivacyTracking</key>
 	<false/>
-</dict>
-</plist>
-```
-
-</details>
-
-<details><summary>Healthy probe (must PASS): beides Tracking</summary>
-
-`ios/game.xcodeproj/project.pbxproj`
-
-```text
-// !$*UTF8*$!
-{ objects = { }; }
-```
-
-`ios/game/game-Info.plist`
-
-```text
-<?xml version="1.0" encoding="UTF-8"?>
-<plist version="1.0">
-<dict>
-	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>Werbung personalisieren</string>
-</dict>
-</plist>
-```
-
-`ios/PrivacyInfo.xcprivacy`
-
-```text
-<?xml version="1.0" encoding="UTF-8"?>
-<plist version="1.0">
-<dict>
-	<key>NSPrivacyTracking</key>
-	<true/>
 </dict>
 </plist>
 ```
