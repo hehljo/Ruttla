@@ -1,0 +1,50 @@
+{
+  "latest": {
+    "advisory": 0,
+    "blocking": 0,
+    "by_check": {},
+    "by_severity": {
+      "error": 0,
+      "info": 0,
+      "warning": 0
+    },
+    "checks": {
+      "error": 0,
+      "fail": 0,
+      "pass": 19,
+      "unmeasured": 35
+    },
+    "ci": false,
+    "commit": "3a7f853b8901f5e53b961c0693a08007e51ebaab",
+    "exit_code": 0,
+    "files_scanned": 310,
+    "platforms": [
+      "python"
+    ],
+    "recorded_at": "2026-11-04T21:14:23+00:00",
+    "report_schema": "1.1",
+    "rules_digest": "0f6d5b076389b26d",
+    "rules_run": 54,
+    "run_url": null,
+    "ruttla_version": "0.1.0.dev0",
+    "schema": "ruttla-card/1",
+    "verdict": "green"
+  },
+  "project": "hehljo/Ruttla",
+  "schema": "ruttla-card/1",
+  "totals": {
+    "blocking_first": 0,
+    "blocking_free_streak": 1,
+    "blocking_now": 0,
+    "findings_down": 0,
+    "findings_first": 0,
+    "findings_now": 0,
+    "findings_up": 0,
+    "first_recorded": "2026-11-04T21:14:23+00:00",
+    "last_recorded": "2026-11-04T21:14:23+00:00",
+    "rules_with_fewer_findings": {},
+    "scans": 1,
+    "scans_ci": 0,
+    "transitions_not_comparable": 0
+  }
+}
