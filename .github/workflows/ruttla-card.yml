@@ -1,0 +1,48 @@
+name: ruttla-card
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ruttla-card
+  cancel-in-progress: false
+
+jobs:
+  card:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install Ruttla from checkout
+        run: python -m pip install -e .
+      - name: Check out the card branch
+        shell: bash
+        run: |
+          if git fetch -q origin ruttla-stats; then
+            git worktree add -B ruttla-stats "$RUNNER_TEMP/card" FETCH_HEAD
+          else
+            git worktree add --orphan -b ruttla-stats "$RUNNER_TEMP/card"
+          fi
+      - name: Update the card
+        shell: bash
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BADGE_BASE: https://raw.githubusercontent.com/${{ github.repository }}/ruttla-stats
+        run: |
+          ruttla badge update . --dir "$RUNNER_TEMP/card" --project "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA" --run-url "$RUN_URL" --badge-base "$BADGE_BASE"
+      - name: Publish the card
+        shell: bash
+        working-directory: ${{ runner.temp }}/card
+        run: |
+          git add -A
+          git diff --cached --quiet && exit 0
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Update quality card for ${GITHUB_SHA::7}"
+          git push -q origin HEAD:ruttla-stats

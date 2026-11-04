@@ -4,6 +4,15 @@
 
 # Ruttla
 
+**1. Public Repository Gate (CI-verified full scans of this repository, branch [`ruttla-stats`](https://github.com/hehljo/Ruttla/tree/ruttla-stats)):**
+
+[![Ruttla Repo Gate](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hehljo/Ruttla/ruttla-stats/badge.json)](https://github.com/hehljo/Ruttla/tree/ruttla-stats)
+[![Ruttla Repo History](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hehljo/Ruttla/ruttla-stats/badge-history.json)](https://github.com/hehljo/Ruttla/tree/ruttla-stats)
+
+**2. Maintainer Dogfooding Fleet (aggregated local [`ruttla stats`](docs/stats/ruttla-stats.md) across 18 private & public projects — Web, Godot, iOS/macOS, Python):**
+
+[![Ruttla Dogfooding Stats](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hehljo/Ruttla/main/docs/stats/ruttla-stats-badge.json)](docs/stats/ruttla-stats.md)
+
 **Ruttla** comes from the German *rütteln* ("to shake").
 
 A normal linter reads the code as it lies. Ruttla shakes it until whatever sits
@@ -223,7 +232,7 @@ reporters and exit code are identical with and without statistics; a
 statistics error never fails a scan. `ruttla stats [--period 7|30|90|all]`
 shows the dashboard (headed by the all-time balance: distinct problems found,
 fixed, regressions, runs with a blocking finding — counted per fingerprint, not
-per scan), `stats export` writes JSON and Markdown, `stats disable`
+per scan), `stats export` writes JSON, Markdown and a shields.io badge endpoint (`ruttla-stats-badge.json`), `stats disable`
 stops recording and keeps the data, `stats delete --yes` removes it. Scans
 below the system temp directory (test runs, throwaway clones) are not recorded.
 `ruttla . --lifecycle` appends this scan's lifecycle to the text report —
@@ -237,6 +246,8 @@ counts and rule IDs only, each line tied to commit, Ruttla version and CI run,
 history starting at the first recorded scan. Opt-in per repository via a
 workflow that publishes to its own branch:
 [docs/integrations/stats-badge.md](docs/integrations/stats-badge.md).
+The maintainer's aggregated local dogfooding snapshot across private and public
+repositories is published in [docs/stats/ruttla-stats.md](docs/stats/ruttla-stats.md).
 
 ## Contributing
 

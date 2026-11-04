@@ -4,6 +4,15 @@
 
 # Ruttla — deutsche Dokumentation
 
+**1. Öffentliches Repository-Gate (CI-geprüfte Vollscans dieses Repos, Branch [`ruttla-stats`](https://github.com/hehljo/Ruttla/tree/ruttla-stats)):**
+
+[![Ruttla Repo Gate](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hehljo/Ruttla/ruttla-stats/badge.json)](https://github.com/hehljo/Ruttla/tree/ruttla-stats)
+[![Ruttla Repo History](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hehljo/Ruttla/ruttla-stats/badge-history.json)](https://github.com/hehljo/Ruttla/tree/ruttla-stats)
+
+**2. Maintainer-Dogfooding-Bilanz (aggregierte lokale [`ruttla stats`](docs/stats/ruttla-stats.md) über 18 private & öffentliche Projekte — Web, Godot, iOS/macOS, Python):**
+
+[![Ruttla Dogfooding Stats](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hehljo/Ruttla/main/docs/stats/ruttla-stats-badge.json)](docs/stats/ruttla-stats.md)
+
 > Englische Hauptdokumentation: [README.md](README.md). Verträge (Exit-Codes,
 > JSON, SARIF) sind in [docs/CONTRACTS.md](docs/CONTRACTS.md) verbindlich.
 > `python3 master_gate.py` ist identisch mit dem Befehl `ruttla`.
@@ -425,7 +434,7 @@ Reporter und Exit sind mit und ohne Statistik gleich; ein Statistikfehler bricht
 nie einen Scan. `ruttla stats [--period 7|30|90|all]` zeigt das Dashboard (oben die Bilanz über
 alle Läufe: verschiedene gefundene Probleme, davon behoben, Regressionen, Läufe
 mit blockierendem Befund — gezählt je Fingerabdruck, nicht je Scan),
-`stats export` schreibt JSON und Markdown, `stats disable` stoppt und behält die
+`stats export` schreibt JSON, Markdown und ein shields.io-Badge-JSON (`ruttla-stats-badge.json`), `stats disable` stoppt und behält die
 Daten, `stats delete --yes` löscht sie. Scans unterhalb des Temp-Verzeichnisses
 (Testläufe, Wegwerf-Klone) werden nicht erfasst.
 `ruttla . --lifecycle` hängt an den Textreport den Lebenszyklus dieses Scans —
@@ -440,6 +449,8 @@ Vollscan eine Karte: Badge für jetzt und für den Verlauf (shields.io),
 Zeile an Commit, Ruttla-Version und CI-Lauf gebunden, Verlauf ab dem ersten
 erfassten Scan. Opt-in je Repo über einen Workflow, der auf einen eigenen Branch
 veröffentlicht: [docs/integrations/stats-badge.md](docs/integrations/stats-badge.md).
+Die aggregierte lokale Dogfooding-Bilanz des Maintainers über private und
+öffentliche Projekte liegt unter [docs/stats/ruttla-stats.md](docs/stats/ruttla-stats.md).
 
 ## Was das Gate NICHT kann
 

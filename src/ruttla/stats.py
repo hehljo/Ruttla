@@ -36,6 +36,7 @@ from .models import CheckResult, Status
 SCHEMA_VERSION = 1
 STATS_FORMAT = "ruttla-stats/1"
 DB_NAME = "stats.sqlite3"
+BADGE_NAME = "ruttla-stats-badge.json"
 ENV_DIR = "RUTTLA_STATS_DIR"
 PERIODS = ("7", "30", "90", "all")
 EXIT_CRASH = 3  # wie engine.EXIT_CRASH; hier ohne Import, damit stats leicht bleibt
@@ -525,6 +526,30 @@ def _pct(value: float) -> str:
     return f"{value:g}".replace(".", ",")
 
 
+def stats_badge(data: dict) -> dict:
+    """shields.io-Endpoint-Badge für die aggregierte lokale Bilanz (Dogfooding-Nachweis)."""
+    life = data.get("lifetime") or {}
+    scans = int(life.get("scans") or 0)
+    if scans <= 0:
+        return {
+            "schemaVersion": 1,
+            "label": "dogfooding (local stats)",
+            "message": "not measured",
+            "color": "lightgrey",
+        }
+    projects = int(life.get("projects") or 0)
+    found = int(life.get("found") or 0)
+    fixed = int(life.get("fixed") or 0)
+    p_word = "project" if projects == 1 else "projects"
+    s_word = "scan" if scans == 1 else "scans"
+    return {
+        "schemaVersion": 1,
+        "label": "dogfooding (local stats)",
+        "message": f"{projects} {p_word} · {scans} {s_word} · {found} found · {fixed} fixed",
+        "color": "informational",
+    }
+
+
 def _lifetime_lines(life: dict) -> list[str]:
     """Kopfblock „Bilanz": die Zahlen, die zeigen, was Ruttla bisher gefangen hat."""
     if not life["scans"]:
@@ -811,10 +836,13 @@ def _show(args, action: str) -> int:
         out = Path(args.output_dir)
         out.mkdir(parents=True, exist_ok=True)
         json_path, md_path = out / "ruttla-stats.json", out / "ruttla-stats.md"
+        badge_path = out / BADGE_NAME
         json_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
                              encoding="utf-8")
         md_path.write_text(render_markdown(data), encoding="utf-8")
-        print(f"Exportiert: {json_path} · {md_path}")
+        badge_path.write_text(json.dumps(stats_badge(data), sort_keys=True) + "\n",
+                              encoding="utf-8")
+        print(f"Exportiert: {json_path} · {md_path} · {badge_path}")
     elif args.format == "json":
         print(json.dumps(data, ensure_ascii=False, indent=2))
     elif args.format == "markdown":

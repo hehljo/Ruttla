@@ -231,6 +231,11 @@ class LifecycleTests(StatsCase):
         data = json.loads((out_dir / "ruttla-stats.json").read_text(encoding="utf-8"))
         self.assertEqual((data["format"], data["totals"]["scans"]), (stats.STATS_FORMAT, 1))
         self.assertIn(CHECK, (out_dir / "ruttla-stats.md").read_text(encoding="utf-8"))
+        badge_data = json.loads((out_dir / stats.BADGE_NAME).read_text(encoding="utf-8"))
+        self.assertEqual(badge_data["label"], "dogfooding (local stats)")
+        self.assertEqual(badge_data["color"], "informational")
+        self.assertIn("1 project · 1 scan · 1 found · 0 fixed", badge_data["message"])
+        self.assertEqual(stats.stats_badge({"lifetime": {"scans": 0}})["message"], "not measured")
         self.assertRegex(run_cli("stats")[1], r"Scans +1 ")
         with mock.patch.object(sys.stdin, "isatty", return_value=False):
             self.assertEqual(run_cli("stats", "delete")[0], 3)
