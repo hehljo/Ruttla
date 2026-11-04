@@ -90,7 +90,7 @@ Ein Task ist erst fertig, wenn relevante Akzeptanzkriterien, Tests, Build/Packag
 
 - Read existing code before larger changes; do not guess.
 - A reported failure is turned into a CHECK first (see CLAUDE.md), not a fix in the foreign project.
-- Keep STATUS.md, MASTER_ROADMAP.md and CHANGELOG.md current at milestones.
+- Keep STATUS.md, MASTER_ROADMAP.md, CHANGELOG.md and `docs/stats/` (`python3 master_gate.py stats export --period all --output-dir docs/stats`) current at milestones.
 - No secrets and no private project names in commits (tests/test_provenance.py).
 - Gates: `python -m unittest discover -s tests`, `python master_gate.py --self-test`,
   `python scripts/gen_rule_docs.py --check`, `python master_gate.py . --strict`.
