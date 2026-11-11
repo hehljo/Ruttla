@@ -21,15 +21,21 @@ dass die Sammlung wirklich Capacitor-Plugins enthält."""
 
 [scope]
 extensions = [".js", ".mjs", ".ts", ".tsx", ".jsx"]
-unit_label = "Dateien mit Plugin-Zugriff"
-require_text = "lugin"
-no_files_reason = "Keine Datei mit Plugin-Zugriff gefunden."
+unit_label = "Dateien mit Pfeilfunktionen"
+# Alle drei Formen enthalten eine Pfeilfunktion. Vorher "lugin": ein
+# `import("@capacitor/preferences").then((m) => m.Preferences)` ohne das Wort
+# im Dateitext wurde gar nicht erst geprüft (Capacitor-App, 11.11.2026).
+require_text = "=>"
+no_files_reason = "Keine Datei mit Pfeilfunktion gefunden."
 
 [match]
-# Zwei Formen: eine async-Pfeilfunktion, deren ganzer Rumpf ein Feld der
+# Drei Formen: eine async-Pfeilfunktion, deren ganzer Rumpf ein Feld der
 # erwarteten Plugin-Sammlung ist (danach kein Aufruf, kein weiteres Feld),
-# und ein `.then`, das direkt `registerPlugin(…)` zurückgibt.
-pattern = '''(async\s*(?:\([^()]*\)|[\w$]+)\s*=>\s*\(\s*await\s+[\w$.]*[Pp]lugins?[\w$]*\s*\([^()]*\)\s*\)\s*\.\s*[\w$]+\s*[,;)\]}\n]|\.then\s*\(\s*(?:\([^()]*\)|[\w$]+)\s*=>\s*[\w$.]*registerPlugin\s*\()'''
+# ein `.then`, das direkt `registerPlugin(…)` zurückgibt, und ein
+# dynamischer Import eines offiziellen Plugins, dessen `.then` den
+# Plugin-Export liefert (`import("@capacitor/preferences").then((m) =>
+# m.Preferences)` -- belegt 11.11.2026, Simulator: Sitzung lud nie).
+pattern = '''(async\s*(?:\([^()]*\)|[\w$]+)\s*=>\s*\(\s*await\s+[\w$.]*[Pp]lugins?[\w$]*\s*\([^()]*\)\s*\)\s*\.\s*[\w$]+\s*[,;)\]}\n]|\.then\s*\(\s*(?:\([^()]*\)|[\w$]+)\s*=>\s*[\w$.]*registerPlugin\s*\(|import\s*\(\s*["'`]@capacitor(?:-community)?/[\w-]+["'`]\s*\)\s*\.then\s*\(\s*(?:\(\s*\{[^{}()]*\}\s*\)\s*=>\s*[A-Z][\w$]*|(?:\([^()]*\)|[\w$]+)\s*=>\s*[\w$]+\s*\.\s*[A-Z][\w$]*)\s*[,;)\]}\n])'''
 message = "Plugin als Ergebnis eines Promise: {1:80} — Capacitors Proxy antwortet auf then, das Promise wird nie fertig."
 fix = "Die Plugin-Sammlung zurückgeben und erst nach dem await auf das Plugin zugreifen, oder es verpacken ({ p: plugin }). Test-Attrappen als Proxy bauen, der auch auf then antwortet."
 
@@ -51,6 +57,35 @@ expect = "fail"
 [fixtures.files]
 "src/plugins.ts" = """
 export const prefs = import('@capacitor/core').then((core) => core.registerPlugin('Preferences'));
+"""
+
+[[fixtures]]
+name = "dynamischer Import eines offiziellen Plugins, then liefert den Export (Capacitor-App, 11.11.2026)"
+expect = "fail"
+expect_finding_contains = "@capacitor/preferences"
+expect_findings = 1
+[fixtures.files]
+"src/storage.ts" = """
+let prefs = null;
+const holder = () => (prefs ??= import("@capacitor/preferences").then((module) => module.Preferences));
+"""
+
+[[fixtures]]
+name = "dynamischer Import, Destrukturierung liefert den Export"
+expect = "fail"
+[fixtures.files]
+"src/browser.ts" = """
+const browser = import('@capacitor/browser').then(({ Browser }) => Browser);
+"""
+
+[[fixtures]]
+name = "dynamischer Import, Plugin verpackt oder sofort benutzt"
+expect = "pass"
+[fixtures.files]
+"src/storage.ts" = """
+const holder = () => import("@capacitor/preferences").then((module) => ({ plugin: module.Preferences }));
+const read = (key) => import("@capacitor/preferences").then((m) => m.Preferences.get({ key }));
+const shell = import("./nativeShell").then((m) => m.TelluniaNative);
 """
 
 [[fixtures]]
