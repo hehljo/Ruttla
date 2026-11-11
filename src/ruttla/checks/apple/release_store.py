@@ -666,3 +666,95 @@ def check_export_compliance(ctx: Context) -> CheckResult:
             f"({unresolved} nicht auflösbar).", PLATFORM)
     return result_for(check_id, title, findings, examined,
                       "App-Target-Konfigurationen", PLATFORM)
+
+
+def _is_capacitor_project(ctx: Context, project: str) -> bool:
+    """Capacitor erkannt an der Bauform der Hülle, nicht am Pfadnamen:
+    eine capacitor.config.* im Wurzelverzeichnis oder das von der CLI
+    erzeugte Paket CapApp-SPM / die capacitor.config.json neben dem Projekt."""
+    for name in ("capacitor.config.ts", "capacitor.config.json", "capacitor.config.js"):
+        if os.path.isfile(os.path.join(ctx.root, name)):
+            return True
+    parent = os.path.dirname(project)
+    return (os.path.isdir(os.path.join(parent, "CapApp-SPM"))
+            or os.path.isfile(os.path.join(parent, "App", "capacitor.config.json")))
+
+
+@register(
+    "apple.release.capacitor_display_name_setting_missing",
+    "Capacitor-App ohne INFOPLIST_KEY_CFBundleDisplayName im App-Target",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 15 (Anzeigename als Build-Einstellung)",
+    self_tests=[
+        SelfTestCase(
+            name="gesund: Capacitor-Projekt mit Anzeigename im Target",
+            files={"capacitor.config.ts": "export default {};\n",
+                   "ios/App/App.xcodeproj/project.pbxproj": _project_fixture(
+                       INFOPLIST_KEY_CFBundleDisplayName="ExampleApp",
+                       PRODUCT_BUNDLE_IDENTIFIER="de.example.app")},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="negativ: Capacitor-Projekt ohne Anzeigename im Target",
+            files={"capacitor.config.ts": "export default {};\n",
+                   "ios/App/App.xcodeproj/project.pbxproj": _project_fixture(
+                       PRODUCT_BUNDLE_IDENTIFIER="de.example.app")},
+            expect=Status.FAIL,
+            expect_finding_contains="INFOPLIST_KEY_CFBundleDisplayName",
+        ),
+        SelfTestCase(
+            name="negativ: Anzeigename leer",
+            files={"ios/App/CapApp-SPM/Package.swift": "// capacitor\n",
+                   "ios/App/App.xcodeproj/project.pbxproj": _project_fixture(
+                       INFOPLIST_KEY_CFBundleDisplayName='""',
+                       PRODUCT_BUNDLE_IDENTIFIER="de.example.app")},
+            expect=Status.FAIL,
+            expect_finding_contains="leer",
+        ),
+        SelfTestCase(
+            name="kein Capacitor-Projekt: nicht gemessen statt Befund",
+            files={"P.xcodeproj/project.pbxproj": _project_fixture(
+                PRODUCT_BUNDLE_IDENTIFIER="com.example.App")},
+            expect=Status.UNMEASURED,
+        ),
+    ],
+)
+def check_capacitor_display_name_setting(ctx: Context) -> CheckResult:
+    """In Capacitor-Apps muss der Anzeigename als Build-Einstellung stehen.
+
+    Belegt am 2026-11-11 (Capacitor-App, Capacitor 8.6): die Vorlage schreibt
+    CFBundleDisplayName nur in die Info.plist, die Build-Einstellung
+    INFOPLIST_KEY_CFBundleDisplayName fehlt. Erst mit ihr lief „Distribute
+    App“ in Xcode durch (Nutzerbefund beim ersten Upload). Der Prüfbereich
+    ist jede Konfiguration des App-Targets, nicht die Projektdatei.
+    """
+    check_id = "apple.release.capacitor_display_name_setting_missing"
+    title = "Capacitor-App ohne INFOPLIST_KEY_CFBundleDisplayName im App-Target"
+    projects = [entry for entry in _app_target_projects(ctx) if _is_capacitor_project(ctx, entry[0])]
+    if not projects:
+        return unmeasured(check_id, title, "Kein Capacitor-Xcode-Projekt gefunden.", PLATFORM)
+
+    findings: list[Finding] = []
+    examined = 0
+    for _project, rel, configs in projects:
+        for config in configs:
+            examined += 1
+            value = _setting(config["block"], "INFOPLIST_KEY_CFBundleDisplayName")
+            if value:
+                continue
+            reason = "ist leer" if value == "" else "fehlt"
+            findings.append(Finding(
+                check_id=check_id, severity=Severity.ERROR,
+                message=f"INFOPLIST_KEY_CFBundleDisplayName {reason} in Target "
+                        f"'{config['target']}' ({config['config']}).",
+                file=rel,
+                fix="In jede Konfiguration des App-Targets "
+                    "`INFOPLIST_KEY_CFBundleDisplayName = <App-Name>;` schreiben "
+                    "(Xcode: Target > General > Display Name), Wert gleich dem "
+                    "Markennamen der Brand-Quelle.",
+                guideline="CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 15",
+            ))
+    if examined == 0:
+        return unmeasured(check_id, title, "Keine App-Target-Konfiguration gefunden.", PLATFORM)
+    return result_for(check_id, title, findings, examined, "App-Target-Konfigurationen", PLATFORM)
