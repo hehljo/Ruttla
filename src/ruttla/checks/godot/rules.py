@@ -24,6 +24,12 @@ from ruttla.core import (
 from ._common import PLATFORM, _gd
 
 
+_TREE_ONLY_PROPERTIES = frozenset({
+    "global_position", "global_transform", "global_rotation", "global_rotation_degrees",
+    "global_basis", "global_scale", "global_skew",
+})
+
+
 @register(
     "godot.add_child_before_configure",
     "add_child() vor dem Setzen der Werte, die _ready() liest",
@@ -61,6 +67,16 @@ from ._common import PLATFORM, _gd
         SelfTestCase(
             name="Owner does not hide late configuration",
             files={"src/scene.gd": "extends Node\nfunc build_scene():\n\tvar item = Node3D.new()\n\tvar mesh = MeshInstance3D.new()\n\titem.add_child(mesh)\n\tmesh.owner = item\n\tmesh.marker_path = $Markers.get_path()\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Global transform after add_child is allowed",
+            files={"src/scene.gd": "extends Node\nfunc spawn():\n\tvar p = SCENE.instantiate()\n\tadd_child(p)\n\tp.global_position = Vector3.ZERO\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Global-like custom property stays checked",
+            files={"src/scene.gd": "extends Node\nfunc spawn():\n\tvar p = SCENE.instantiate()\n\tadd_child(p)\n\tp.global_position_hint = 2\n"},
             expect=Status.FAIL,
         ),
         SelfTestCase(
@@ -105,6 +121,11 @@ def check_add_child_order(ctx: Context) -> CheckResult:
                 # Node.owner requires an ancestor, therefore parenting comes first.
                 # https://docs.godotengine.org/en/stable/classes/class_node.html#class-node-property-owner
                 if am.group(1) == "owner":
+                    continue
+                # Global transforms require the tree too ("!is_inside_tree()"), so
+                # they come after add_child. Belegt 13.11.2026 (Drink-and-Hide,
+                # test_kastenraub_kamera.gd: other.global_position).
+                if am.group(1) in _TREE_ONLY_PROPERTIES:
                     continue
                 orig = sf.lines[off] if off < len(sf.lines) else nxt
                 findings.append(Finding(

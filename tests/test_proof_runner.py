@@ -1,7 +1,6 @@
 """Healthy source coverage before individual runner/writer mutations."""
 from __future__ import annotations
 
-import json
 import unittest
 
 from _support import cli_json, make_tree

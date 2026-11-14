@@ -1,5 +1,16 @@
 # Changelog
 
+## Physical safe-area spacing ownership (2026-11-04)
+
+- Added advisory `web.safe_area_margin_padding_doubled`: same physical inset in
+  margin and padding of one CSS declaration block, including local shorthand
+  expansion and important overrides. No new blocking default or target execution.
+- Healthy/isolated-defect, lexical, scope, unknown and CLI policy cases; device
+  geometry, native inset behavior and cross-block cascade remain unmeasured.
+- Repeatable offline verification: `scripts/verify-safe-area.py`.
+- Narrowed ignored-artifact scanning for inert register/result/finding metadata
+  and docstrings; healthy/isolated-read controls retain executable dependencies.
+
 ## Aggregate proof writer coverage (2026-11-02)
 
 - Added warning `quality.contract_proof_without_runner_writer`, relating explicit

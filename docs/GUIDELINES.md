@@ -769,6 +769,28 @@ im Code, und — wo eine iOS-Hülle existiert — einen nativen Rücksprung ohne
 in Supabase unter *Redirect URLs* steht; fehlt sie, ist das Bild dasselbe — die
 App öffnet nach der Anmeldung die Startseite im Browserfenster.
 
+<a id="capacitor-display-name-build-setting"></a>
+### Anzeigename in Capacitor-Projekten als Build-Einstellung
+
+Das Capacitor-Template liest den Anzeigenamen in der `Info.plist` aus einer
+Build-Einstellung. Fehlt `INFOPLIST_KEY_CFBundleDisplayName` im App-Target, wird
+der Name leer oder der technische Produktname angezeigt, ohne dass ein Build
+fehlschlägt. Die Regel `apple.release.capacitor_display_name_setting_missing`
+prüft je App-Target der `project.pbxproj`, ob die Einstellung gesetzt ist; eine
+Datei-weite Suche würde ein anderes Target als Beleg zählen.
+
+<a id="store-export-cloud-signing"></a>
+### Store-Export mit automatischer Signierung
+
+`xcodebuild -exportArchive` mit `signingStyle automatic` und
+`-authenticationKeyPath` verlangt cloud-verwaltete Distribution-Zertifikate. Darf
+der API-Schlüssel diese nicht nutzen, scheitert der Export erst nach dem
+kompletten Archiv („Cloud signing permission error“). Die Regel
+`apple.store_export_cloud_signing` warnt bei Skripten, die beides kombinieren.
+Es bleibt eine Warnung: ein Schlüssel mit Admin-Rolle darf cloud-signieren.
+Abhilfe: manuell mit lokalem „Apple Distribution“-Zertifikat und per API
+angelegtem `IOS_APP_STORE`-Profil exportieren; der Schlüssel lädt nur hoch.
+
 <a id="capacitor-plugin-thenable"></a>
 ### Capacitor-Plugin als Promise-Ergebnis
 
@@ -1174,6 +1196,46 @@ into the items and reduce the inset, e.g.
 `calc(4px + max(env(safe-area-inset-bottom, 0px) - 16px, 0px))`; full insets
 stay correct for content that is not fixed to the bottom. Rule:
 `web.bottom_bar_full_safe_area_padding` (warning).
+
+<a id="safe-area-ownership"></a>
+## Safe-area ownership
+
+Give a physical safe-area inset one spacing owner. A responsive dock can already
+include `env(safe-area-inset-bottom)` in its margin shorthand; adding it again to
+`padding-bottom` expands the empty band below its controls. Warning
+`web.safe_area_margin_padding_doubled` checks both spacing families on the same
+physical side within one CSS declaration block. It handles one-to-four-value
+shorthands, local declaration order, `!important`, direct `env`, positive `calc`
+sums and `max` wrappers. Comments, strings and different selectors are separate.
+
+This is a source advisory, not a layout verdict. Cross-block cascade, custom
+properties, logical properties, subtraction, scaling, min/clamp, CSS-in-JS,
+Tailwind and native scroll-inset ownership are outside the measured scope.
+No measurable subject is UNMEASURED. Do not blindly zero/reduce safe areas: test
+the actual header/dock around the notch and home indicator in the real WebView.
+References: [CSS environment insets](https://www.w3.org/TR/css-env-1/#safe-area-insets),
+[CSS box model](https://www.w3.org/TR/css-box-3/#box-model).
+
+App-wide device authentication, preserved TAN sessions, platform-specific PIN
+options, immediate disclosure-state persistence, append-only definitions import
+and credential storage need explicit app contracts and runtime/compiler tests.
+Bind those sources and named cases through `quality.contract_runtime_evidence`;
+do not turn product-specific choices into universal regex failures. A stale,
+missing or failed receipt is not current evidence. Fake-native browser transport
+does not prove LocalAuthentication, Keychain or CloudKit behavior.
+
+Repeatable verification: `python3 scripts/verify-safe-area.py --output-root build/qa --target /path/to/app`.
+It runs healthy controls before isolated defects, repository gates and an optional
+read-only source control; it never executes or builds the target application.
+The output directory is an explicit CLI parameter; logs go into a new unique
+subdirectory. Literal rule titles are metadata, not reads from ignored artifacts;
+`gate.reads_from_gitignored_artifact` preserves actual reads after those titles.
+Docstrings and literal finding messages/fixes are metadata too. A local literal
+title is exempt only when all its uses are result-title arguments; `read(title)`
+keeps it visible. Calls inside metadata expressions remain executable input.
+This does not infer arbitrary Python filesystem data flow: a path literal alone
+is only an indicator, and output-log access must be triaged against the real
+producer/consumer. Do not suppress a genuine old-artifact dependency as a writer.
 
 <a id="capacitor-keyboard-resize"></a>
 ## Capacitor keyboard resize mode

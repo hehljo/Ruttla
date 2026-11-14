@@ -1,5 +1,17 @@
 # STATUS
 
+## Physical safe-area spacing ownership (2026-11-04)
+
+- New warning `web.safe_area_margin_padding_doubled`, local CSS declaration scope.
+- Narrowed ignored-artifact scanning for inert register/result/finding metadata
+  and docstrings; executable calls and path aliases used for reads stay visible.
+- Verification completed: 519 unit cases (516 passed, three existing optional
+  skips), 998/998 self-test fixtures, current catalogue, strict self-scan
+  19 PASS/35 UNMEASURED/zero findings, changed scan and real CSS source control.
+- Evidence: `build/qa/safe-area-20261104T061710Z-c9b583fc/`. Initial strict scan
+  exposed the metadata false positives; corrected and verified with isolated
+  executable-read defects. No native runtime, bank login or app rebuild claimed.
+
 ## Aggregate proof writer advisory (2026-11-02)
 
 - Added warning `quality.contract_proof_without_runner_writer`: explicit proof

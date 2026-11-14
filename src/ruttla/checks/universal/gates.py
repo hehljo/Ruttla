@@ -267,6 +267,20 @@ def check_zero_tests(ctx: Context) -> CheckResult:
     severity=Severity.WARNING,
     guideline="CLAUDE.md § 'Ein Gate, das aus einem Artefakt liest, prüft den Stand des Artefakts'",
     self_tests=[
+        SelfTestCase(name="gesund: Register-Titel ist Metadatum, kein Dateiread", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "@register('example.rule', 'Cache (build/*.json)')\ndef check(ctx):\n    return 1\n"}, expect=Status.PASS),
+        SelfTestCase(name="defekt: Register-Metadaten verdecken keinen Read", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "@register('example.rule', 'Cache (build/*.json)')\ndef check(ctx):\n    return read('build/current.json')\n"}, expect=Status.FAIL),
+        SelfTestCase(name="gesund: Docstring und reiner Ergebnistitel sind keine Reads", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "@register('example.rule', 'Cache')\ndef check(ctx):\n    '''Cache build/old.json is not read.'''\n    title = 'Cache (build/*.json)'\n    return result_for('example.rule', title, [], 1)\n"}, expect=Status.PASS),
+        SelfTestCase(name="defekt: Titel als Dateipfad verwendet bleibt sichtbar", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "@register('example.rule', 'Cache')\ndef check(ctx):\n    title = 'build/current.json'\n    read(title)\n    return result_for('example.rule', title, [], 1)\n"}, expect=Status.FAIL),
+        SelfTestCase(name="defekt: Docstring verdeckt keinen folgenden Read", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "@register('example.rule', 'Cache')\ndef check(ctx):\n    '''Cache build/old.json is not read.'''\n    return read('build/current.json')\n"}, expect=Status.FAIL),
+        SelfTestCase(name="gesund: Finding-Korrekturtext ist Anzeige", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "@register('example.rule', 'Cache')\ndef check(ctx):\n    return Finding(message='Cache build/old.json', fix='Rebuild build/current.json')\n"}, expect=Status.PASS),
+        SelfTestCase(name="defekt: Aufruf im Korrekturtext ist ausführbar", files={
+            ".gitignore": "build/\n", "checks/check_rule.py": "@register('example.rule', 'Cache')\ndef check(ctx):\n    return Finding(fix=read('build/current.json'))\n"}, expect=Status.FAIL),
         SelfTestCase(name="gesund: Dokumentationsadresse ist kein Artefaktread", files={
             ".gitignore": "build/\n", "gates/check_web.py": "reference = 'https://docs.netlify.com/build/edge-functions/api/'\n"}, expect=Status.PASS),
         SelfTestCase(name="defekt: Adresse verdeckt keinen lokalen Read", files={
@@ -356,11 +370,55 @@ def check_gate_artifact(ctx: Context) -> CheckResult:
                 for line in lines:
                     offsets.append(offsets[-1] + len(line))
                 spans = []
+                parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+                metadata_calls = {'unmeasured', 'result_for', 'CheckResult', 'ok', 'failed'}
+                def span(value):
+                    return (offsets[value.lineno - 1] + len(lines[value.lineno - 1].encode('utf-8')[:value.col_offset].decode('utf-8')),
+                            offsets[value.end_lineno - 1] + len(lines[value.end_lineno - 1].encode('utf-8')[:value.end_col_offset].decode('utf-8')))
                 for node in ast.walk(tree):
+                    # Python docstrings are data, not executable reads.
+                    if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.body:
+                        first = node.body[0]
+                        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+                            value = first.value
+                            spans.append(span(value))
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in metadata_calls | {'Finding'}:
+                        for keyword in node.keywords:
+                            if keyword.arg not in {'title', 'message', 'fix', 'evidence', 'guideline', 'reason'}:
+                                continue
+                            # Literal/f-string display text is inert; executable
+                            # expressions inside it stay visible to the check.
+                            if any(isinstance(item, (ast.Call, ast.Await)) for item in ast.walk(keyword.value)):
+                                continue
+                            for value in ast.walk(keyword.value):
+                                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                                    spans.append(span(value))
+                    # A local literal used exclusively as the second (title)
+                    # argument of result constructors is display metadata.
+                    # Any other use (including read(title)) keeps it visible.
+                    if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) and node.targets[0].id == 'title' and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                        scope = parents.get(node)
+                        while scope is not None and not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Module)):
+                            scope = parents.get(scope)
+                        uses = [item for item in ast.walk(scope or tree) if isinstance(item, ast.Name) and item.id == 'title' and isinstance(item.ctx, ast.Load)]
+                        if uses and all(isinstance(parents.get(item), ast.Call) and isinstance(parents[item].func, ast.Name) and parents[item].func.id in metadata_calls and len(parents[item].args) > 1 and parents[item].args[1] is item for item in uses):
+                            value = node.value
+                            start = offsets[value.lineno - 1] + len(lines[value.lineno - 1].encode('utf-8')[:value.col_offset].decode('utf-8'))
+                            end = offsets[value.end_lineno - 1] + len(lines[value.end_lineno - 1].encode('utf-8')[:value.end_col_offset].decode('utf-8'))
+                            spans.append((start, end))
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'SelfTestCase':
                         start = offsets[node.lineno - 1] + len(lines[node.lineno - 1].encode('utf-8')[:node.col_offset].decode('utf-8'))
                         end = offsets[node.end_lineno - 1] + len(lines[node.end_lineno - 1].encode('utf-8')[:node.end_col_offset].decode('utf-8'))
                         spans.append((start, end))
+                    # Direct literal rule metadata is display text. Do not mask
+                    # calls/expressions inside a decorator: those may read files.
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'register':
+                        metadata = list(node.args) + [item.value for item in node.keywords if item.arg in {'guideline', 'title'}]
+                        for value in metadata:
+                            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                                start = offsets[value.lineno - 1] + len(lines[value.lineno - 1].encode('utf-8')[:value.col_offset].decode('utf-8'))
+                                end = offsets[value.end_lineno - 1] + len(lines[value.end_lineno - 1].encode('utf-8')[:value.end_col_offset].decode('utf-8'))
+                                spans.append((start, end))
                 for start, end in sorted(spans, reverse=True):
                     body = body[:start] + re.sub(r'[^\n]', ' ', body[start:end]) + body[end:]
             except SyntaxError:

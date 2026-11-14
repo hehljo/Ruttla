@@ -12,6 +12,6 @@ htmlcov/
 .ruff_cache/
 report.json
 *.sarif
-HANDOVER.md
-MASTER_ROADMAP.md
+HANDOVER*.md
+MASTER_ROADMAP*.md
 engine/target/

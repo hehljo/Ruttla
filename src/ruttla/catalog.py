@@ -18,6 +18,8 @@ GUIDELINES_DOC = "docs/GUIDELINES.md"
 # (prefix of the guideline string, anchor in docs/GUIDELINES.md, one-line
 # public summary). First match wins, so more specific prefixes come first.
 GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
+    ("docs/GUIDELINES.md § Safe-area ownership", "safe-area-ownership",
+     "A physical safe-area inset needs one spacing owner; margin plus padding can add it twice."),
     ("docs/GUIDELINES.md § Local Swift package prerequisites", "local-swift-package-prerequisites",
      "Literal local Swift package paths need Package.swift before Xcode resolves dependencies."),
     ("GUIDELINES.md § Linux host preflight", "linux-host-preflight",
@@ -28,6 +30,10 @@ GUIDELINE_FAMILIES: list[tuple[str, str, str]] = [
      "A PostgREST mock must project rows onto the requested select columns like the real server."),
     ("docs/GUIDELINES.md § Anbieter-Anmeldung in der Capacitor-Hülle", "capacitor-oauth-native-return",
      "OAuth in a Capacitor shell needs a native return URL; otherwise Supabase silently falls back to the Site URL."),
+    ("CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 15 (Anzeigename", "capacitor-display-name-build-setting",
+     "A Capacitor iOS target needs the display name as a build setting; the template writes it nowhere else."),
+    ("~/.claude/guides/ios-store-release.md § Store-Export", "store-export-cloud-signing",
+     "Automatic export signing with an API key needs cloud-managed distribution certificates; export manually otherwise."),
     ("CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 9 Web-APIs in WKWebView", "capacitor-plugin-thenable",
      "A Capacitor plugin proxy answers then(); resolving a promise with it hangs forever."),
     ("CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § Store-Pflichten", "required-reason-api",

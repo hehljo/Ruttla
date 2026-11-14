@@ -54,6 +54,7 @@ include = [
     "schemas",
     "docs",
     "scripts/gen_rule_docs.py",
+    "scripts/verify-safe-area.py",
     "scripts/collect_host_snapshot.py",
     "scripts/check_xcframework_architectures.py",
     "master_gate.py",

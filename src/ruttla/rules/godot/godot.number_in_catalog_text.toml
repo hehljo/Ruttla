@@ -4,10 +4,11 @@ title = "Spielwert fest im Katalogtext"
 platform = "godot"
 severity = "info"
 guideline = "CLAUDE.md § Grundsatz C (Katalogpflicht / i18n)"
-rationale = "Belegt 13.10.2026 (BrauhausTycoon): Ausbaupreise standen in UPGRADES und zusätzlich wörtlich im Katalog ('Flyer (150 M.)'). Eine Preisänderung im Code hätte im Menü den alten Preis gezeigt."
+rationale = "Belegt 13.10.2026 (BrauhausTycoon): Ausbaupreise standen in UPGRADES und zusätzlich wörtlich im Katalog ('Flyer (150 M.)'). Eine Preisänderung im Code hätte im Menü den alten Preis gezeigt. Belegt 13.11.2026 (Drink-and-Hide, DH-039): Mess-CSV eines Falltests ('rollt (12 m)') wurden als Katalogtext gemeldet; gelesen wird deshalb nur eine CSV mit Godot-Katalogkopf 'keys,' (dieselbe Erkennung wie der i18n-Check; ein Kopf 'key,' bleibt ungemessen)."
 
 [scope]
 extensions = [".csv"]
+require_text = "keys,"
 unit_label = "Lokalisierungskataloge"
 no_files_reason = "Kein CSV-Katalog gefunden."
 
@@ -57,3 +58,17 @@ name = "Zeilengrenze: Leerzeichen über Zeilenumbruch zählt nicht"
 expect = "pass"
 [fixtures.files]
 "localization/ui.csv" = "keys,de,en\nUI_A,A (10\nM.),A\n"
+
+[[fixtures]]
+name = "Mess-CSV ohne Katalogkopf wird nicht gelesen"
+expect = "unmeasured"
+[fixtures.files]
+"docs/reviews/falltest.csv" = "id,befunde\nprop_a,seite: rollt (12 m)\n"
+
+[[fixtures]]
+name = "Katalog und Mess-CSV nebeneinander: nur der Katalog zählt"
+expect = "fail"
+expect_findings = 1
+[fixtures.files]
+"localization/ui.csv" = "keys,de,en\nUI_A,A (10 M.),A\n"
+"docs/reviews/falltest.csv" = "id,befunde\nprop_a,seite: rollt (12 m)\n"

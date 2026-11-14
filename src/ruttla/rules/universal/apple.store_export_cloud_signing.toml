@@ -1,0 +1,62 @@
+format = "ruttla-rule/0"
+id = "apple.store_export_cloud_signing"
+title = "Store-Export mit automatischer Signierung über API-Schlüssel"
+platform = "universal"
+severity = "warning"
+guideline = "~/.claude/guides/ios-store-release.md § Store-Export: Cloud-Signierung und Icon-Alpha"
+tags = ["apple", "signing", "release"]
+references = ["https://developer.apple.com/documentation/xcode/distributing-your-app-for-beta-testing-and-releases"]
+rationale = """
+`xcodebuild -exportArchive` mit `signingStyle automatic` und `-authenticationKeyPath`
+verlangt cloud-verwaltete Distribution-Zertifikate. Darf der API-Schlüssel die nicht
+nutzen, endet der Export erst nach dem kompletten Archiv mit „Cloud signing permission
+error“ / „No profiles for … were found“.
+
+Belegt zweimal: 06.11.2026 (App A, Version 1.0) und 07.11.2026 (App B, Version 1.3) — der zweite
+Upload-Helfer hatte die Bauform des ersten nicht übernommen und lief in denselben
+Fehler. Bauform: manuell mit lokalem „Apple Distribution“ und per API angelegtem
+`IOS_APP_STORE`-Profil exportieren, der Schlüssel lädt nur hoch.
+
+Warnung statt Fehler: ein Schlüssel mit Admin-Rolle darf cloud-signieren."""
+
+[scope]
+extensions = [".py", ".js", ".mjs", ".cjs", ".ts", ".sh", ".rb"]
+unit_label = "Skripte mit xcodebuild-Export per API-Schlüssel"
+no_files_reason = "Kein Skript mit xcodebuild-Export per API-Schlüssel gefunden."
+require_text = "authenticationKeyPath"
+skip_comments = true
+
+[match]
+pattern = '''signingStyle['"]?\s*[:=,]\s*['"]?automatic'''
+message = "Store-Export signiert automatisch über den API-Schlüssel — ohne Cloud-Signierrecht scheitert er nach dem Archiv."
+fix = "Manuell exportieren: `signingStyle` manual, `signingCertificate` \"Apple Distribution\", `provisioningProfiles` mit der UUID eines `IOS_APP_STORE`-Profils (z. B. `asc profiles create`), Upload getrennt (`asc builds upload`)."
+
+[[fixtures]]
+name = "Automatischer Export mit API-Schlüssel (Altstand vor 07.11.)"
+expect = "fail"
+expect_findings = 1
+expect_finding_contains = "automatisch"
+[fixtures.files]
+"scripts/upload.py" = """
+auth=['-allowProvisioningUpdates','-authenticationKeyPath',str(key)]
+opts={'method':'app-store-connect','destination':'upload',
+    'signingStyle':'automatic','teamID':team}
+"""
+
+[[fixtures]]
+name = "Manueller Export mit Profil"
+expect = "pass"
+[fixtures.files]
+"scripts/upload.py" = """
+auth=['-allowProvisioningUpdates','-authenticationKeyPath',str(key)]
+opts={'method':'app-store-connect','destination':'export',
+    'signingStyle':'manual','signingCertificate':'Apple Distribution','provisioningProfiles':{bid:uuid}}
+"""
+
+[[fixtures]]
+name = "Automatisch ohne API-Schlüssel (Xcode-Konto) wird nicht geprüft"
+expect = "unmeasured"
+[fixtures.files]
+"scripts/export.sh" = """
+/usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" ExportOptions.plist
+"""

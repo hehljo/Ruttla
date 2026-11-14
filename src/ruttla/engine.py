@@ -191,13 +191,35 @@ def selector_matches(pattern: str, check_id: str) -> bool:
     )
 
 
+def finding_severity(found: Severity, override: Severity | None) -> Severity:
+    """Schwere, mit der ein Befund die Engine verlässt.
+
+    ``found`` ist die Schwere, die der Check dem einzelnen Befund gegeben hat,
+    ``override`` die im Profil ausdrücklich gesetzte (``Config.severity_override``;
+    None = kein Eintrag). Der Check-Standard kommt hier bewusst nicht vor: er ist
+    der Wert, den ein Check seinen Befunden mitgibt, kein Überschreiber. Bis
+    30.10.2026 überschrieb er jede je Befund gesetzte Schwere (Herabstufung für
+    Testdateien wirkungslos, höher eingestufte Einzelbefunde ebenso).
+
+    * kein Profileintrag: die Befundschwere bleibt, in beide Richtungen.
+    * Profileintrag: er gilt für alle Befunde des Checks. Ausnahme: ein
+      INFO-Befund ist ein Hinweis und wird nur durch ``error`` angehoben,
+      nicht durch ``warning``.
+    """
+    if override is None:
+        return found
+    if found == Severity.INFO and override != Severity.ERROR:
+        return found
+    return override
+
+
 def run_checks(ctx: Context, *, only_platform: str | None,
                only_checks: list[str], changed: list[str] | None) -> list[CheckResult]:
     from .declarative import EngineError, find_engine, engine_mode, run_engine_rules
 
     results: list[CheckResult] = []
     platforms = ctx.platforms()
-    selected: list[tuple[Check, Severity]] = []
+    selected: list[Check] = []
     for check in REGISTRY.values():
         if only_platform and check.platform != only_platform:
             continue
@@ -205,13 +227,12 @@ def run_checks(ctx: Context, *, only_platform: str | None,
             continue
         if not only_platform and not only_checks and check.platform not in platforms:
             continue
-        severity = ctx.config.severity_for(check.id, check.default_severity)
-        if severity is None:
+        if ctx.config.severity_for(check.id, check.default_severity) is None:
             continue  # im Profil abgeschaltet
-        selected.append((check, severity))
+        selected.append(check)
 
     # Deklarative Regeln: EIN Engine-Lauf für alle, jede Datei einmal gelesen.
-    engine_ids = [c.id for c, _ in selected if c.engine]
+    engine_ids = [c.id for c in selected if c.engine]
     engine_results: dict[str, CheckResult] = {}
     engine_crash: str | None = None
     if engine_ids and engine_mode() == "required" and find_engine() is None:
@@ -221,7 +242,7 @@ def run_checks(ctx: Context, *, only_platform: str | None,
     except Exception:
         engine_crash = "Engine-Lauf abgestürzt:\n" + traceback.format_exc(limit=4)
 
-    for check, _ in selected:
+    for check in selected:
         try:
             if check.engine:
                 if engine_crash is not None:
@@ -233,14 +254,9 @@ def run_checks(ctx: Context, *, only_platform: str | None,
             res = _crashed_check(
                 check, "Check abgestürzt:\n" + traceback.format_exc(limit=4)
             )
-        # Nur eine im Profil ausdrücklich gesetzte Schwere überschreibt die der
-        # Befunde. Ohne Profileintrag bleibt die Befundschwere: ein Check, der
-        # einzelne Befunde herabstuft (z. B. Testdateien), behält die Herabstufung.
         override = ctx.config.severity_override(check.id)
         for f in res.findings:
-            if override is not None and (f.severity != Severity.INFO
-                                         or override == Severity.ERROR):
-                f.severity = override
+            f.severity = finding_severity(f.severity, override)
             f.guideline = f.guideline or check.guideline
         if changed is not None:
             keep = [f for f in res.findings if f.file is None or f.file in changed]

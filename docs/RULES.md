@@ -3,18 +3,18 @@
 
 # Rule catalog
 
-207 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+211 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
-| apple | 52 | 10 |
+| apple | 53 | 10 |
 | dotnet | 13 | 0 |
 | godot | 38 | 1 |
 | python | 8 | 0 |
 | raspberry | 6 | 0 |
-| universal | 46 | 9 |
+| universal | 47 | 9 |
 | unreal | 6 | 0 |
-| web | 38 | 4 |
+| web | 40 | 4 |
 
 ## Pack `apple`
 
@@ -1500,6 +1500,108 @@ BBB222 /* Release */ = {
 
 ```text
 {"info":{"author":"xcode","version":1}}
+```
+
+</details>
+
+### `apple.release.capacitor_display_name_setting_missing`
+
+**Capacitor-App ohne INFOPLIST_KEY_CFBundleDisplayName im App-Target**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB_TO_NATIVE.md § 15 (Anzeigename als Build-Einstellung)
+- Public rationale: [GUIDELINES.md › capacitor-display-name-build-setting](GUIDELINES.md#capacitor-display-name-build-setting)
+
+<details><summary>Why it exists</summary>
+
+```text
+In Capacitor-Apps muss der Anzeigename als Build-Einstellung stehen.
+
+Belegt am 2026-11-11 (Capacitor-App, Capacitor 8.6): die Vorlage schreibt
+CFBundleDisplayName nur in die Info.plist, die Build-Einstellung
+INFOPLIST_KEY_CFBundleDisplayName fehlt. Erst mit ihr lief „Distribute
+App“ in Xcode durch (Nutzerbefund beim ersten Upload). Der Prüfbereich
+ist jede Konfiguration des App-Targets, nicht die Projektdatei.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): negativ: Capacitor-Projekt ohne Anzeigename im Target</summary>
+
+`capacitor.config.ts`
+
+```text
+export default {};
+```
+
+`ios/App/App.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+{
+objects = {
+        AAA111 /* SampleMac */ = {
+                isa = PBXNativeTarget;
+                buildConfigurationList = LLL111 /* Build configuration list */;
+                name = SampleMac;
+                productType = "com.apple.product-type.application";
+        };
+        LLL111 /* Build configuration list */ = {
+                isa = XCConfigurationList;
+                buildConfigurations = (
+                        CCC111 /* Release */,
+                );
+        };
+        CCC111 /* Release */ = {
+                isa = XCBuildConfiguration;
+                buildSettings = {
+					PRODUCT_BUNDLE_IDENTIFIER = de.example.app;
+                };
+                name = Release;
+        };
+};
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Capacitor-Projekt mit Anzeigename im Target</summary>
+
+`capacitor.config.ts`
+
+```text
+export default {};
+```
+
+`ios/App/App.xcodeproj/project.pbxproj`
+
+```text
+// !$*UTF8*$!
+{
+objects = {
+        AAA111 /* SampleMac */ = {
+                isa = PBXNativeTarget;
+                buildConfigurationList = LLL111 /* Build configuration list */;
+                name = SampleMac;
+                productType = "com.apple.product-type.application";
+        };
+        LLL111 /* Build configuration list */ = {
+                isa = XCConfigurationList;
+                buildConfigurations = (
+                        CCC111 /* Release */,
+                );
+        };
+        CCC111 /* Release */ = {
+                isa = XCBuildConfiguration;
+                buildSettings = {
+					INFOPLIST_KEY_CFBundleDisplayName = ExampleApp;
+					PRODUCT_BUNDLE_IDENTIFIER = de.example.app;
+                };
+                name = Release;
+        };
+};
+}
 ```
 
 </details>
@@ -4918,7 +5020,7 @@ func return_to_menu() -> void:
 <details><summary>Why it exists</summary>
 
 ```text
-Belegt 13.10.2026 (BrauhausTycoon): Ausbaupreise standen in UPGRADES und zusätzlich wörtlich im Katalog ('Flyer (150 M.)'). Eine Preisänderung im Code hätte im Menü den alten Preis gezeigt.
+Belegt 13.10.2026 (BrauhausTycoon): Ausbaupreise standen in UPGRADES und zusätzlich wörtlich im Katalog ('Flyer (150 M.)'). Eine Preisänderung im Code hätte im Menü den alten Preis gezeigt. Belegt 13.11.2026 (Drink-and-Hide, DH-039): Mess-CSV eines Falltests ('rollt (12 m)') wurden als Katalogtext gemeldet; gelesen wird deshalb nur eine CSV mit Godot-Katalogkopf 'keys,' (dieselbe Erkennung wie der i18n-Check; ein Kopf 'key,' bleibt ungemessen).
 ```
 
 </details>
@@ -6363,6 +6465,58 @@ def save(v):
 
 ## Pack `universal`
 
+### `apple.store_export_cloud_signing`
+
+**Store-Export mit automatischer Signierung über API-Schlüssel**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: ~/.claude/guides/ios-store-release.md § Store-Export: Cloud-Signierung und Icon-Alpha
+- Public rationale: [GUIDELINES.md › store-export-cloud-signing](GUIDELINES.md#store-export-cloud-signing)
+- Reference: <https://developer.apple.com/documentation/xcode/distributing-your-app-for-beta-testing-and-releases>
+
+<details><summary>Why it exists</summary>
+
+```text
+`xcodebuild -exportArchive` mit `signingStyle automatic` und `-authenticationKeyPath`
+verlangt cloud-verwaltete Distribution-Zertifikate. Darf der API-Schlüssel die nicht
+nutzen, endet der Export erst nach dem kompletten Archiv mit „Cloud signing permission
+error“ / „No profiles for … were found“.
+
+Belegt zweimal: 06.11.2026 (App A, Version 1.0) und 07.11.2026 (App B, Version 1.3) — der zweite
+Upload-Helfer hatte die Bauform des ersten nicht übernommen und lief in denselben
+Fehler. Bauform: manuell mit lokalem „Apple Distribution“ und per API angelegtem
+`IOS_APP_STORE`-Profil exportieren, der Schlüssel lädt nur hoch.
+
+Warnung statt Fehler: ein Schlüssel mit Admin-Rolle darf cloud-signieren.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Automatischer Export mit API-Schlüssel (Altstand vor 07.11.)</summary>
+
+`scripts/upload.py`
+
+```text
+auth=['-allowProvisioningUpdates','-authenticationKeyPath',str(key)]
+opts={'method':'app-store-connect','destination':'upload',
+    'signingStyle':'automatic','teamID':team}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Manueller Export mit Profil</summary>
+
+`scripts/upload.py`
+
+```text
+auth=['-allowProvisioningUpdates','-authenticationKeyPath',str(key)]
+opts={'method':'app-store-connect','destination':'export',
+    'signingStyle':'manual','signingCertificate':'Apple Distribution','provisioningProfiles':{bid:uuid}}
+```
+
+</details>
+
 ### `brand.derived_asset_named_after_brand`
 
 **Abgeleitete Datei trägt den Markennamen im Dateinamen**
@@ -6863,7 +7017,7 @@ Auf einem frischen Checkout existiert das Artefakt gar nicht — dann ist
 
 </details>
 
-<details><summary>Broken probe (must FAIL): defekt: Adresse verdeckt keinen lokalen Read</summary>
+<details><summary>Broken probe (must FAIL): defekt: Register-Metadaten verdecken keinen Read</summary>
 
 `.gitignore`
 
@@ -6871,15 +7025,17 @@ Auf einem frischen Checkout existiert das Artefakt gar nicht — dann ist
 build/
 ```
 
-`gates/check_web.py`
+`checks/check_rule.py`
 
 ```text
-reference = 'https://docs.netlify.com/build/edge-functions/api/'; read('build/old.json')
+@register('example.rule', 'Cache (build/*.json)')
+def check(ctx):
+    return read('build/current.json')
 ```
 
 </details>
 
-<details><summary>Healthy probe (must PASS): gesund: Dokumentationsadresse ist kein Artefaktread</summary>
+<details><summary>Healthy probe (must PASS): gesund: Register-Titel ist Metadatum, kein Dateiread</summary>
 
 `.gitignore`
 
@@ -6887,10 +7043,12 @@ reference = 'https://docs.netlify.com/build/edge-functions/api/'; read('build/ol
 build/
 ```
 
-`gates/check_web.py`
+`checks/check_rule.py`
 
 ```text
-reference = 'https://docs.netlify.com/build/edge-functions/api/'
+@register('example.rule', 'Cache (build/*.json)')
+def check(ctx):
+    return 1
 ```
 
 </details>
@@ -9474,14 +9632,14 @@ client = createClient(url, key, {
 
 </details>
 
-<details><summary>Healthy probe (must PASS): Sammlung übergeben, Plugin erst nach dem await</summary>
+<details><summary>Healthy probe (must PASS): dynamischer Import, Plugin verpackt oder sofort benutzt</summary>
 
-`src/data.js`
+`src/storage.ts`
 
 ```text
-client = createClient(url, key, { auth: { storage: nativeSessionStorage(nativePlugins) } });
-const read = async (key) => (await nativePlugins()).preferences.get({ key });
-const { p } = await speicher();
+const holder = () => import("@capacitor/preferences").then((module) => ({ plugin: module.Preferences }));
+const read = (key) => import("@capacitor/preferences").then((m) => m.Preferences.get({ key }));
+const shell = import("./nativeShell").then((m) => m.TelluniaNative);
 ```
 
 </details>
@@ -9540,6 +9698,53 @@ nachziehen“.
   "webDir": "dist-app",
   "server": { "appStartPath": "/app/index.html" },
   "plugins": { "Updater": { "url": "https://example.org/updates" } }
+}
+```
+
+</details>
+
+### `web.checked_input_accent_without_foreground`
+
+**:checked-Input mit Akzent-Hintergrund ohne passende Vordergrundfarbe (color)**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § 5
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Setzt ein eigenes Checkbox-/Radio-Input (`appearance: none`) bei `:checked`
+`background-color: var(--accent)`, ohne `color` auf die Kontrastfarbe
+(`var(--accent-ink)` / `#fff`) umzustellen, messen Laufzeit-Kontrastprüfer
+(`getComputedStyle(input)`) `var(--ink)` gegen `var(--accent)` (z. B. 2,56:1).
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): checked ohne color</summary>
+
+`src/a.css`
+
+```text
+.checkbox-label input:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): checked mit color</summary>
+
+`src/a.css`
+
+```text
+.checkbox-label input:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 ```
 
@@ -10328,6 +10533,37 @@ await page.route('**/*', async (route) => {
     return route.fulfill({ body: JSON.stringify(daten) });
   }
 });
+```
+
+</details>
+
+### `web.safe_area_margin_padding_doubled`
+
+**Dasselbe Safe-Area-Inset in Außen- und Innenabstand**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: docs/GUIDELINES.md § Safe-area ownership
+- Public rationale: [GUIDELINES.md › safe-area-ownership](GUIDELINES.md#safe-area-ownership)
+- Reference: <https://www.w3.org/TR/css-env-1/#safe-area-insets>
+- Reference: <https://www.w3.org/TR/css-box-3/#box-model>
+
+<details><summary>Broken probe (must FAIL): Bottom inset added in padding too</summary>
+
+`src/a.css`
+
+```text
+.dock { margin: 0 0 max(12px, env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); }
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Single inset owner</summary>
+
+`src/a.css`
+
+```text
+.dock { margin: 0 0 max(12px, env(safe-area-inset-bottom, 0px)); padding-bottom: 6px; }
 ```
 
 </details>

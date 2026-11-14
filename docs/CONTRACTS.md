@@ -23,6 +23,26 @@ A finding blocks (`blocking: true`, decides exit 1) iff its check FAILED and
 
 Proven equivalent to the pre-0.1 exit logic (tests/test_contracts.py).
 
+## Finding severity
+
+Every finding carries its own severity. A rule's default severity is the value
+a rule gives its findings, not an override: a rule may grade single findings
+lower (e.g. test files) or higher than its default, and that grade reaches the
+report and the blocking model unchanged.
+
+Only an explicit `[severity]` entry in the profile (exact ID or `prefix*`)
+replaces it, for all findings of the rule. One exception: an `info` finding is a
+hint and is raised only by `error`, not by `warning`. `off` removes the rule.
+
+| Finding | no entry | `info` | `warning` | `error` |
+|---|---|---|---|---|
+| `info` | info | info | info | error |
+| `warning` | warning | info | warning | error |
+| `error` | error | info | warning | error |
+
+Single definition: `ruttla.engine.finding_severity`; the table is tested cell by
+cell (tests/test_finding_severity.py).
+
 ## Coverage diagnostics
 
 `coverage.files_skipped` lists files above `gate.max_file_bytes`;
