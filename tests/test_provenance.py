@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -62,12 +63,30 @@ def _digest(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()[:24]
 
 
-def tracked_text_files() -> list[Path]:
+def _candidate_paths() -> list[Path]:
+    # Publishable = tracked plus untracked-but-not-ignored. Ignored local notes
+    # (HANDOVER*.md, MASTER_ROADMAP*.md) never reach the remote, so scanning
+    # them only turns the local suite red without protecting anything.
+    try:
+        listed = subprocess.run(
+            ["git", "-C", str(REPO), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+            capture_output=True, check=True,
+        ).stdout.decode("utf-8", "surrogateescape")
+    except (OSError, subprocess.CalledProcessError):
+        listed = None
+    if listed is not None:
+        return [REPO / rel for rel in listed.split("\0") if rel]
     out = []
     for dirpath, dirnames, filenames in os.walk(REPO):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.endswith(".egg-info")]
-        for name in filenames:
-            path = Path(dirpath, name)
+        out.extend(Path(dirpath, name) for name in filenames)
+    return out
+
+
+def tracked_text_files() -> list[Path]:
+    out = []
+    for path in _candidate_paths():
+        if path.is_file():
             try:
                 data = path.read_bytes()
             except OSError:
