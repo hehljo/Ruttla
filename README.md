@@ -35,6 +35,9 @@ agent tokens. Scanning uses no LLM, network, or telemetry; target code is read,
 never executed. Network access happens only when explicitly running `ruttla update` or `ruttla hub search|add|sync|submit`, or when a scan is started with `--allow-network`: then the repository check asks the GitHub API whether the scanned repository is public (owner and repository name, nothing from the code).
 
 > Status: 0.1.0.dev0, public preview. German version: [README.de.md](README.de.md).
+<!-- ruttla:counts:begin -->
+> Zählwerte (generiert): 211 Regeln in 8 Packs · 1014/1014 Sabotage-Proben · 546 Tests gesammelt
+<!-- ruttla:counts:end -->
 
 ## Built for Coding Agents & LLMs
 

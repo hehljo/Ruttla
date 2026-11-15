@@ -496,8 +496,10 @@ P05 abgeschlossen (P00–P05 umgesetzt). P06 aktiv; Repository ist seit 2026-09-
 - Trademark-Kurzcheck für „Ruttla“ vor 0.1.0
 
 ## Validation State
-- unit/contract/golden/fuzz: 107 Tests grün (lokal)
-- self-test: 216/216 Proben, 92/92 Checks beide Richtungen
+<!-- ruttla:counts:begin -->
+- Tests gesammelt: 546 (Collect, nicht ausgeführt)
+- self-test: 1014/1014 Proben, 211/211 Checks in beiden Richtungen
+<!-- ruttla:counts:end -->
 - self-scan strict: Exit 0
 - coverage: 87 % gesamt (Kern 86 %), CI-Floor 86 %
 - wheel/sdist: gebaut, frische Installation getestet

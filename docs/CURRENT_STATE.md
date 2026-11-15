@@ -33,7 +33,9 @@ Analysequelle: hochgeladenes `CODE_QUALITY_GENERAL-main.zip`, Stand 2026-09-24.
 | info | 5 |
 
 - `safe_by_default=True`: 9 Checks
-- alle 90 Checks besitzen Self-Test-Proben
+<!-- ruttla:counts:begin -->
+- 211 von 211 Checks besitzen Self-Test-Proben
+<!-- ruttla:counts:end -->
 - alle registrierten Checks haben einen `guideline`-String, dessen öffentliche Nachvollziehbarkeit jedoch noch nicht überall gegeben ist
 
 ## Build / Test Health
