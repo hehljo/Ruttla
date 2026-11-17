@@ -36,7 +36,7 @@ never executed. Network access happens only when explicitly running `ruttla upda
 
 > Status: 0.1.0.dev0, public preview. German version: [README.de.md](README.de.md).
 <!-- ruttla:counts:begin -->
-> Zählwerte (generiert): 211 Regeln in 8 Packs · 1014/1014 Sabotage-Proben · 546 Tests gesammelt
+> Zählwerte (generiert): 211 Regeln in 8 Packs · 1016/1016 Sabotage-Proben · 546 Tests gesammelt
 <!-- ruttla:counts:end -->
 
 ## Built for Coding Agents & LLMs

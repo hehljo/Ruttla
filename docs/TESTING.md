@@ -4,7 +4,7 @@
 
 <!-- ruttla:counts:begin -->
 - 546 Runner-Unittests (gesammelt)
-- 1014/1014 Self-Test-Proben
+- 1016/1016 Self-Test-Proben
 - 211/211 Checks mit beiden Richtungen
 <!-- ruttla:counts:end -->
 

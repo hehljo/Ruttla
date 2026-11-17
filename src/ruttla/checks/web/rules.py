@@ -429,6 +429,20 @@ def check_null_state(ctx: Context) -> CheckResult:
             files={"public/index.html": '<select id="x" data-i18n="filter.brand"></select>\n'},
             expect=Status.FAIL,
         ),
+        SelfTestCase(
+            name="data-i18n-label mit Katalogcode, der aria-label setzt",
+            files={"index.html": '<button data-i18n-label="kopf.menue"><svg aria-hidden="true"></svg></button>\n'
+                                 '<input type="range" id="r" data-i18n-label="schritt.regler" />\n',
+                   "src/i18n/katalog.ts":
+                   'document.querySelectorAll<HTMLElement>("[data-i18n-label]").forEach((el) =>\n'
+                   '  el.setAttribute("aria-label", t(el.dataset.i18nLabel!)));\n'},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="data-i18n-label ohne Code, der es in aria-label übersetzt",
+            files={"index.html": '<button data-i18n-label="kopf.menue"><svg aria-hidden="true"></svg></button>\n'},
+            expect=Status.FAIL,
+        ),
     ],
 )
 def check_a11y_labels(ctx: Context) -> CheckResult:
@@ -440,6 +454,13 @@ def check_a11y_labels(ctx: Context) -> CheckResult:
         return unmeasured("web.a11y_missing_label", title,
                           "Keine Markup-Dateien gefunden.", PLATFORM)
     el = re.compile(r"<(button|input|select|textarea|a)\b([^>]*)>", re.IGNORECASE | re.DOTALL)
+    # data-i18n-label ist eine Katalog-Konvention: das Attribut selbst beschriftet
+    # nichts. Es zählt nur, wenn Projektcode daraus ein aria-label setzt — sonst
+    # wäre es eine Existenz-, keine Wirkungsprüfung.
+    label_wired = any(
+        re.search(r"i18n-label|i18nLabel", cf.text) and re.search(r"aria-label", cf.text)
+        for cf in ctx.files(".ts", ".js", ".mjs", ".tsx", ".jsx")
+    )
     findings: list[Finding] = []
     measured = 0
     for sf in files:
@@ -451,6 +472,8 @@ def check_a11y_labels(ctx: Context) -> CheckResult:
             tag, attrs = m.group(1).lower(), m.group(2)
             measured += 1
             if re.search(r"(aria-label|aria-labelledby|title\s*=|alt\s*=)", attrs, re.I):
+                continue
+            if label_wired and re.search(r"\bdata-i18n-label\s*=", attrs):
                 continue
             ident = re.search(r"\bid\s*=\s*[\"']([^\"']+)", attrs)
             if ident and ident.group(1) in labelled:
