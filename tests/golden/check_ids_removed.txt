@@ -1,0 +1,5 @@
+# Entfernte Check-IDs (Deprecation-Register). Gehoert zu tests/golden/check_ids.txt.
+# Eine ID wird nur hierhin verschoben, wenn sie bewusst aus der Registry entfernt wurde.
+# Format je Datenzeile: <id><TAB><entfernt_in_version><TAB><ersetzt_durch oder ->
+# Ohne Ersatz steht "-" in der dritten Spalte. Leerzeilen und #-Zeilen werden ignoriert.
+# Die IDs hier duerfen nicht in der Registry stehen (tests/test_baseline.py prueft das).

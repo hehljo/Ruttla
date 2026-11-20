@@ -1,14 +1,82 @@
-"""Rechtstexte: unausgefüllte Platzhalter in einer ausgelieferten Pflichtseite."""
+"""Rechtstexte: fehlende Pflichtseiten und unausgefüllte Platzhalter."""
 from __future__ import annotations
 
+import os
 import re
 
+from ruttla.checks.web.rules import WEB_CODE
 from ruttla.core import (
     Context, CheckResult, Finding, Severity, Status, SelfTestCase,
-    register, result_for, snippet, unmeasured,
+    register, result_for, snippet, strip_comments, unmeasured,
 )
 
 PLATFORM = "web"
+
+
+@register(
+    "web.legal_pages_missing",
+    "Impressum oder Datenschutzerklärung fehlt",
+    platform=PLATFORM,
+    severity=Severity.ERROR,
+    guideline="CODE_QUALITY_GUIDELINES_WEB.md § 6c / CLAUDE.md § Rechtliche Blocker",
+    self_tests=[
+        SelfTestCase(
+            name="Impressum fehlt",
+            files={"package.json": '{"name":"shop"}', "src/App.tsx": "export const A = () => <main>Shop</main>;\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="beide vorhanden",
+            files={"package.json": '{"name":"shop"}',
+                   "src/App.tsx": "export const A = () => <main><a href=\"/impressum\">Impressum</a><a href=\"/datenschutz\">Datenschutz</a></main>;\n"},
+            expect=Status.PASS,
+        ),
+        SelfTestCase(
+            name="Roadmap-Nennung ist keine Pflichtseite",
+            files={"package.json": '{"name":"shop"}', "src/App.tsx": "export const A = () => <main>Shop</main>;\n", "README.md": "Impressum und Datenschutz fehlen noch.\n"},
+            expect=Status.FAIL,
+        ),
+        SelfTestCase(
+            name="Quelltextkommentar ist keine Pflichtseite",
+            files={"package.json": '{"name":"shop"}', "src/App.tsx": "// TODO: Impressum und Datenschutz\nexport const A = () => <main>Shop</main>;\n"},
+            expect=Status.FAIL,
+        ),
+    ],
+)
+def check_legal(ctx: Context) -> CheckResult:
+    """Rechtlicher Blocker vor jedem Deploy. Gemessen an Routen/Dateien, nicht
+    an einem Haken in einer ROADMAP — ein Haken belegt nichts."""
+    title = "Impressum oder Datenschutzerklärung fehlt"
+    is_site = any(
+        os.path.basename(sf.rel) in ("index.html", "App.tsx", "app.tsx", "+layout.svelte")
+        for sf in ctx.all_files()
+    ) or bool(ctx.files_named("package.json"))
+    if not is_site:
+        return unmeasured("web.legal_pages_missing", title,
+                          "Kein Web-Frontend erkannt.", PLATFORM)
+    # Documentation and comments can explicitly describe missing pages. Their
+    # keywords must never turn a release blocker green. This is still a source
+    # presence check, not a legal assessment or proof of reachable routes.
+    corpus = "\n".join(
+        sf.rel + "\n" + strip_comments(sf.text, sf.ext)
+        for sf in ctx.files(*WEB_CODE, ".html")
+    )
+    findings: list[Finding] = []
+    for label, pat in (
+        ("Impressum", r"(?i)(impressum|legal[_-]?notice|/imprint)"),
+        ("Datenschutzerklärung", r"(?i)(datenschutz|privacy[_-]?policy|/privacy)"),
+    ):
+        if not re.search(pat, corpus):
+            findings.append(Finding(
+                check_id="web.legal_pages_missing", severity=Severity.ERROR,
+                message=f"{label} nirgends im Projekt gefunden.",
+                fix=f"{label} anlegen und aus dem Fuß jeder Seite verlinken. "
+                    "Pflichtangabe vor dem Deploy — und eine Fassung, auf die "
+                    "alle Plattformen verweisen, statt drei synchron zu haltender.",
+                guideline="CLAUDE.md § Rechtliche Blocker",
+            ))
+    return result_for("web.legal_pages_missing", title, findings, 2,
+                      "geprüfte Pflichtangaben", PLATFORM)
 
 # Erkannt wird die Seite an ihrer Überschrift, nicht am Pfad: ein Pfad ist
 # eine Bauform-Annahme, die Überschrift ist die Eigenschaft.

@@ -1,5 +1,12 @@
 # Changelog
 
+## Web PWA/Asset checks & module split (2026-11-20)
+
+- Added advisory `web.pwa_workbox_api_bypass`: flags `VitePWA` `workbox` configurations missing both `/api/` navigation exclusion (`navigateFallbackDenylist` / `navigateFallback: null`) and `NetworkOnly` runtime caching when frontend code calls `/api/`.
+- Extended `web.server_only_reaches_browser` to recognize `.json`, `.webp`, `.gif`, `.ico`, `.scss`, `.sass`, `.less`, and `.woff` asset imports without blocking graph traversal.
+- Split `src/ruttla/checks/web/rules.py` into `pwa.py`, `layout.py`, and `legal.py` (`rules.py` now 605 lines) and regenerated `docs/RULES.md`.
+- Hardened registry baseline/golden verification (`tests/golden/check_ids.txt`, `tests/golden/check_ids_removed.txt`, `tests/test_baseline.py`, `tests/test_golden.py`).
+
 ## Physical safe-area spacing ownership (2026-11-04)
 
 - Added advisory `web.safe_area_margin_padding_doubled`: same physical inset in

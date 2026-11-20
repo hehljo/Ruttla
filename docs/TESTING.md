@@ -3,9 +3,9 @@
 ## Baseline to Preserve
 
 <!-- ruttla:counts:begin -->
-- 546 Runner-Unittests (gesammelt)
-- 1016/1016 Self-Test-Proben
-- 211/211 Checks mit beiden Richtungen
+- 549 Runner-Unittests (gesammelt)
+- 1023/1023 Self-Test-Proben
+- 212/212 Checks mit beiden Richtungen
 <!-- ruttla:counts:end -->
 
 Kein Tooling-Umbau darf diese Baseline einfach ersetzen.

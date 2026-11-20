@@ -33,6 +33,7 @@ EXTENSIONS = ('.ts', '.tsx', '.js', '.jsx', '.mjs', '.mts')
         SelfTestCase(name='gesund: Importtext in String', files={'index.html': ENTRY, 'src/main.ts': 'const help = `import "../server/core";`;', 'server/core.ts': '// @server-only\nexport const core = 1;'}, expect=Status.PASS),
         SelfTestCase(name='defekt: Worker-URL', files={'index.html': ENTRY, 'src/main.ts': 'const worker = new Worker(new URL("../server/core.ts", import.meta.url));', 'server/core.ts': '// @server-only\nexport const core = 1;'}, expect=Status.FAIL),
         SelfTestCase(name='defekt: Sideeffect vor weiterem Import', files={'index.html': ENTRY, 'src/main.ts': 'import "../server/core";\nimport { ok } from "./public";', 'src/public.ts': 'export const ok = 1;', 'server/core.ts': '// @server-only\nexport const core = 1;'}, expect=Status.FAIL),
+        SelfTestCase(name='gesund: JSON- und WebP-Assets blockieren Graph nicht', files={'index.html': ENTRY, 'src/main.ts': 'import data from "./de.json";\nexport const d = data;', 'src/de.json': '{}', 'server/core.ts': '// @server-only\nexport const secret = 1;'}, expect=Status.PASS),
     ],
 )
 def check_server_only_reaches_browser(ctx: Context) -> CheckResult:
@@ -108,7 +109,7 @@ def check_server_only_reaches_browser(ctx: Context) -> CheckResult:
                 target = resolve(path, spec)
                 if target:
                     queue.append(target)
-                elif not re.search(r'\.(?:css|svg|png|jpg|woff2)(?:\?|$)', spec):
+                elif not re.search(r'\.(?:css|scss|sass|less|svg|png|jpe?g|webp|gif|ico|woff2?|json)(?:\?|$)', spec):
                     unknown = True
             elif spec.startswith('@/') or spec.startswith('~/'):
                 unknown = True

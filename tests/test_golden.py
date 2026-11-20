@@ -10,6 +10,7 @@ detected platforms, per-check status and finding identity = check_id,
 severity, file, line). Wording may change; these fields may not change
 without an intentional, reviewed update of the golden file. Only legacy
 check IDs run here, so additive checks do not rewrite the frozen baseline.
+The legacy set is the check_id set of this projection itself, not check_ids.txt.
 
 Regenerate only on purpose:
     RUTTLA_UPDATE_GOLDEN=1 python -m unittest tests.test_golden
@@ -29,7 +30,18 @@ from _support import require_engine
 REPO = Path(__file__).resolve().parents[1]
 FIXTURES = REPO / "tests" / "fixtures" / "packs"
 GOLDEN = REPO / "tests" / "golden" / "legacy_projection.json"
-LEGACY_IDS = (REPO / "tests" / "golden" / "check_ids.txt").read_text(encoding="utf-8").splitlines()
+
+
+def _legacy_ids() -> set[str]:
+    """check_id-Menge der eingefrorenen Projektion; leer, wenn die Datei fehlt."""
+    if not GOLDEN.exists():
+        return set()
+    data = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    return {r["check_id"] for tree in data.values() for r in tree.get("results", [])}
+
+
+# Vor jedem Neuerzeugen gelesen (Modulimport), damit die Menge den alten Stand trägt.
+LEGACY_IDS = _legacy_ids()
 
 
 def project(report: dict, exit_code: int) -> dict:
@@ -90,6 +102,10 @@ class GoldenBaselineTests(unittest.TestCase):
         # The baseline includes declarative rules: without the engine they
         # would be "unmeasured" — not measured, not a regression.
         require_engine(self)
+        self.assertTrue(
+            LEGACY_IDS,
+            "tests/golden/legacy_projection.json fehlt oder enthält keine check_id-Einträge",
+        )
         actual = {name: scan(tree, self.entry) for name, tree in trees()}
         if os.environ.get("RUTTLA_UPDATE_GOLDEN") == "1":
             GOLDEN.write_text(

@@ -3,7 +3,7 @@
 
 # Rule catalog
 
-211 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+212 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
@@ -14,7 +14,7 @@
 | raspberry | 6 | 0 |
 | universal | 47 | 9 |
 | unreal | 6 | 0 |
-| web | 40 | 4 |
+| web | 41 | 4 |
 
 ## Pack `apple`
 
@@ -10474,6 +10474,57 @@ export function localizePath(locale: string, rest: string): string {
   const pfad = `/${rest.replace(/^[/\\]+/, "")}`;
   return pfad;
 }
+```
+
+</details>
+
+### `web.pwa_workbox_api_bypass`
+
+**PWA-Workbox ohne API-Ausnahme fängt /api/-Aufrufe ab**
+
+- Default severity: `warning`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_WEB.md § PWA
+- Public rationale: [GUIDELINES.md › web-guidelines](GUIDELINES.md#web-guidelines)
+
+<details><summary>Why it exists</summary>
+
+```text
+Eine VitePWA-App mit generateSW fängt Navigations- und GET-Routen über Workbox ab.
+Ohne explizite Denylist und NetworkOnly-Regel für /api/ landet statt JSON/Blob
+schnell die gecachte index.html beim Client.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): defekt: navigateFallbackDenylist fehlt</summary>
+
+`vite.config.ts`
+
+```text
+VitePWA({ workbox: { runtimeCaching: [{ urlPattern: /^\/api\//, handler: "NetworkOnly" }] } })
+```
+
+`src/api.ts`
+
+```text
+export const load = () => fetch("/api/items");
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): gesund: Denylist und NetworkOnly gesetzt</summary>
+
+`vite.config.ts`
+
+```text
+VitePWA({ workbox: { navigateFallbackDenylist: [/^\/api\//], runtimeCaching: [{ urlPattern: /^\/api\//, handler: "NetworkOnly" }] } })
+```
+
+`src/api.ts`
+
+```text
+export const load = () => fetch("/api/items");
 ```
 
 </details>

@@ -1,5 +1,12 @@
 # STATUS
 
+## Web PWA/Asset checks, module split and baseline freeze (2026-11-20)
+
+- Added warning `web.pwa_workbox_api_bypass` (detects `VitePWA` `workbox` configs without `/api/` `navigateFallbackDenylist` / `navigateFallback: null` and `NetworkOnly` runtime caching when frontend code calls `/api/`), with healthy, defect, comment-only and unmeasured probes.
+- Extended `web.server_only_reaches_browser` to recognize `.json`, `.webp`, `.gif`, `.ico`, `.scss`, `.sass`, `.less`, `.woff` static imports without false `unknown` findings.
+- Split `src/ruttla/checks/web/rules.py` below the 1,000-line module threshold (`pwa.py`, `layout.py`, `legal.py`; `rules.py` 605 lines) and regenerated `docs/RULES.md`.
+- Updated `tests/golden/check_ids.txt`, `tests/golden/check_ids_removed.txt`, `tests/test_baseline.py`, and `tests/test_golden.py` to freeze and verify the full active rule registry independently of `legacy_projection.json`.
+
 ## Physical safe-area spacing ownership (2026-11-04)
 
 - New warning `web.safe_area_margin_padding_doubled`, local CSS declaration scope.
@@ -497,8 +504,8 @@ P05 abgeschlossen (P00–P05 umgesetzt). P06 aktiv; Repository ist seit 2026-09-
 
 ## Validation State
 <!-- ruttla:counts:begin -->
-- Tests gesammelt: 546 (Collect, nicht ausgeführt)
-- self-test: 1016/1016 Proben, 211/211 Checks in beiden Richtungen
+- Tests gesammelt: 549 (Collect, nicht ausgeführt)
+- self-test: 1023/1023 Proben, 212/212 Checks in beiden Richtungen
 <!-- ruttla:counts:end -->
 - self-scan strict: Exit 0
 - coverage: 87 % gesamt (Kern 86 %), CI-Floor 86 %
