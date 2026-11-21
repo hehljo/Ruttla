@@ -15,17 +15,17 @@
       "unmeasured": 44
     },
     "ci": true,
-    "commit": "87fd27f0924b242977e951733c401affd7aac8c6",
+    "commit": "2118b1a27e283fb39563c97b3f176e42ad89defa",
     "exit_code": 0,
-    "files_scanned": 312,
+    "files_scanned": 320,
     "platforms": [
       "python"
     ],
-    "recorded_at": "2026-11-14T22:40:28+00:00",
+    "recorded_at": "2026-11-21T18:25:32+00:00",
     "report_schema": "1.1",
     "rules_digest": "73ecf5f3f4b992cb",
     "rules_run": 55,
-    "run_url": "https://github.com/hehljo/Ruttla/actions/runs/43649292178",
+    "run_url": "https://github.com/hehljo/Ruttla/actions/runs/44935431134",
     "ruttla_version": "0.1.0.dev0",
     "schema": "ruttla-card/1",
     "verdict": "green"
@@ -34,17 +34,17 @@
   "schema": "ruttla-card/1",
   "totals": {
     "blocking_first": 0,
-    "blocking_free_streak": 4,
+    "blocking_free_streak": 5,
     "blocking_now": 0,
     "findings_down": 0,
     "findings_first": 0,
     "findings_now": 0,
     "findings_up": 1,
     "first_recorded": "2026-11-04T21:14:23+00:00",
-    "last_recorded": "2026-11-14T22:40:28+00:00",
+    "last_recorded": "2026-11-21T18:25:32+00:00",
     "rules_with_fewer_findings": {},
-    "scans": 4,
-    "scans_ci": 3,
+    "scans": 5,
+    "scans_ci": 4,
     "transitions_not_comparable": 1
   }
 }
