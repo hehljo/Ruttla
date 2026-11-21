@@ -3,13 +3,13 @@
 
 # Rule catalog
 
-212 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
+213 rules in 8 packs. Every rule ships at least one broken probe (must FAIL) and one healthy probe (must PASS); both are shown below as the rule's evidence. Rule messages are currently German.
 
 | Pack | Rules | Blocking without profile |
 |---|---:|---:|
 | apple | 53 | 10 |
 | dotnet | 13 | 0 |
-| godot | 38 | 1 |
+| godot | 39 | 1 |
 | python | 8 | 0 |
 | raspberry | 6 | 0 |
 | universal | 47 | 9 |
@@ -5866,6 +5866,75 @@ render_mode blend_mix, depth_draw_opaque;
 ```text
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, shadows_disabled;
+```
+
+</details>
+
+### `godot.whats_new_missing_for_version`
+
+**Store-Version ohne „Was ist neu“-Einträge (Fenster nach Update und Store-Text fehlen)**
+
+- Default severity: `error`
+- Lifecycle: stable, introduced in 0.1.0
+- Guideline: CODE_QUALITY_GUIDELINES_GAMEDEV.md § Was ist neu nach Update
+- Public rationale: [GUIDELINES.md › game-development-guidelines-godot](GUIDELINES.md#game-development-guidelines-godot)
+
+<details><summary>Why it exists</summary>
+
+```text
+Jede Store-Version braucht Punkte im Katalog data/whats_new.json: daraus kommen das Fenster
+nach einem Update (einmal je Version) und der „Neuigkeiten“-Text im Store. Ohne Eintrag sieht der
+Spieler nach dem Update nichts, und der Store-Text muss von Hand nachgebaut werden.
+```
+
+</details>
+
+<details><summary>Broken probe (must FAIL): Version hochgezählt, Katalog nicht nachgezogen</summary>
+
+`project.godot`
+
+```text
+[application]
+config/version="1.2.0"
+```
+
+`export_presets.cfg`
+
+```text
+[preset.0]
+name="iOS"
+platform="iOS"
+```
+
+`data/whats_new.json`
+
+```text
+{"version": 1, "releases": [{"version": "1.1.0", "items": ["UI_WHATS_NEW_110_A"]}]}
+```
+
+</details>
+
+<details><summary>Healthy probe (must PASS): Katalog passt zur Version</summary>
+
+`project.godot`
+
+```text
+[application]
+config/version="1.2.0"
+```
+
+`export_presets.cfg`
+
+```text
+[preset.0]
+name="iOS"
+platform="iOS"
+```
+
+`data/whats_new.json`
+
+```text
+{"version": 1, "releases": [{"version": "1.2.0", "items": ["UI_WHATS_NEW_120_A"]}]}
 ```
 
 </details>

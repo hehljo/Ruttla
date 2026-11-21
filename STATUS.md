@@ -505,7 +505,7 @@ P05 abgeschlossen (P00–P05 umgesetzt). P06 aktiv; Repository ist seit 2026-09-
 ## Validation State
 <!-- ruttla:counts:begin -->
 - Tests gesammelt: 549 (Collect, nicht ausgeführt)
-- self-test: 1023/1023 Proben, 212/212 Checks in beiden Richtungen
+- self-test: 1028/1028 Proben, 213/213 Checks in beiden Richtungen
 <!-- ruttla:counts:end -->
 - self-scan strict: Exit 0
 - coverage: 87 % gesamt (Kern 86 %), CI-Floor 86 %

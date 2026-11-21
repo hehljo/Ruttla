@@ -116,6 +116,7 @@ godot.unsupported_emoji_in_ui
 godot.untyped_declaration
 godot.warning_in_hot_loop
 godot.water_shader_shadows_disabled
+godot.whats_new_missing_for_version
 i18n.catalog_key_parity
 i18n.literal_in_markup
 i18n.orphan_catalog_keys
